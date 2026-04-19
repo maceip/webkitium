@@ -1,0 +1,67 @@
+diff --git a/Source/WebCore/Modules/WebGPU/GPUAdapter.cpp b/Source/WebCore/Modules/WebGPU/GPUAdapter.cpp
+index 1f4955c..b4ff4a6 100644
+--- a/Source/WebCore/Modules/WebGPU/GPUAdapter.cpp
++++ b/Source/WebCore/Modules/WebGPU/GPUAdapter.cpp
+@@ -34,6 +34,9 @@
+ #include <wtf/HashSet.h>
+ #include <wtf/HashTraits.h>
+ #include <wtf/SortedArrayMap.h>
++#if PLATFORM(WIN)
++#include <fstream>
++#endif
+ 
+ namespace WebCore {
+ 
+@@ -73,6 +76,16 @@ static WebGPU::DeviceDescriptor convertToBacking(const std::optional<GPUDeviceDe
+     return options->convertToBacking();
+ }
+ 
++#if PLATFORM(WIN)
++static void logWindowsRequestDeviceBoundary(const char* message)
++{
++    std::ofstream stream("C:\\Windows\\Temp\\webkitium-webcore-request-device.log", std::ios::app);
++    if (!stream)
++        return;
++    stream << message << std::endl;
++}
++#endif
++
+ static GPUFeatureName convertFeatureNameToEnum(const String& stringValue)
+ {
+     static constexpr SortedArrayMap enumerationMapping { std::to_array<std::pair<ComparableASCIILiteral, GPUFeatureName>>({
+@@ -121,18 +134,33 @@ void GPUAdapter::requestDevice(ScriptExecutionContext& scriptExecutionContext, c
+ {
+     auto& existingFeatures = m_backing->features().features();
+     if (deviceDescriptor && !isSubset(deviceDescriptor->requiredFeatures, existingFeatures)) {
++#if PLATFORM(WIN)
++        logWindowsRequestDeviceBoundary("reject: required features are not a subset of adapter features");
++#endif
+         promise.reject(Exception(ExceptionCode::TypeError));
+         return;
+     }
+ 
+     m_backing->requestDevice(convertToBacking(deviceDescriptor), [protectedThis = protect(*this), deviceDescriptor, promise = WTF::move(promise), scriptExecutionContextRef = protect(scriptExecutionContext)](RefPtr<WebGPU::Device>&& device) mutable {
+-        if (!device.get())
++        if (!device.get()) {
++#if PLATFORM(WIN)
++            logWindowsRequestDeviceBoundary("reject: backing returned null device");
++#endif
+             promise.reject(Exception(ExceptionCode::OperationError));
+-        else {
++        } else {
++#if PLATFORM(WIN)
++            logWindowsRequestDeviceBoundary("resolve: backing returned non-null device");
++#endif
+             auto queueLabel = deviceDescriptor ? deviceDescriptor->defaultQueue.label : ""_s;
+             Ref<GPUDevice> gpuDevice = GPUDevice::create(scriptExecutionContextRef.ptr(), device.releaseNonNull(), WTF::move(queueLabel), GPUAdapterInfo::create(protectedThis->name()));
+             gpuDevice->suspendIfNeeded();
++#if PLATFORM(WIN)
++            logWindowsRequestDeviceBoundary("resolve: created GPUDevice wrapper");
++#endif
+             promise.resolve(WTF::move(gpuDevice));
++#if PLATFORM(WIN)
++            logWindowsRequestDeviceBoundary("resolve: promise resolved");
++#endif
+         }
+     });
+ }

@@ -864,6 +864,15 @@ $validation | ConvertTo-Json -Depth 10 | Set-Content -Path $validationPath -Enco
 Write-Host "Validation written to $validationPath"
 Copy-Item $validationPath $artDir
 
+foreach ($nativeLog in @(
+  "C:\Windows\Temp\webkitium-dawn-request-device.log",
+  "C:\Windows\Temp\webkitium-webcore-request-device.log"
+)) {
+  if (Test-Path $nativeLog) {
+    Copy-Item $nativeLog (Join-Path $artDir (Split-Path $nativeLog -Leaf)) -ErrorAction SilentlyContinue
+  }
+}
+
 $phase = 0
 try {
   if ($config.phase) { $phase = [int]$config.phase }
