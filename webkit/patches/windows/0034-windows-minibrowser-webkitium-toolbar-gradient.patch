@@ -22,6 +22,27 @@ index fba0731..fe3112a 100644
 +)
 +
  set_target_properties(MiniBrowser PROPERTIES WIN32_EXECUTABLE ON)
+diff --git a/Source/cmake/WebKitCompilerFlags.cmake b/Source/cmake/WebKitCompilerFlags.cmake
+index 6aef295..b18ad50 100644
+--- a/Source/cmake/WebKitCompilerFlags.cmake
++++ b/Source/cmake/WebKitCompilerFlags.cmake
+@@ -180,10 +180,15 @@ if (COMPILER_IS_GCC_OR_CLANG)
+         WEBKIT_PREPEND_GLOBAL_COMPILER_FLAGS(-Wcast-align)
+     endif ()
+     WEBKIT_PREPEND_GLOBAL_COMPILER_FLAGS(-Wformat-security
+-                                         -Wmissing-format-attribute
+                                          -Wpointer-arith
+                                          -Wundef)
+ 
++    if (WIN32)
++        WEBKIT_PREPEND_GLOBAL_COMPILER_FLAGS(-Wno-unused-function)
++    else ()
++        WEBKIT_PREPEND_GLOBAL_COMPILER_FLAGS(-Wmissing-format-attribute)
++    endif ()
++
+     # Warnings to be disabled
+     # FIXME: We should probably not be disabling -Wno-maybe-uninitialized?
+     WEBKIT_PREPEND_GLOBAL_COMPILER_FLAGS(-Qunused-arguments
 diff --git a/Tools/MiniBrowser/win/MainWindow.cpp b/Tools/MiniBrowser/win/MainWindow.cpp
 index f6fff84..497bea6 100644
 --- a/Tools/MiniBrowser/win/MainWindow.cpp
@@ -3910,4 +3931,3 @@ r?61YPvT-@%)YzW=_0%t;|B<77>dY!@ThBcO+>4?$hV|P2tC0F1J`io8
 
 literal 0
 HcmV?d00001
-
