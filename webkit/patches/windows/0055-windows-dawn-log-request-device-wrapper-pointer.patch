@@ -1,0 +1,61 @@
+diff --git a/Source/WebCore/Modules/WebGPU/GPUAdapter.cpp b/Source/WebCore/Modules/WebGPU/GPUAdapter.cpp
+index b4ff4a6..a8e16e1 100644
+--- a/Source/WebCore/Modules/WebGPU/GPUAdapter.cpp
++++ b/Source/WebCore/Modules/WebGPU/GPUAdapter.cpp
+@@ -84,6 +84,14 @@ static void logWindowsRequestDeviceBoundary(const char* message)
+     stream << message << std::endl;
+ }
+ 
++static void logWindowsRequestDevicePointer(const char* message, WebGPU::Device* device)
++{
++    std::ofstream stream("C:\\Windows\\Temp\\webkitium-webcore-request-device.log", std::ios::app);
++    if (!stream)
++        return;
++    stream << message << " device=" << device << std::endl;
++}
++
+ #endif
+ 
+ static GPUFeatureName convertFeatureNameToEnum(const String& stringValue)
+@@ -144,6 +152,9 @@ void GPUAdapter::requestDevice(ScriptExecutionContext& scriptExecutionContext, c
+     }
+ 
+     m_backing->requestDevice(convertToBacking(deviceDescriptor), [protectedThis = protect(*this), deviceDescriptor, promise = WTF::move(promise), scriptExecutionContextRef = protect(scriptExecutionContext)](RefPtr<WebGPU::Device>&& device) mutable {
++#if PLATFORM(WIN)
++        logWindowsRequestDevicePointer("callback: entered", device.get());
++#endif
+         if (!device.get()) {
+ #if PLATFORM(WIN)
+             logWindowsRequestDeviceBoundary("reject: backing returned null device");
+diff --git a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
+index e4b69ec10124..ca2bc7a9df3c 100644
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
+@@ -234,6 +234,15 @@ static void logDawnRequestDeviceBoundary(const char* message, bool succeeded, WG
+     stream << message << " succeeded=" << succeeded << " device=" << device << std::endl;
+ }
+ 
++static void logDawnRequestDeviceWrapped(const char* message, Device* wrappedDevice)
++{
++    std::ofstream stream("C:\\Windows\\Temp\\webkitium-dawn-request-device.log", std::ios::app);
++    if (!stream)
++        return;
++
++    stream << message << " wrappedDevice=" << wrappedDevice << std::endl;
++}
++
+ static void completeDawnRequestDeviceOnMainThread(std::unique_ptr<DawnRequestDeviceUserdata>&& data, bool succeeded, WGPUDevice device)
+ {
+     RunLoop::mainSingleton().dispatch([data = WTF::move(data), succeeded, device] mutable {
+@@ -251,8 +260,10 @@ static void completeDawnRequestDeviceOnMainThread(std::unique_ptr<DawnRequestDev
+         auto limits = DawnCompat::supportedLimitsFromDevice(device);
+         logDawnRequestDeviceBoundary("complete: creating DeviceImpl", succeeded, device);
+         auto backing = adoptWebGPU(device);
+-        logDawnRequestDeviceBoundary("complete: callback DeviceImpl", succeeded, device);
+         RefPtr<Device> wrappedDevice = DeviceImpl::create(WTF::move(backing), WTF::move(features), WTF::move(limits), data->convertToBackingContext.copyRef(), data->instance);
++        logDawnRequestDeviceWrapped("complete: created DeviceImpl", wrappedDevice.get());
++        logDawnRequestDeviceBoundary("complete: callback DeviceImpl", succeeded, device);
++        logDawnRequestDeviceWrapped("complete: callback DeviceImpl wrapped", wrappedDevice.get());
+         data->callback(WTF::move(wrappedDevice));
+     });
+ }
