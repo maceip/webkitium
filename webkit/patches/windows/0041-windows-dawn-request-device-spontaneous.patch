@@ -1,0 +1,18 @@
+diff --git a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
+@@ -259,12 +259,11 @@ void AdapterImpl::requestDevice(const DeviceDescriptor& descriptor, CompletionHa
+     };
+ 
+     WGPURequestDeviceCallbackInfo callbackInfo { };
+-    callbackInfo.mode = WGPUCallbackMode_AllowProcessEvents;
++    callbackInfo.mode = WGPUCallbackMode_AllowSpontaneous;
+     callbackInfo.callback = dawnRequestDeviceCallback;
+     callbackInfo.userdata1 = userdata;
+ 
+-    auto future = wgpuAdapterRequestDevice(m_backing.get(), &deviceDescriptor, callbackInfo);
+-    DawnCompat::waitForFuture(m_dawnInstance, future);
++    (void)wgpuAdapterRequestDevice(m_backing.get(), &deviceDescriptor, callbackInfo);
+ #else
+     auto label = descriptor.label.utf8();
+ 
