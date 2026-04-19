@@ -59,6 +59,19 @@
             "Preserves WebKitBuild for incremental Ninja retries",
             "Keeps sccache mandatory and verified"
           ]
+        },
+        "minibrowser-gradient-retry": {
+          "description": "MiniBrowser gradient lane: reuse an existing short-path checkout under C:/W/, re-run CMake (no preserved WebKitBuild). Alternate tree: set platformEnv NG_WINDOWS_CLEAN_SOURCE to C:/W/minibrowser-gradient-cmakeargs-20260419.",
+          "env": {
+            "NG_WINDOWS_ENABLE_SCCACHE": "1",
+            "NG_WINDOWS_REUSE_CHECKOUT": "1",
+            "NG_WINDOWS_PRESERVE_BUILD_DIR": "0",
+            "NG_WINDOWS_CLEAN_SOURCE": "C:/W/minibrowser-gradient-sccache-20260419"
+          },
+          "acceptance": [
+            "build.sh supplies clang-cl + CMAKE_C_COMPILER_LAUNCHER/CMAKE_CXX_COMPILER_LAUNCHER pointing at C:/Bootstrap/toolbin/sccache.exe",
+            "Reuse checkout at NG_WINDOWS_CLEAN_SOURCE; fresh configure because preserveBuildDir is false"
+          ]
         }
       }
     },
