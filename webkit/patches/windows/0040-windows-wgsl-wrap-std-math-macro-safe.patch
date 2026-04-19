@@ -1,0 +1,9 @@
+diff --git a/Source/WebGPU/WGSL/ConstantFunctions.h b/Source/WebGPU/WGSL/ConstantFunctions.h
+--- a/Source/WebGPU/WGSL/ConstantFunctions.h
++++ b/Source/WebGPU/WGSL/ConstantFunctions.h
+@@ -485,4 +485,4 @@
+ #define CONSTANT_TRIGONOMETRIC(name, fn) UNARY_OPERATION(name, Float, WRAP_STD(fn))
+ 
+ #define WRAP_STD(fn) \
+-    [&]<typename T, typename... Args>(T arg, Args&&... args) -> T { return std::fn(arg, std::forward<Args>(args)...); }
++    [&]<typename T, typename... Args>(T arg, Args&&... args) -> T { return (std::fn)(arg, std::forward<Args>(args)...); }

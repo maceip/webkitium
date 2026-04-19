@@ -28,7 +28,7 @@ function applyRepoEnv() {
 applyRepoEnv();
 
 /** Directory basename segments that imply state was pointed at a non-Webkitium checkout (still matched for sanitization). */
-const FOREIGN_NG_SEGMENTS = new Set(['WebKit-ng', 'webkit-ng', 'ng-webkit']);
+const FOREIGN_NG_SEGMENTS = new Set(['WebKit-ng', 'webkit-ng']);
 
 function pathHasForeignNgTreeSegment(p) {
   return resolve(p).split(/[/\\]/).some((seg) => FOREIGN_NG_SEGMENTS.has(seg));
@@ -361,8 +361,8 @@ function defaultWebGPUPhaseReason(phase) {
 function artifactPrefixForPlatform(id, platform, request) {
   const env = {
     ...process.env,
-    ...normalizeStringRecord(request.env, 'env'),
-    ...normalizeStringRecord(request.platformEnv?.[platform], `platformEnv.${platform}`)
+    ...normalizeStringRecord(request?.env, 'env'),
+    ...normalizeStringRecord(request?.platformEnv?.[platform], `platformEnv.${platform}`)
   };
   const bucket = env.NG_ARTIFACT_BUCKET || 's3://cory-build-artifacts-euc1-095713295645-20260407/webkitium';
   if (platform === 'windows') return env.NG_WINDOWS_ARTIFACT_S3 || `${bucket}/windows/${id}`;
@@ -385,6 +385,10 @@ function artifactLinksForPlatform(id, platform, request) {
     links.manifestPre = `${artifactPrefix}/manifest-pre.json`;
     links.manifestPost = `${artifactPrefix}/manifest-post.json`;
     links.buildProgress = `${artifactPrefix}/build-progress.json`;
+    links.releaseTarball = `${artifactPrefix}/webkitium-windows-${id}.tar.gz`;
+  }
+  if (platform === 'macos') {
+    links.releaseTarball = `${artifactPrefix}/webkitium-macos-${id}.tar.gz`;
   }
   return links;
 }
@@ -463,13 +467,17 @@ function startPlatformBuild(build, platform) {
     if (!stored) return;
     const target = stored.platforms.find((item) => item.name === platform);
     if (!target) return;
-    const inferred = code === 0 ? null : inferExternalBuildStatusFromLog(build.id, platform);
-    target.status = code === 0 || inferred.status === 'succeeded' ? 'succeeded' : 'failed';
+    const inferred = inferExternalBuildStatusFromLog(build.id, platform);
+    target.status = code === 0 && inferred.status !== 'failed' ? 'succeeded'
+      : inferred.status === 'succeeded' ? 'succeeded'
+      : 'failed';
     target.exitCode = code;
     target.signal = signal;
     if (code !== 0 && inferred.status === 'succeeded') {
       target.warning = `runner exited ${code} after remote success marker: ${inferred.detail}`;
     }
+    if (inferred.status === 'failed')
+      target.error = inferred.detail;
     target.finishedAt = now();
     stored.status = stored.platforms.some((item) => item.status === 'running') ? 'running'
       : stored.platforms.every((item) => item.status === 'succeeded') ? 'succeeded'
@@ -633,21 +641,24 @@ function inferExternalBuildStatusFromLog(id, platform) {
   const serviceLogPath = join(logDir, `${id}-${platform}.service.log`);
   const directLogPath = join(logDir, `${id}-${platform}.log`);
   const logPath = existsSync(serviceLogPath) ? serviceLogPath : directLogPath;
-  if (!existsSync(logPath)) {
+  const paths = [serviceLogPath, directLogPath].filter((path, index, all) => existsSync(path) && all.indexOf(path) === index);
+  if (!paths.length) {
     return { status: 'unknown', detail: 'no orchestrator log file yet', logPath: null };
   }
-  let text;
+  let text = '';
   try {
-    const stats = statSync(logPath);
-    const n = Math.min(stats.size, 384 * 1024);
-    const buf = Buffer.alloc(n);
-    const fd = openSync(logPath, 'r');
-    try {
-      readSync(fd, buf, 0, n, stats.size - n);
-    } finally {
-      closeSync(fd);
+    for (const path of paths) {
+      const stats = statSync(path);
+      const n = Math.min(stats.size, 384 * 1024);
+      const buf = Buffer.alloc(n);
+      const fd = openSync(path, 'r');
+      try {
+        readSync(fd, buf, 0, n, stats.size - n);
+      } finally {
+        closeSync(fd);
+      }
+      text += `\n--- ${path} ---\n${buf.toString('utf8')}`;
     }
-    text = buf.toString('utf8');
   } catch (e) {
     return { status: 'unknown', detail: `log read failed: ${e.message}`, logPath };
   }

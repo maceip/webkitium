@@ -9,7 +9,7 @@ load_env
 WATCH_DIR="${1:?usage: watch-artifacts.sh <dir> <build-pid> <s3-prefix> [glob]}"
 BUILD_PID="${2:?usage: watch-artifacts.sh <dir> <build-pid> <s3-prefix> [glob]}"
 S3_PREFIX="${3:?usage: watch-artifacts.sh <dir> <build-pid> <s3-prefix> [glob]}"
-GLOB="${4:-*.tar.xz *.zip *.apk *.aar *.exe *.msi *.7z}"
+GLOB="${4:-*.tar.xz *.tar.gz *.zip *.apk *.aar *.exe *.msi *.7z}"
 UPLOADED_FILE="$NG_VAR_DIR/uploaded-${BUILD_PID}.txt"
 touch "$UPLOADED_FILE"
 

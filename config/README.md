@@ -16,4 +16,4 @@ These files define **AWS regions**, **S3 prefixes**, **builder instance IDs**, a
 
 ### S3 prefix (`webkitium/`)
 
-Default **`NG_ARTIFACT_BUCKET`** and script fallbacks use the top-level prefix **`…/webkitium`** (not the legacy **`…/ng-webkit`** layout). Existing objects under the old prefix keep working if you set **`NG_ARTIFACT_BUCKET`** (and platform overrides such as **`NG_WINDOWS_ARTIFACT_S3`**) to the legacy URL, or after **`aws s3 sync`** from **`ng-webkit/`** to **`webkitium/`** on the same bucket.
+Default **`NG_ARTIFACT_BUCKET`** is **`s3://<bucket>/webkitium`**. Builder workdirs, dependency roots, and release tarballs use the **`webkitium-*`** layout documented in **`docs/policy/ASSETS.md`**.

@@ -36,9 +36,17 @@ if bash "$BUNDLE_ROOT/remote-build.sh"; then
   fi
 else
   EXIT_CODE=$?
-  echo "remote-build.sh failed with exit $EXIT_CODE at $(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-    >"$WORKDIR/BUILD_FAILED.txt"
   ARTDIR="$WORKDIR/artifacts"
+  {
+    echo "remote-build.sh failed with exit $EXIT_CODE at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [[ -f "$ARTDIR/gradle-android.log" ]]; then
+      echo "--- gradle-android.log tail ---"
+      tail -80 "$ARTDIR/gradle-android.log"
+    else
+      echo "--- worker-output.log tail ---"
+      tail -80 "$LOG"
+    fi
+  } >"$WORKDIR/BUILD_FAILED.txt"
   if [[ -d "$ARTDIR" ]]; then
     aws s3 sync "$ARTDIR" "$S3_PREFIX" \
       --region "${NG_ARTIFACT_UPLOAD_REGION:-eu-central-1}" \

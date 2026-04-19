@@ -405,6 +405,25 @@ if ((Test-Path $buildDir) -and -not $preserveBuildDir) {
   Remove-Item -Recurse -Force $buildDir
 } elseif ((Test-Path $buildDir) -and $preserveBuildDir) {
   Write-Host "Preserving existing build directory for fast retry: $buildDir"
+  $existingCache = Join-Path $config.outputDir "CMakeCache.txt"
+  $existingNinja = Join-Path $config.outputDir "build.ninja"
+  if ((Test-Path $existingCache) -and ($null -ne $config.PSObject.Properties["enableSccache"]) -and [bool]$config.enableSccache) {
+    $existingCacheText = Get-Content $existingCache -Raw
+    $existingNinjaText = if (Test-Path $existingNinja) { Get-Content $existingNinja -Raw } else { "" }
+    $sccacheExeName = Split-Path -Leaf $config.sccacheExe
+    $sccacheForNinja = ([string]$config.sccacheExe).Replace('\', '/')
+    $repairedNinjaText = $existingNinjaText.Replace('C:\Strawberry\c\bin\ccache.exe', $sccacheForNinja).Replace('C:/Strawberry/c/bin/ccache.exe', $sccacheForNinja)
+    if ($repairedNinjaText -ne $existingNinjaText) {
+      Write-Host "Repairing preserved build.ninja ccache launcher entries to $sccacheForNinja"
+      $existingNinjaText = $repairedNinjaText
+      Set-Content -Path $existingNinja -Value $existingNinjaText -Encoding UTF8
+    }
+    $hasSccacheLauncher = $existingCacheText -match 'CMAKE_C_COMPILER_LAUNCHER' -and $existingCacheText -match 'CMAKE_CXX_COMPILER_LAUNCHER' -and ($existingCacheText -match [regex]::Escape($sccacheExeName) -or $existingNinjaText -match [regex]::Escape($sccacheExeName))
+    $usesKnownBadLauncher = $existingCacheText -match 'CMAKE_(C|CXX)_COMPILER_LAUNCHER[^\r\n]*(C:\\Strawberry\\c\\bin\\ccache\.exe|C:/Strawberry/c/bin/ccache\.exe)' -or $existingNinjaText -match '(C:\\Strawberry\\c\\bin\\ccache\.exe|C:/Strawberry/c/bin/ccache\.exe)'
+    if (-not $hasSccacheLauncher -or $usesKnownBadLauncher) {
+      throw "Refusing to preserve stale WebKitBuild: existing CMake/Ninja cache is not configured for $sccacheExeName or contains ccache.exe. Retry with preserveBuildDir=false."
+    }
+  }
 }
 
 Enable-SymlinkEvaluation

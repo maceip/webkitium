@@ -42,6 +42,12 @@ require_cmd jq
 
 cd "$SOURCE"
 git fetch --all --tags || true
+# Remote builders reuse the same checkout across runs. Always remove prior
+# patch state before applying this run's staged patch set.
+git reset --hard HEAD
+git clean -fd -- \
+  tools/minibrowser/src/main/res/drawable/webkitium_chrome_gradient.xml \
+  tools/minibrowser/src/main/res/drawable/webkitium_menu_popup_bg.xml
 
 if [[ "$INSTALL_NDK" == "1" ]]; then
   "$SOURCE/tools/scripts/install-android-ndk.sh"
@@ -56,11 +62,22 @@ fi
 # bootstrap.py may touch local.properties — force sdk.dir for this builder.
 printf 'sdk.dir=%s\n' "$ANDROID_HOME" >"$SOURCE/local.properties"
 
+# Android Gradle Plugin otherwise downloads Maven's Linux aapt2 binary. On our
+# arm64 Android runner that x86_64 binary needs the SDK wrapper, which sets the
+# qemu loader prefix before execing aapt2.real.
+AAPT2_OVERRIDE="$ANDROID_HOME/build-tools/35.0.0/aapt2"
+if [[ -x "$AAPT2_OVERRIDE" ]]; then
+  printf '\nandroid.aapt2FromMavenOverride=%s\n' "$AAPT2_OVERRIDE" >>"$SOURCE/gradle.properties"
+fi
+
 # --- Apply ng patches + enabled changes (same as local apply-patches.sh) ---
 chmod +x "$NG_ROOT/webkit/scripts/common/apply-patches.sh" "$NG_ROOT/webkit/scripts/common/apply-changes.sh" "$NG_ROOT/webkit/scripts/common/common.sh" 2>/dev/null || true
 bash "$NG_ROOT/webkit/scripts/common/apply-patches.sh" android "$SOURCE"
 
 printf 'sdk.dir=%s\n' "$ANDROID_HOME" >"$SOURCE/local.properties"
+if [[ -x "$AAPT2_OVERRIDE" ]] && ! grep -q '^android\.aapt2FromMavenOverride=' "$SOURCE/gradle.properties" 2>/dev/null; then
+  printf '\nandroid.aapt2FromMavenOverride=%s\n' "$AAPT2_OVERRIDE" >>"$SOURCE/gradle.properties"
+fi
 
 # --- Build ---
 cd "$SOURCE"

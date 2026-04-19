@@ -20,7 +20,7 @@ _webkitium_path_has_webkit_ng_segment() {
   local p="$1" b
   while [[ "$p" != "/" && -n "$p" ]]; do
     b="$(basename "$p")"
-    [[ "$b" == "WebKit-ng" || "$b" == "webkit-ng" || "$b" == "ng-webkit" ]] && return 0
+    [[ "$b" == "WebKit-ng" || "$b" == "webkit-ng" ]] && return 0
     p="$(dirname "$p")"
   done
   return 1

@@ -16,8 +16,6 @@ build id.
 
 ## Prefix layout
 
-Historical uploads may still live under the legacy `ng-webkit/` prefix until migrated; new automation defaults to `webkitium/` (see `config/README.md`).
-
 ```
 s3://<bucket>/
 └── webkitium/

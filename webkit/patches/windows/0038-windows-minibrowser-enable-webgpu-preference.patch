@@ -1,0 +1,11 @@
+diff --git a/Tools/MiniBrowser/win/WebKitBrowserWindow.cpp b/Tools/MiniBrowser/win/WebKitBrowserWindow.cpp
+--- a/Tools/MiniBrowser/win/WebKitBrowserWindow.cpp
++++ b/Tools/MiniBrowser/win/WebKitBrowserWindow.cpp
+@@ -149,6 +149,7 @@ Ref<BrowserWindow> WebKitBrowserWindow::create(BrowserWindowClient& client, HWND
+     auto preferences = adoptWK(WKPreferencesCreate());
+     WKPreferencesSetMediaCapabilitiesEnabled(preferences.get(), false);
+     WKPreferencesSetDeveloperExtrasEnabled(preferences.get(), true);
++    WKPreferencesSetExperimentalFeatureForKey(preferences.get(), true, createWKString(L"WebGPUEnabled").get());
+ 
+     auto pageConf = adoptWK(WKPageConfigurationCreate());
+     WKPageConfigurationSetWebsiteDataStore(pageConf.get(), websiteDataStore.get());

@@ -30,6 +30,8 @@ SCCACHE_DIR="${NG_WINDOWS_SCCACHE_DIR:-C:/Bootstrap/sccache}"
 NG_WINDOWS_MIN_FREE_GB="${NG_WINDOWS_MIN_FREE_GB:-50}"
 NINJA_JOBS="${NG_WINDOWS_NINJA_JOBS:-4}"
 FAST_RETRY="${NG_WINDOWS_FAST_RETRY:-0}"
+REUSE_CHECKOUT="${NG_WINDOWS_REUSE_CHECKOUT:-$FAST_RETRY}"
+PRESERVE_BUILD_DIR="${NG_WINDOWS_PRESERVE_BUILD_DIR:-$FAST_RETRY}"
 
 if [[ "$ENABLE_SCCACHE" != "1" && "${NG_WINDOWS_ALLOW_SCCACHE_OFF:-0}" != "1" ]]; then
   echo "Windows builds require sccache. Set NG_WINDOWS_ENABLE_SCCACHE=1, or NG_WINDOWS_ALLOW_SCCACHE_OFF=1 for an explicit emergency bypass." >&2
@@ -227,6 +229,8 @@ export NG_MIN_FREE_GIB="$NG_WINDOWS_MIN_FREE_GB"
 export NG_TOOLBIN="$TOOLBIN"
 export NG_BOOTSTRAP="$BOOTSTRAP"
 export NG_FAST_RETRY="$FAST_RETRY"
+export NG_REUSE_CHECKOUT="$REUSE_CHECKOUT"
+export NG_PRESERVE_BUILD_DIR="$PRESERVE_BUILD_DIR"
 export NG_BUILD_PHASE="${NG_BUILD_PHASE:-0}"
 # Default cone sparse roots (BUILD_LAW.md): overrides WebKit's bundled .git/config.worktree
 # sparse pattern (otherwise only repo-root files appear). Export NG_WINDOWS_SPARSE_PATHS to override;
@@ -244,6 +248,8 @@ patch_manifest_out = os.environ["NG_STAGE_PATCH_MANIFEST_OUT"]
 use_clean = os.environ.get("NG_USE_CLEAN", "1").strip() not in ("0", "false", "False", "")
 enable_sccache = os.environ.get("NG_ENABLE_SCCACHE", "0").strip() in ("1", "true", "True", "yes", "on")
 fast_retry = os.environ.get("NG_FAST_RETRY", "0").strip() in ("1", "true", "True", "yes", "on")
+reuse_checkout = os.environ.get("NG_REUSE_CHECKOUT", "0").strip() in ("1", "true", "True", "yes", "on")
+preserve_build_dir = os.environ.get("NG_PRESERVE_BUILD_DIR", "0").strip() in ("1", "true", "True", "yes", "on")
 sparse_raw = os.environ.get("NG_WINDOWS_SPARSE_PATHS", "").strip()
 sparse = sparse_raw.split() if sparse_raw else []
 stage = Path(patch_manifest_out).parent
@@ -308,8 +314,8 @@ cfg = {
     "sccacheDir": os.environ["NG_SCCACHE_DIR"],
     "toolbin": os.environ["NG_TOOLBIN"],
     "patchManifest": "patch-manifest.json",
-    "reuseCheckout": fast_retry,
-    "preserveBuildDir": fast_retry,
+    "reuseCheckout": reuse_checkout,
+    "preserveBuildDir": preserve_build_dir,
     "fastRetry": fast_retry,
 }
 if sparse:

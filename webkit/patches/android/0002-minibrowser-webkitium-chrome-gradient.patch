@@ -1,0 +1,67 @@
+diff --git a/tools/minibrowser/src/main/res/drawable/webkitium_chrome_gradient.xml b/tools/minibrowser/src/main/res/drawable/webkitium_chrome_gradient.xml
+new file mode 100644
+index 000000000..8852afda3
+--- /dev/null
++++ b/tools/minibrowser/src/main/res/drawable/webkitium_chrome_gradient.xml
+@@ -0,0 +1,9 @@
++<?xml version="1.0" encoding="utf-8"?>
++<shape xmlns:android="http://schemas.android.com/apk/res/android"
++    android:shape="rectangle">
++    <gradient
++        android:type="linear"
++        android:angle="0"
++        android:startColor="#FF9FE2BF"
++        android:endColor="#FFFA8072" />
++</shape>
+diff --git a/tools/minibrowser/src/main/res/drawable/webkitium_menu_popup_bg.xml b/tools/minibrowser/src/main/res/drawable/webkitium_menu_popup_bg.xml
+new file mode 100644
+index 000000000..6bcf7c52c
+--- /dev/null
++++ b/tools/minibrowser/src/main/res/drawable/webkitium_menu_popup_bg.xml
+@@ -0,0 +1,10 @@
++<?xml version="1.0" encoding="utf-8"?>
++<shape xmlns:android="http://schemas.android.com/apk/res/android"
++    android:shape="rectangle">
++    <corners android:radius="8dp" />
++    <gradient
++        android:type="linear"
++        android:angle="90"
++        android:startColor="#FF9FE2BF"
++        android:endColor="#FFFA8072" />
++</shape>
+diff --git a/tools/minibrowser/src/main/res/layout/fragment_browser.xml b/tools/minibrowser/src/main/res/layout/fragment_browser.xml
+index 00473d51c..afd44f698 100644
+--- a/tools/minibrowser/src/main/res/layout/fragment_browser.xml
++++ b/tools/minibrowser/src/main/res/layout/fragment_browser.xml
+@@ -27,6 +27,9 @@
+         android:id="@+id/toolbar"
+         android:layout_width="match_parent"
+         android:layout_height="?android:actionBarSize"
+-        android:layout_alignParentBottom="true">
++        android:layout_alignParentBottom="true"
++        android:background="@drawable/webkitium_chrome_gradient"
++        android:theme="@style/ThemeOverlay.Webkitium.ToolbarChrome"
++        app:popupTheme="@style/ThemeOverlay.Webkitium.ToolbarPopup">
+ 
+         <FrameLayout
+             android:id="@+id/toolbar_edit_text_wrapper"
+diff --git a/tools/minibrowser/src/main/res/values/themes.xml b/tools/minibrowser/src/main/res/values/themes.xml
+index 8192ade7d..6403d2297 100644
+--- a/tools/minibrowser/src/main/res/values/themes.xml
++++ b/tools/minibrowser/src/main/res/values/themes.xml
+@@ -41,4 +41,15 @@
+         <item name="android:textColor">@color/violet_70</item>
+     </style>
+ 
++    <!-- Webkitium: sea-foam to salmon chrome (toolbar + overflow / submenu); matches Windows MiniBrowser gradient. -->
++    <style name="ThemeOverlay.Webkitium.ToolbarChrome" parent="ThemeOverlay.AppCompat.ActionBar">
++        <item name="colorControlNormal">#DE1A1A1A</item>
++        <item name="android:textColorPrimary">#DE1A1A1A</item>
++    </style>
++
++    <style name="ThemeOverlay.Webkitium.ToolbarPopup" parent="ThemeOverlay.AppCompat.Light">
++        <item name="android:popupBackground">@drawable/webkitium_menu_popup_bg</item>
++        <item name="android:textColorPrimary">#DE1A1A1A</item>
++        <item name="colorControlNormal">#DE1A1A1A</item>
++    </style>
+ </resources>
