@@ -1,5 +1,6 @@
 import http from 'node:http';
 import { execFile, spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { promisify } from 'node:util';
 import { closeSync, createReadStream, createWriteStream, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, statSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
@@ -99,6 +100,18 @@ function now() {
   return new Date().toISOString();
 }
 
+function stableJson(value) {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function sha256Json(value) {
+  return createHash('sha256').update(stableJson(value)).digest('hex');
+}
+
 function loadState() {
   if (!existsSync(stateFile)) return { builds: [] };
   return JSON.parse(readFileSync(stateFile, 'utf8'));
@@ -134,10 +147,16 @@ function activeBuildsFromMarkerFiles() {
         status: inferred.status,
         external: true,
         externalInference: inferred.detail,
+        remote: inferred.remote,
+        progress: inferred.progress,
+        cache: inferred.cache,
+        artifactValidity: inferred.artifactValidity,
         log: logFile,
         artifactPrefix: artifactPrefixForPlatform(id, platform, request),
         workdir: env[`${platform.toUpperCase()}_BUILD_POLL_WORKDIR`],
-        ssmCommandId: env[`${platform.toUpperCase()}_SSM_COMMAND_ID`]
+        ssmCommandId: env[`${platform.toUpperCase()}_SSM_COMMAND_ID`],
+        ssmInstanceId: env[`${platform.toUpperCase()}_SSM_INSTANCE_ID`],
+        region: env.AWS_REGION
       }],
       request
     }];
@@ -145,7 +164,7 @@ function activeBuildsFromMarkerFiles() {
 }
 
 function mergeMarkerBuildsById(markerBuilds) {
-  const rank = (s) => ({ failed: 4, cancelled: 4, running: 3, unknown: 2, succeeded: 1 }[s] ?? 0);
+  const rank = (s) => ({ failed: 5, cancelled: 5, cancelling: 4, running: 3, unknown: 2, succeeded: 1 }[s] ?? 0);
   const pick = (a, b) => (rank(a) >= rank(b) ? a : b);
   const byId = new Map();
   for (const build of markerBuilds) {
@@ -165,9 +184,42 @@ function mergeMarkerBuildsById(markerBuilds) {
 function loadBuilds() {
   const state = loadState();
   const builds = [...(state.builds || [])];
-  const known = new Set(builds.map((build) => build.id));
+  const byId = new Map(builds.map((build) => [build.id, build]));
   for (const build of mergeMarkerBuildsById(activeBuildsFromMarkerFiles())) {
-    if (!known.has(build.id)) builds.unshift(build);
+    const existing = byId.get(build.id);
+    if (!existing) {
+      builds.unshift(build);
+      continue;
+    }
+    existing.externalMarker = true;
+    existing.externalInference = build.externalInference;
+    existing.updatedAt = now();
+    for (const markerPlatform of build.platforms || []) {
+      const platform = existing.platforms?.find((item) => item.name === markerPlatform.name);
+      if (!platform) {
+        existing.platforms = [...(existing.platforms || []), markerPlatform];
+        continue;
+      }
+      platform.externalMarker = true;
+      platform.externalInference = markerPlatform.externalInference;
+      platform.remote = markerPlatform.remote;
+      platform.progress = markerPlatform.progress;
+      platform.cache = markerPlatform.cache;
+      platform.artifactValidity = markerPlatform.artifactValidity;
+      platform.workdir = platform.workdir || markerPlatform.workdir;
+      platform.ssmCommandId = platform.ssmCommandId || markerPlatform.ssmCommandId;
+      platform.ssmInstanceId = platform.ssmInstanceId || markerPlatform.ssmInstanceId;
+      platform.region = platform.region || markerPlatform.region;
+      if (['running', 'unknown'].includes(platform.status) || ['failed', 'cancelled', 'succeeded'].includes(markerPlatform.status)) {
+        platform.status = markerPlatform.status;
+      }
+    }
+    existing.status = existing.platforms?.some((item) => item.status === 'cancelling') ? 'cancelling'
+      : existing.platforms?.some((item) => item.status === 'running') ? 'running'
+      : existing.platforms?.every((item) => item.status === 'succeeded') ? 'succeeded'
+      : existing.platforms?.some((item) => item.status === 'cancelled') ? 'cancelled'
+      : existing.platforms?.some((item) => item.status === 'failed') ? 'failed'
+      : existing.status;
   }
   return builds;
 }
@@ -311,12 +363,39 @@ function expandBuildRequest(payload, platforms) {
     }
   }
 
-  return {
+  const expanded = {
     ...payload,
     phase,
     reason: normalizeBuildReason(payload.reason, platforms, presets, phase),
     presets,
     platformEnv
+  };
+  const profile = buildProfileForRequest(expanded, platforms);
+  return {
+    ...expanded,
+    controlPlane: {
+      schema: 1,
+      profileHash: sha256Json(profile),
+      profile,
+      lanes: Object.fromEntries(platforms.map((platform) => [platform, laneForPlatform(platform, expanded)]))
+    }
+  };
+}
+
+function laneForPlatform(platform, request) {
+  const preset = request.presets?.[platform] || 'default';
+  const env = request.platformEnv?.[platform] || {};
+  const webgpu = env.NG_WINDOWS_ENABLE_WEBGPU === '1' ? 'webgpu-on' : platform === 'windows' ? 'webgpu-off' : '';
+  return [platform, preset, webgpu].filter(Boolean).join('/');
+}
+
+function buildProfileForRequest(request, platforms) {
+  return {
+    platforms,
+    presets: request.presets || {},
+    env: normalizeStringRecord(request.env, 'env'),
+    platformEnv: Object.fromEntries(platforms.map((platform) => [platform, normalizeStringRecord(request.platformEnv?.[platform], `platformEnv.${platform}`)])),
+    phase: request.phase || null
   };
 }
 
@@ -414,8 +493,50 @@ function buildEnvForPlatform(build, platform) {
     ...normalizeStringRecord(request.env, 'env'),
     ...normalizeStringRecord(request.platformEnv?.[platform], `platformEnv.${platform}`),
     NG_SERVICE_BUILD_ID: build.id,
-    NG_SERVICE_PLATFORM: platform
+    NG_SERVICE_PLATFORM: platform,
+    NG_CONTROL_PROFILE_HASH: request.controlPlane?.profileHash || '',
+    NG_CONTROL_LANE: request.controlPlane?.lanes?.[platform] || ''
   };
+}
+
+function platformRuntimeControl(id, platform, request) {
+  const env = {
+    ...process.env,
+    ...normalizeStringRecord(request?.env, 'env'),
+    ...normalizeStringRecord(request?.platformEnv?.[platform], `platformEnv.${platform}`)
+  };
+  if (platform === 'windows') {
+    const mutationDir = env.NG_WINDOWS_CLEAN_SOURCE || (env.NG_WINDOWS_FAST_RETRY === '1' ? (env.NG_WINDOWS_FAST_CLEAN_SOURCE || 'C:/W/webkitium-fast') : `C:/W/n<${id}>`);
+    return {
+      workdir: env.NG_WINDOWS_WORKDIR || `C:/Bootstrap/webkitium-${id}`,
+      mutationDir,
+      ssmInstanceId: env.NG_WINDOWS_INSTANCE_ID || process.env.NG_WINDOWS_INSTANCE_ID || 'i-05ab9a8ed6d325b3d',
+      region: env.AWS_REGION || process.env.AWS_REGION || 'eu-west-1'
+    };
+  }
+  return {};
+}
+
+function leaseKeyForPlatform(id, platform, request) {
+  const runtime = platformRuntimeControl(id, platform, request);
+  const lane = request.controlPlane?.lanes?.[platform] || `${platform}/default`;
+  return [platform, lane, runtime.mutationDir || runtime.workdir || 'local'].join(':');
+}
+
+function assertNoActiveLease(platforms, request) {
+  const requested = new Map(platforms.map((platform) => [platform, leaseKeyForPlatform('pending', platform, request)]));
+  const active = loadBuilds().filter((build) => ['running', 'cancelling'].includes(build.status));
+  for (const build of active) {
+    for (const platform of build.platforms || []) {
+      if (!['running', 'cancelling'].includes(platform.status)) continue;
+      const requestedLease = requested.get(platform.name);
+      if (!requestedLease) continue;
+      const existingLease = platform.controlPlane?.leaseKey || leaseKeyForPlatform(build.id, platform.name, build.request || {});
+      if (existingLease === requestedLease) {
+        throw new HttpError(409, `Active build ${build.id} already owns lease ${existingLease}`);
+      }
+    }
+  }
 }
 
 function startPlatformBuild(build, platform) {
@@ -470,6 +591,7 @@ function startPlatformBuild(build, platform) {
     const inferred = inferExternalBuildStatusFromLog(build.id, platform);
     target.status = code === 0 && inferred.status !== 'failed' ? 'succeeded'
       : inferred.status === 'succeeded' ? 'succeeded'
+      : inferred.status === 'cancelled' ? 'cancelled'
       : 'failed';
     target.exitCode = code;
     target.signal = signal;
@@ -478,9 +600,15 @@ function startPlatformBuild(build, platform) {
     }
     if (inferred.status === 'failed')
       target.error = inferred.detail;
+    target.remote = inferred.remote;
+    target.progress = inferred.progress;
+    target.cache = inferred.cache;
+    target.artifactValidity = inferred.artifactValidity;
     target.finishedAt = now();
-    stored.status = stored.platforms.some((item) => item.status === 'running') ? 'running'
+    stored.status = stored.platforms.some((item) => item.status === 'cancelling') ? 'cancelling'
+      : stored.platforms.some((item) => item.status === 'running') ? 'running'
       : stored.platforms.every((item) => item.status === 'succeeded') ? 'succeeded'
+      : stored.platforms.some((item) => item.status === 'cancelled') ? 'cancelled'
       : 'failed';
     stored.updatedAt = now();
     saveState(current);
@@ -488,6 +616,7 @@ function startPlatformBuild(build, platform) {
 }
 
 function createBuild(platforms, meta = {}) {
+  assertNoActiveLease(platforms, meta);
   const id = `${new Date().toISOString().replace(/[-:.]/g, '').slice(0, 15)}-${Math.floor(Math.random() * 100000)}`;
   const build = {
     id,
@@ -500,7 +629,13 @@ function createBuild(platforms, meta = {}) {
       status: 'running',
       log: join(logDir, `${id}-${name}.service.log`),
       artifactPrefix: artifactPrefixForPlatform(id, name, meta),
-      artifacts: artifactLinksForPlatform(id, name, meta)
+      artifacts: artifactLinksForPlatform(id, name, meta),
+      ...platformRuntimeControl(id, name, meta),
+      controlPlane: {
+        profileHash: meta.controlPlane?.profileHash,
+        lane: meta.controlPlane?.lanes?.[name],
+        leaseKey: leaseKeyForPlatform(id, name, meta)
+      }
     })),
     request: meta
   };
@@ -517,6 +652,17 @@ function getBuild(id) {
 
 function readJsonFile(path) {
   return JSON.parse(readFileSync(path, 'utf8'));
+}
+
+function lastPrefixedJson(text, prefix) {
+  const lines = text.split(/\r?\n/).filter((line) => line.startsWith(prefix));
+  if (!lines.length) return null;
+  const raw = lines[lines.length - 1].slice(prefix.length).trim();
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
 }
 
 async function runCaptured(command, args, options = {}) {
@@ -663,27 +809,68 @@ function inferExternalBuildStatusFromLog(id, platform) {
     return { status: 'unknown', detail: `log read failed: ${e.message}`, logPath };
   }
 
+  const remote = lastPrefixedJson(text, 'WORKER_STATUS_JSON ');
+  const progress = lastPrefixedJson(text, 'WORKER_PROGRESS_JSON ');
+  const cache = lastPrefixedJson(text, 'WORKER_CACHE_JSON ');
+  const artifactValidity = lastPrefixedJson(text, 'WORKER_ARTIFACT_VALIDITY_JSON ');
+
+  const cancelled = /BUILD_CANCELLED\.txt|^CANCELLED\b|cancelled by orchestrator/im.test(text) || remote?.status === 'cancelled';
   const failed = /remote build FAILED|BUILD_FAILED\.txt|Timed out waiting for BUILD_DONE|ninja: build stopped: subcommand failed|marker poll unexpected|bootstrap SSM failure/i.test(
     text
-  );
+  ) || remote?.status === 'failed';
   const ok =
     /marker poll OK|remote build completed|checkpoint\.sh.*completed|windows remote build completed|macos remote build completed|android remote build completed/i.test(text) ||
-    /BUILD_DONE\.txt/i.test(text);
+    /BUILD_DONE\.txt/i.test(text) || remote?.status === 'succeeded';
 
+  if (cancelled) return { status: 'cancelled', detail: 'remote worker acknowledged cancellation', logPath, remote, progress, cache, artifactValidity };
   if (failed && ok) return { status: 'failed', detail: 'log contains both success and failure markers; treating as failed', logPath };
-  if (failed) return { status: 'failed', detail: 'inferred from orchestrator log', logPath };
-  if (ok) return { status: 'succeeded', detail: 'inferred from orchestrator log', logPath };
+  if (failed) return { status: 'failed', detail: 'inferred from orchestrator log', logPath, remote, progress, cache, artifactValidity };
+  if (ok) return { status: 'succeeded', detail: 'inferred from orchestrator log', logPath, remote, progress, cache, artifactValidity };
 
   try {
     const ageMs = Date.now() - statSync(logPath).mtimeMs;
     if (ageMs > 48 * 60 * 60 * 1000) {
-      return { status: 'unknown', detail: 'log idle >48h with no terminal pattern; refresh markers or open log', logPath };
+      return { status: 'unknown', detail: 'log idle >48h with no terminal pattern; refresh markers or open log', logPath, remote, progress, cache, artifactValidity };
     }
   } catch {
     // ignore
   }
 
-  return { status: 'running', detail: 'no terminal pattern in log tail yet', logPath };
+  return { status: remote?.status === 'cancelling' ? 'cancelling' : 'running', detail: 'no terminal pattern in log tail yet', logPath, remote, progress, cache, artifactValidity };
+}
+
+async function requestWindowsRemoteCancel(build, platform) {
+  const env = {
+    ...process.env,
+    ...normalizeStringRecord(build.request?.env, 'env'),
+    ...normalizeStringRecord(build.request?.platformEnv?.windows, 'platformEnv.windows')
+  };
+  const instance = platform.ssmInstanceId || env.NG_WINDOWS_INSTANCE_ID || process.env.NG_WINDOWS_INSTANCE_ID;
+  const region = env.AWS_REGION || process.env.AWS_REGION || 'eu-west-1';
+  const workdir = platform.workdir || env.NG_WINDOWS_WORKDIR;
+  if (!instance || !workdir) {
+    return { ok: false, error: 'missing Windows instance id or workdir for remote cancel' };
+  }
+  const script = `$ErrorActionPreference = 'Continue'
+$d = ${JSON.stringify(workdir)}
+New-Item -ItemType Directory -Force -Path $d | Out-Null
+"cancel requested $(Get-Date -Format o) by orchestrator" | Set-Content -Path (Join-Path $d 'CANCEL_REQUESTED.txt') -Encoding UTF8
+$status = [ordered]@{ buildId = ${JSON.stringify(build.id)}; status = 'cancelling'; stage = 'cancel-requested'; updated = (Get-Date).ToUniversalTime().ToString('o') }
+($status | ConvertTo-Json -Compress) | Set-Content -Path (Join-Path $d 'status.json') -Encoding UTF8
+Write-Output 'CANCEL_REQUESTED'
+`;
+  const paramsPath = join(logDir, `${build.id}-windows-cancel-params.json`);
+  writeFileSync(paramsPath, JSON.stringify({ commands: [script] }));
+  return runCaptured('aws', [
+    'ssm', 'send-command',
+    '--region', region,
+    '--instance-ids', instance,
+    '--document-name', 'AWS-RunPowerShellScript',
+    '--comment', `Webkitium cancel ${build.id}`,
+    '--parameters', `file://${paramsPath}`,
+    '--query', 'Command.CommandId',
+    '--output', 'text'
+  ], { timeout: 120000, maxBuffer: 512 * 1024 });
 }
 
 const server = http.createServer(async (req, res) => {
@@ -829,7 +1016,8 @@ const server = http.createServer(async (req, res) => {
             name: platform.name,
             status: platform.status,
             artifactPrefix: platform.artifactPrefix,
-            artifacts: platform.artifacts || artifactLinksForPlatform(build.id, platform.name, build.request || {})
+            artifacts: platform.artifacts || artifactLinksForPlatform(build.id, platform.name, build.request || {}),
+            artifactValidity: platform.artifactValidity || null
           }))
         });
       }
@@ -860,12 +1048,22 @@ const server = http.createServer(async (req, res) => {
       }
 
       if (req.method === 'POST' && parts[2] === 'cancel') {
+        const cancelResults = [];
         for (const platform of build.platforms) {
           const child = running.get(`${build.id}:${platform.name}`);
           if (child) child.kill('SIGTERM');
-          platform.status = platform.status === 'running' ? 'cancelled' : platform.status;
+          if (platform.name === 'windows' && platform.status === 'running') {
+            platform.status = 'cancelling';
+            platform.cancelRequestedAt = now();
+            // The runner, not agents, owns the remote SSM cancel request.
+            cancelResults.push({ platform: 'windows', result: await requestWindowsRemoteCancel(build, platform) });
+          } else {
+            platform.status = platform.status === 'running' ? 'cancelled' : platform.status;
+          }
         }
-        return json(res, 200, updateBuild(build.id, { status: 'cancelled', platforms: build.platforms }));
+        const status = build.platforms.some((platform) => platform.status === 'cancelling') ? 'cancelling' : 'cancelled';
+        const updated = updateBuild(build.id, { status, platforms: build.platforms, cancelResults });
+        return json(res, 200, updated);
       }
 
       if (req.method === 'POST' && parts[2] === 'restart') {

@@ -49,7 +49,71 @@ if (-not (Test-Path $configPath)) {
   throw "build-config.json not found: $configPath"
 }
 $config = Get-Content $configPath -Raw | ConvertFrom-Json
+if ($null -eq $config.PSObject.Properties["control"]) {
+  $config | Add-Member -NotePropertyName control -NotePropertyValue ([pscustomobject]@{ lane = "windows/default"; profileHash = "" })
+}
 $patchManifestPath = Join-Path $here "patch-manifest.json"
+$statusPath = Join-Path $config.workdir "status.json"
+$heartbeatPath = Join-Path $config.workdir "heartbeat.json"
+$cancelPath = Join-Path $config.workdir "CANCEL_REQUESTED.txt"
+$cancelledPath = Join-Path $config.workdir "BUILD_CANCELLED.txt"
+$cacheStatePath = Join-Path $config.workdir "cache-state.json"
+
+function Write-ControlJson {
+  param([string]$Path, [object]$Object)
+  $dir = Split-Path -Parent $Path
+  if ($dir) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
+  ($Object | ConvertTo-Json -Depth 8 -Compress) | Set-Content -Path $Path -Encoding UTF8
+}
+
+function Write-WorkerStatus {
+  param([string]$Status, [string]$Stage, [object]$Details = $null)
+  $obj = [ordered]@{
+    schema = 1
+    buildId = $config.buildId
+    status = $Status
+    stage = $Stage
+    updated = (Get-Date).ToUniversalTime().ToString("o")
+    pid = $PID
+    lane = $config.control.lane
+    profileHash = $config.control.profileHash
+    details = $Details
+  }
+  Write-ControlJson -Path $statusPath -Object $obj
+  Write-ControlJson -Path $heartbeatPath -Object ([ordered]@{
+    schema = 1
+    buildId = $config.buildId
+    pid = $PID
+    updated = $obj.updated
+    stage = $Stage
+  })
+}
+
+function Write-CacheState {
+  param([string]$State, [string]$Reason, [object]$Details = $null)
+  Write-ControlJson -Path $cacheStatePath -Object ([ordered]@{
+    schema = 1
+    buildId = $config.buildId
+    state = $State
+    reason = $Reason
+    updated = (Get-Date).ToUniversalTime().ToString("o")
+    lane = $config.control.lane
+    profileHash = $config.control.profileHash
+    details = $Details
+  })
+}
+
+function Assert-NotCancelled {
+  param([string]$Stage)
+  if (Test-Path $cancelPath) {
+    $message = "cancelled by orchestrator at stage $Stage"
+    $message | Set-Content -Path $cancelledPath -Encoding UTF8
+    Write-WorkerStatus -Status "cancelled" -Stage $Stage -Details @{ reason = $message }
+    throw $message
+  }
+}
+
+Write-WorkerStatus -Status "running" -Stage "bootstrap"
 
 # Toolchain paths (Git, LLVM, CMake, ...) must be set before any git/perl/cmake call.
 if ($config.pathPrepend) {
@@ -105,11 +169,13 @@ function Assert-DiskHeadroom {
   }
 }
 
-Assert-DiskHeadroom -Cfg $config
-
 New-Item -ItemType Directory -Force -Path $config.workdir | Out-Null
 $artDir = Join-Path $config.workdir "artifacts"
 New-Item -ItemType Directory -Force -Path $artDir | Out-Null
+
+Write-WorkerStatus -Status "running" -Stage "disk-preflight"
+Assert-DiskHeadroom -Cfg $config
+Assert-NotCancelled -Stage "disk-preflight"
 
 function Ensure-Sccache {
   if ($null -eq $config.PSObject.Properties["enableSccache"] -or -not [bool]$config.enableSccache) {
@@ -160,7 +226,9 @@ function Ensure-Sccache {
   Write-Host "sccache enabled: $sccacheExe cache=$cacheDir"
 }
 
+Write-WorkerStatus -Status "running" -Stage "sccache"
 Ensure-Sccache
+Assert-NotCancelled -Stage "sccache"
 
 function Write-NinjaProgressFromLog {
   param([string]$LogPath, [string]$ProgressPath)
@@ -236,7 +304,7 @@ function Invoke-BuildCmd {
   [System.IO.File]::WriteAllLines($batchPath, $lines)
   $pollSec = 15
   $progressJob = Start-Job -ScriptBlock {
-    param($LogPath, $ProgressPath, $PollSec, $BuildId)
+    param($LogPath, $ProgressPath, $StatusPath, $CancelPath, $PollSec, $BuildId)
     $rx = [regex]'(?m)\[\s*(\d+)\s*/\s*(\d+)\s*\]'
     while ($true) {
       try {
@@ -261,27 +329,52 @@ function Invoke-BuildCmd {
                 updated   = (Get-Date).ToUniversalTime().ToString("o")
                 buildId   = $BuildId
               }
-              ($obj | ConvertTo-Json -Compress) | Set-Content -Path $ProgressPath -Encoding UTF8
-            } else {
+	              ($obj | ConvertTo-Json -Compress) | Set-Content -Path $ProgressPath -Encoding UTF8
+	              $status = [ordered]@{
+	                schema = 1
+	                buildId = $BuildId
+	                status = if (Test-Path $CancelPath) { "cancelling" } else { "running" }
+	                stage = "compile"
+	                updated = (Get-Date).ToUniversalTime().ToString("o")
+	                progress = $obj
+	              }
+	              ($status | ConvertTo-Json -Depth 6 -Compress) | Set-Content -Path $StatusPath -Encoding UTF8
+	            } else {
               $early = [ordered]@{
                 phase     = "pre-ninja"
                 hint      = "Waiting for ninja [n/m] lines (CMake/configure or early build)"
                 updated   = (Get-Date).ToUniversalTime().ToString("o")
                 buildId   = $BuildId
               }
-              ($early | ConvertTo-Json -Compress) | Set-Content -Path $ProgressPath -Encoding UTF8
-            }
+	              ($early | ConvertTo-Json -Compress) | Set-Content -Path $ProgressPath -Encoding UTF8
+	              $status = [ordered]@{
+	                schema = 1
+	                buildId = $BuildId
+	                status = if (Test-Path $CancelPath) { "cancelling" } else { "running" }
+	                stage = "pre-ninja"
+	                updated = (Get-Date).ToUniversalTime().ToString("o")
+	                progress = $early
+	              }
+	              ($status | ConvertTo-Json -Depth 6 -Compress) | Set-Content -Path $StatusPath -Encoding UTF8
+	            }
           }
         }
       } catch { }
       Start-Sleep -Seconds $PollSec
     }
-  } -ArgumentList $logFile, $progressPath, $pollSec, $config.buildId
+  } -ArgumentList $logFile, $progressPath, $statusPath, $cancelPath, $pollSec, $config.buildId
   try {
     # Do NOT use Start-Process -NoNewWindow -Wait: PowerShell 5.1 hangs indefinitely
     # in headless SYSTEM sessions even after cmd.exe exits. Use -PassThru + WaitForExit() instead.
     $p = Start-Process -FilePath "cmd.exe" -ArgumentList @("/c", $batchPath) -PassThru
-    $p.WaitForExit()
+    while (-not $p.WaitForExit(5000)) {
+      if (Test-Path $cancelPath) {
+        Write-WorkerStatus -Status "cancelling" -Stage "compile" -Details @{ childPid = $p.Id }
+        try { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue } catch {}
+        "cancelled by orchestrator during compile $((Get-Date).ToUniversalTime().ToString('o'))" | Set-Content -Path $cancelledPath -Encoding UTF8
+        throw "cancelled by orchestrator during compile"
+      }
+    }
     if ($p.ExitCode -ne 0) {
       throw "Build command failed with exit $($p.ExitCode) - see $logFile"
     }
@@ -306,22 +399,25 @@ $commonPatches = @(Get-ChildItem (Join-Path $patchRoot "common") -Filter *.patch
 $winPatches = @(Get-ChildItem (Join-Path $patchRoot "windows") -Filter *.patch -ErrorAction SilentlyContinue | Sort-Object Name)
 
 $source = $null
+Write-WorkerStatus -Status "running" -Stage "source-prepare"
 if ($config.useCleanCheckout -eq $true) {
   $cleanRoot = $config.cleanSourceRoot
   $reuseCheckout = $false
   if ($null -ne $config.PSObject.Properties["reuseCheckout"]) {
     $reuseCheckout = [bool]$config.reuseCheckout
   }
-  if ((Test-Path $cleanRoot) -and -not $reuseCheckout) {
-    Remove-Item -Recurse -Force $cleanRoot
-  }
+	  if ((Test-Path $cleanRoot) -and -not $reuseCheckout) {
+	    Write-CacheState -State "source-clean" -Reason "reuseCheckout=false"
+	    Remove-Item -Recurse -Force $cleanRoot
+	  }
   New-Item -ItemType Directory -Force -Path (Split-Path $cleanRoot) | Out-Null
   Invoke-Git config --global core.longpaths true
 
   $commit = $config.webkitCommit
   $sparse = @($config.sparseCheckoutPaths)
-  if ((Test-Path (Join-Path $cleanRoot ".git")) -and $reuseCheckout) {
-    Write-Host "Reusing existing checkout: $cleanRoot"
+	  if ((Test-Path (Join-Path $cleanRoot ".git")) -and $reuseCheckout) {
+	    Write-CacheState -State "source-reuse" -Reason "reuseCheckout=true" -Details @{ source = $cleanRoot }
+	    Write-Host "Reusing existing checkout: $cleanRoot"
     Set-Location $cleanRoot
     Remove-StaleGitLocks $cleanRoot
     Invoke-Git sparse-checkout disable
@@ -351,18 +447,20 @@ if ($config.useCleanCheckout -eq $true) {
   if ($head -ne $commit) {
     throw "HEAD $head does not match pinned commit $commit"
   }
-  $source = $cleanRoot
-} else {
+	  $source = $cleanRoot
+	} else {
   $source = $config.legacySourceRoot
   if (-not (Test-Path (Join-Path $source ".git"))) {
     throw "legacySourceRoot is not a git clone: $source"
   }
   Invoke-Git config --global core.longpaths true
   Set-Location $source
-}
+	}
+Assert-NotCancelled -Stage "source-prepare"
 
 Set-Location $source
 
+Write-WorkerStatus -Status "running" -Stage "patch-apply"
 $patchRecords = @()
 foreach ($p in ($commonPatches + $winPatches)) {
   Write-Host "Applying $($p.FullName)"
@@ -375,7 +473,8 @@ foreach ($p in ($commonPatches + $winPatches)) {
     Write-Host "Skipping already-applied patch $($p.Name)"
   } else {
     Invoke-Git apply --whitespace=nowarn $p.FullName
-  }
+	}
+Assert-NotCancelled -Stage "patch-apply"
   $h = Get-FileHash $p.FullName -Algorithm SHA256
   $patchRecords += @{ name = $p.Name; sha256 = $h.Hash }
 }
@@ -402,8 +501,10 @@ if ($null -ne $config.PSObject.Properties["preserveBuildDir"]) {
   $preserveBuildDir = [bool]$config.preserveBuildDir
 }
 if ((Test-Path $buildDir) -and -not $preserveBuildDir) {
+  Write-CacheState -State "cleaning" -Reason "preserveBuildDir=false" -Details @{ buildDir = $buildDir }
   Remove-Item -Recurse -Force $buildDir
 } elseif ((Test-Path $buildDir) -and $preserveBuildDir) {
+  Write-CacheState -State "preserve-requested" -Reason "preserveBuildDir=true" -Details @{ buildDir = $buildDir }
   Write-Host "Preserving existing build directory for fast retry: $buildDir"
   $existingCache = Join-Path $config.outputDir "CMakeCache.txt"
   $existingNinja = Join-Path $config.outputDir "build.ninja"
@@ -412,7 +513,7 @@ if ((Test-Path $buildDir) -and -not $preserveBuildDir) {
     $existingNinjaText = if (Test-Path $existingNinja) { Get-Content $existingNinja -Raw } else { "" }
     $sccacheExeName = Split-Path -Leaf $config.sccacheExe
     $sccacheForNinja = ([string]$config.sccacheExe).Replace('\', '/')
-    $repairedNinjaText = $existingNinjaText.Replace('C:\Strawberry\c\bin\ccache.exe', $sccacheForNinja).Replace('C:/Strawberry/c/bin/ccache.exe', $sccacheForNinja)
+    $repairedNinjaText = $existingNinjaText -replace '(?m)^(\s*LAUNCHER\s*=\s*)(.*[\\/])?ccache(\.exe)?\s*$', "`$1$sccacheForNinja"
     if ($repairedNinjaText -ne $existingNinjaText) {
       Write-Host "Repairing preserved build.ninja ccache launcher entries to $sccacheForNinja"
       $existingNinjaText = $repairedNinjaText
@@ -421,15 +522,23 @@ if ((Test-Path $buildDir) -and -not $preserveBuildDir) {
     $hasSccacheLauncher = $existingCacheText -match 'CMAKE_C_COMPILER_LAUNCHER' -and $existingCacheText -match 'CMAKE_CXX_COMPILER_LAUNCHER' -and ($existingCacheText -match [regex]::Escape($sccacheExeName) -or $existingNinjaText -match [regex]::Escape($sccacheExeName))
     $usesKnownBadLauncher = $existingCacheText -match 'CMAKE_(C|CXX)_COMPILER_LAUNCHER[^\r\n]*(C:\\Strawberry\\c\\bin\\ccache\.exe|C:/Strawberry/c/bin/ccache\.exe)' -or $existingNinjaText -match '(C:\\Strawberry\\c\\bin\\ccache\.exe|C:/Strawberry/c/bin/ccache\.exe)'
     if (-not $hasSccacheLauncher -or $usesKnownBadLauncher) {
+      Write-CacheState -State "invalid" -Reason "compiler launcher mismatch" -Details @{ hasSccacheLauncher = $hasSccacheLauncher; usesKnownBadLauncher = $usesKnownBadLauncher }
       throw "Refusing to preserve stale WebKitBuild: existing CMake/Ninja cache is not configured for $sccacheExeName or contains ccache.exe. Retry with preserveBuildDir=false."
     }
+    Write-CacheState -State "accepted" -Reason "preserved cache matches required sccache launcher" -Details @{ buildDir = $buildDir }
   }
+} else {
+  Write-CacheState -State "cold" -Reason "no existing WebKitBuild" -Details @{ buildDir = $buildDir }
 }
 
+Assert-NotCancelled -Stage "cache-preflight"
 Enable-SymlinkEvaluation
+Write-WorkerStatus -Status "running" -Stage "compile"
 Invoke-BuildCmd -VsDevCmd $config.vsDevCmdPath -WorkingDir $source -CmdLine $config.buildCommandLine
+Assert-NotCancelled -Stage "compile"
 
 $out = $config.outputDir
+Write-WorkerStatus -Status "running" -Stage "post-build-validation"
 if (-not (Test-Path $out)) {
   throw "Expected output directory missing: $out"
 }
@@ -487,7 +596,7 @@ if ($null -ne $config.PSObject.Properties["enableSccache"] -and [bool]$config.en
     cacheHitsRate = $sccacheHitRateStats
     statsLine = $sccacheStats
   }
-  $sccacheReport | ConvertTo-Json -Depth 4 | Set-Content -Path (Join-Path $artDir "sccache-report.json") -Encoding UTF8
+	$sccacheReport | ConvertTo-Json -Depth 4 | Set-Content -Path (Join-Path $artDir "sccache-report.json") -Encoding UTF8
   if (-not $cacheHasLauncher) {
     throw "sccache was requested but CMakeCache.txt does not contain CMAKE_*_COMPILER_LAUNCHER=$($config.sccacheExe)."
   }
@@ -552,6 +661,7 @@ if ($webgpuEnabled) {
 }
 
 # --- Validation phase: LoadLibrary deps check + MiniBrowser runtime probe ---
+Write-WorkerStatus -Status "running" -Stage "runtime-validation"
 function Test-DllLoad {
   param([string]$Path)
   Add-Type -MemberDefinition @"
@@ -917,6 +1027,7 @@ if ($phase -ge 2 -and $webgpuEnabled) {
   }
 }
 
+Write-WorkerStatus -Status "running" -Stage "package"
 $cmakeCacheSummaryPath = Join-Path $config.workdir "cmake-cache-summary.txt"
 @($cmakeLines) | Set-Content -Path $cmakeCacheSummaryPath -Encoding UTF8
 
@@ -957,3 +1068,5 @@ if (-not (Test-Path $archivePath)) {
   throw "Archive creation failed: $archivePath"
 }
 Write-Host "Archive created: $archivePath"
+Write-CacheState -State "green-candidate" -Reason "build and packaging completed" -Details @{ buildDir = $buildDir; outputDir = $out }
+Write-WorkerStatus -Status "succeeded" -Stage "package" -Details @{ archive = $archivePath; artifactDir = $artDir }

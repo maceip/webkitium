@@ -232,6 +232,8 @@ export NG_FAST_RETRY="$FAST_RETRY"
 export NG_REUSE_CHECKOUT="$REUSE_CHECKOUT"
 export NG_PRESERVE_BUILD_DIR="$PRESERVE_BUILD_DIR"
 export NG_BUILD_PHASE="${NG_BUILD_PHASE:-0}"
+export NG_CONTROL_PROFILE_HASH="${NG_CONTROL_PROFILE_HASH:-}"
+export NG_CONTROL_LANE="${NG_CONTROL_LANE:-windows/default}"
 # Default cone sparse roots (BUILD_LAW.md): overrides WebKit's bundled .git/config.worktree
 # sparse pattern (otherwise only repo-root files appear). Export NG_WINDOWS_SPARSE_PATHS to override;
 # use `export NG_WINDOWS_SPARSE_PATHS=` for an explicit empty list (full-tree path in remote-build.ps1).
@@ -314,6 +316,10 @@ cfg = {
     "sccacheDir": os.environ["NG_SCCACHE_DIR"],
     "toolbin": os.environ["NG_TOOLBIN"],
     "patchManifest": "patch-manifest.json",
+    "control": {
+        "profileHash": os.environ.get("NG_CONTROL_PROFILE_HASH", ""),
+        "lane": os.environ.get("NG_CONTROL_LANE", "windows/default"),
+    },
     "reuseCheckout": reuse_checkout,
     "preserveBuildDir": preserve_build_dir,
     "fastRetry": fast_retry,
@@ -384,6 +390,8 @@ log "Windows SSM bootstrap command: $COMMAND_ID (detached worker; real build pol
   echo "WINDOWS_SSM_INSTANCE_ID=$INSTANCE_ID"
   echo "AWS_REGION=$REGION"
   echo "WINDOWS_BUILD_POLL_WORKDIR=$WORKDIR"
+  echo "WINDOWS_CONTROL_PROFILE_HASH=${NG_CONTROL_PROFILE_HASH:-}"
+  echo "WINDOWS_CONTROL_LANE=${NG_CONTROL_LANE:-windows/default}"
 } >"$NG_VAR_DIR/WINDOWS_ACTIVE_BUILD.env"
 
 aws ssm wait command-executed --region "$REGION" --command-id "$COMMAND_ID" --instance-id "$INSTANCE_ID"

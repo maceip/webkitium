@@ -120,14 +120,33 @@ $d = '__WD__'
 if (Test-Path (Join-Path $d 'BUILD_DONE.txt')) {
   Write-Output 'DONE'
   Get-Content (Join-Path $d 'BUILD_DONE.txt') -Raw
+  if (Test-Path (Join-Path $d 'status.json')) { Write-Output ('WORKER_STATUS_JSON ' + ((Get-Content (Join-Path $d 'status.json') -Raw) -replace '[\r\n]+', ' ')) }
+  if (Test-Path (Join-Path $d 'artifact-validity.json')) { Write-Output ('WORKER_ARTIFACT_VALIDITY_JSON ' + ((Get-Content (Join-Path $d 'artifact-validity.json') -Raw) -replace '[\r\n]+', ' ')) }
 } elseif (Test-Path (Join-Path $d 'BUILD_FAILED.txt')) {
   Write-Output 'FAIL'
   Get-Content (Join-Path $d 'BUILD_FAILED.txt') -Raw
+  if (Test-Path (Join-Path $d 'status.json')) { Write-Output ('WORKER_STATUS_JSON ' + ((Get-Content (Join-Path $d 'status.json') -Raw) -replace '[\r\n]+', ' ')) }
+  if (Test-Path (Join-Path $d 'cache-state.json')) { Write-Output ('WORKER_CACHE_JSON ' + ((Get-Content (Join-Path $d 'cache-state.json') -Raw) -replace '[\r\n]+', ' ')) }
+} elseif (Test-Path (Join-Path $d 'BUILD_CANCELLED.txt')) {
+  Write-Output 'CANCELLED'
+  Get-Content (Join-Path $d 'BUILD_CANCELLED.txt') -Raw
+  if (Test-Path (Join-Path $d 'status.json')) { Write-Output ('WORKER_STATUS_JSON ' + ((Get-Content (Join-Path $d 'status.json') -Raw) -replace '[\r\n]+', ' ')) }
 } else {
-  Write-Output 'RUNNING'
-  $art = Join-Path $d 'artifacts'
-  if (Test-Path $art) { Write-Output 'ARTIFACTS_OK' } else { Write-Output 'ARTIFACTS_MISSING' }
-  $compileLine = 'COMPILE_OK'
+	  Write-Output 'RUNNING'
+	  $art = Join-Path $d 'artifacts'
+	  if (Test-Path $art) { Write-Output 'ARTIFACTS_OK' } else { Write-Output 'ARTIFACTS_MISSING' }
+	  foreach ($pair in @(
+	    @('WORKER_STATUS_JSON', (Join-Path $d 'status.json')),
+	    @('WORKER_PROGRESS_JSON', (Join-Path $art 'build-progress.json')),
+	    @('WORKER_CACHE_JSON', (Join-Path $d 'cache-state.json')),
+	    @('WORKER_ARTIFACT_VALIDITY_JSON', (Join-Path $d 'artifact-validity.json'))
+	  )) {
+	    if (Test-Path $pair[1]) {
+	      $raw = Get-Content $pair[1] -Raw -ErrorAction SilentlyContinue
+	      if ($raw) { Write-Output ($pair[0] + ' ' + ($raw -replace '[\r\n]+', ' ')) }
+	    }
+	  }
+	  $compileLine = 'COMPILE_OK'
   $progressLine = ''
   $snip = ''
   $parts = New-Object System.Collections.Generic.List[string]
@@ -175,13 +194,25 @@ d='{wd}'
 if [ -f "$d/BUILD_DONE.txt" ]; then
   echo DONE
   cat "$d/BUILD_DONE.txt"
+  [ -f "$d/status.json" ] && printf 'WORKER_STATUS_JSON %s\n' "$(tr '\r\n' ' ' <"$d/status.json")"
+  [ -f "$d/artifact-validity.json" ] && printf 'WORKER_ARTIFACT_VALIDITY_JSON %s\n' "$(tr '\r\n' ' ' <"$d/artifact-validity.json")"
 elif [ -f "$d/BUILD_FAILED.txt" ]; then
-  echo FAIL
-  cat "$d/BUILD_FAILED.txt"
-else
-  echo RUNNING
-  if [ -d "$d/artifacts" ]; then echo ARTIFACTS_OK; else echo ARTIFACTS_MISSING; fi
-fi
+	  echo FAIL
+	  cat "$d/BUILD_FAILED.txt"
+	  [ -f "$d/status.json" ] && printf 'WORKER_STATUS_JSON %s\n' "$(tr '\r\n' ' ' <"$d/status.json")"
+	  [ -f "$d/cache-state.json" ] && printf 'WORKER_CACHE_JSON %s\n' "$(tr '\r\n' ' ' <"$d/cache-state.json")"
+	elif [ -f "$d/BUILD_CANCELLED.txt" ]; then
+	  echo CANCELLED
+	  cat "$d/BUILD_CANCELLED.txt"
+	  [ -f "$d/status.json" ] && printf 'WORKER_STATUS_JSON %s\n' "$(tr '\r\n' ' ' <"$d/status.json")"
+	else
+	  echo RUNNING
+	  if [ -d "$d/artifacts" ]; then echo ARTIFACTS_OK; else echo ARTIFACTS_MISSING; fi
+	  [ -f "$d/status.json" ] && printf 'WORKER_STATUS_JSON %s\n' "$(tr '\r\n' ' ' <"$d/status.json")"
+	  [ -f "$d/artifacts/build-progress.json" ] && printf 'WORKER_PROGRESS_JSON %s\n' "$(tr '\r\n' ' ' <"$d/artifacts/build-progress.json")"
+	  [ -f "$d/cache-state.json" ] && printf 'WORKER_CACHE_JSON %s\n' "$(tr '\r\n' ' ' <"$d/cache-state.json")"
+	  [ -f "$d/artifact-validity.json" ] && printf 'WORKER_ARTIFACT_VALIDITY_JSON %s\n' "$(tr '\r\n' ' ' <"$d/artifact-validity.json")"
+	fi
 """
 print(json.dumps({"commands": [script]}))
 PY
@@ -224,6 +255,11 @@ PY
           "$(echo "$out" | head -c 4000)"
         echo "$out"
         return 1
+        ;;
+      CANCELLED)
+        log "Remote build cancelled (BUILD_CANCELLED.txt on builder)."
+        echo "$out"
+        return 130
         ;;
       RUNNING)
         running_polls=$((running_polls + 1))

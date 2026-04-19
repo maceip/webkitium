@@ -60,7 +60,7 @@
     th, td { text-align: left; padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--border); vertical-align: top; }
     th { color: var(--muted); font-weight: 500; }
     tr:hover td { background: rgba(255,255,255,0.03); }
-    .st-running { color: var(--warn); }
+    .st-running, .st-cancelling { color: var(--warn); }
     .st-succeeded { color: var(--ok); }
     .st-failed, .st-cancelled { color: var(--bad); }
     .st-unknown { color: var(--muted); }
@@ -214,6 +214,7 @@
 
     function statusClass(s) {
       if (s === 'running') return 'st-running';
+      if (s === 'cancelling') return 'st-cancelling';
       if (s === 'succeeded') return 'st-succeeded';
       if (s === 'failed' || s === 'cancelled') return 'st-failed';
       if (s === 'unknown') return 'st-unknown';
@@ -253,11 +254,15 @@
         return;
       }
       const rows = builds.map((b) => {
-        const plats = (b.platforms || []).map((p) => {
-          const logUrl = '/builds/' + encodeURIComponent(b.id) + '/logs/' + encodeURIComponent(p.name) + '?tail=4000';
-          const inf = p.externalInference ? ' <span class="sub" title="' + esc(p.externalInference) + '">(' + esc(p.externalInference).slice(0, 40) + (p.externalInference.length > 40 ? '…' : '') + ')</span>' : '';
-          return '<div><span class="' + statusClass(p.status) + '">' + esc(p.name) + ': ' + esc(p.status) + '</span>' + inf + ' · <a href="' + logUrl + '" target="_blank" rel="noopener">full log</a> · <button type="button" class="secondary" data-log="' + esc(b.id) + '" data-platform="' + esc(p.name) + '">Preview</button></div>';
-        }).join('');
+	      const plats = (b.platforms || []).map((p) => {
+	          const logUrl = '/builds/' + encodeURIComponent(b.id) + '/logs/' + encodeURIComponent(p.name) + '?tail=4000';
+	          const inf = p.externalInference ? ' <span class="sub" title="' + esc(p.externalInference) + '">(' + esc(p.externalInference).slice(0, 40) + (p.externalInference.length > 40 ? '…' : '') + ')</span>' : '';
+	          const prog = p.progress && p.progress.lastLine ? ' <span class="sub">' + esc(p.progress.lastLine) + '</span>' : '';
+	          const stage = p.remote && p.remote.stage ? ' <span class="sub">stage=' + esc(p.remote.stage) + '</span>' : '';
+	          const cache = p.cache && p.cache.state ? ' <span class="sub">cache=' + esc(p.cache.state) + '</span>' : '';
+	          const art = p.artifactValidity ? ' <span class="sub">artifacts=' + esc(p.artifactValidity.valid ? 'valid' : 'invalid') + '</span>' : '';
+	          return '<div><span class="' + statusClass(p.status) + '">' + esc(p.name) + ': ' + esc(p.status) + '</span>' + inf + stage + prog + cache + art + ' · <a href="' + logUrl + '" target="_blank" rel="noopener">full log</a> · <button type="button" class="secondary" data-log="' + esc(b.id) + '" data-platform="' + esc(p.name) + '">Preview</button></div>';
+	        }).join('');
         return '<tr><td class="mono">' + esc(b.id) + '</td><td class="' + statusClass(b.status) + '">' + esc(b.status) + '</td><td>' + esc(b.createdAt || '') + '</td><td>' + esc(b.reason || '—') + '</td><td>' + plats + '</td><td class="actions">' +
           '<a href="/builds/' + encodeURIComponent(b.id) + '" target="_blank">JSON</a> ' +
           '<button type="button" class="secondary" data-restart="' + esc(b.id) + '">Restart</button>' +
