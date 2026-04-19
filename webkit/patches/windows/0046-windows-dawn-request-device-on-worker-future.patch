@@ -1,0 +1,22 @@
+diff --git a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
+index 6d7769f..3e3be8a 100644
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
+@@ -271,9 +271,15 @@ void AdapterImpl::requestDevice(const DeviceDescriptor& descriptor, CompletionHa
+         asyncDeviceDescriptor.label = DawnCompat::toDawnStringView(label);
+         asyncDeviceDescriptor.defaultQueue.label = DawnCompat::toDawnStringView(queueLabel);
+ 
+-        WGPUDevice device = wgpuAdapterCreateDevice(adapter, &asyncDeviceDescriptor);
++        auto instance = data->instance;
++        WGPURequestDeviceCallbackInfo callbackInfo { };
++        callbackInfo.mode = WGPUCallbackMode_AllowProcessEvents;
++        callbackInfo.callback = dawnRequestDeviceCallback;
++        callbackInfo.userdata1 = data.release();
++
++        auto future = wgpuAdapterRequestDevice(adapter, &asyncDeviceDescriptor, callbackInfo);
++        DawnCompat::waitForFuture(instance, future);
+         wgpuAdapterRelease(adapter);
+-        completeDawnRequestDeviceOnMainThread(WTF::move(data), device ? WGPURequestDeviceStatus_Success : WGPURequestDeviceStatus_Error, device);
+     }).detach();
+ #else
+     auto label = descriptor.label.utf8();
