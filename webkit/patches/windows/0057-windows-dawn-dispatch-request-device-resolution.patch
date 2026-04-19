@@ -1,0 +1,26 @@
+diff --git a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
+index 9b716caa9cd2..a9e7f3790771 100644
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
+@@ -303,7 +303,9 @@ void AdapterImpl::requestDevice(const DeviceDescriptor& descriptor, CompletionHa
+     wgpuAdapterRelease(adapter);
+ 
+     if (!request.succeeded || !request.device) {
+-        callback(nullptr);
++        RunLoop::mainSingleton().dispatch([callback = WTF::move(callback)] mutable {
++            callback(nullptr);
++        });
+         return;
+     }
+ 
+@@ -313,7 +315,9 @@ void AdapterImpl::requestDevice(const DeviceDescriptor& descriptor, CompletionHa
+     auto backing = adoptWebGPU(request.device);
+     RefPtr<Device> wrappedDevice = DeviceImpl::create(WTF::move(backing), WTF::move(features), WTF::move(limits), m_convertToBackingContext.copyRef(), m_dawnInstance);
+     logDawnRequestDeviceWrapped("sync: created DeviceImpl", wrappedDevice.get());
+-    callback(WTF::move(wrappedDevice));
++    RunLoop::mainSingleton().dispatch([callback = WTF::move(callback), wrappedDevice = WTF::move(wrappedDevice)] mutable {
++        callback(WTF::move(wrappedDevice));
++    });
+ #else
+     auto label = descriptor.label.utf8();
+ 
