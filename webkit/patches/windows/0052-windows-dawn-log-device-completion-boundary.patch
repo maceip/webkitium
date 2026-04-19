@@ -1,0 +1,36 @@
+diff --git a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
+index f4d8652..2fd036b 100644
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
+@@ -224,16 +224,31 @@ static void logDawnRequestDeviceStatus(const DawnCompat::DeviceRequestResult& re
+     stream << std::endl;
+ }
+ 
++static void logDawnRequestDeviceBoundary(const char* message, bool succeeded, WGPUDevice device)
++{
++    std::ofstream stream("C:\\Windows\\Temp\\webkitium-dawn-request-device.log", std::ios::app);
++    if (!stream)
++        return;
++
++    stream << message << " succeeded=" << succeeded << " device=" << device << std::endl;
++}
++
+ static void completeDawnRequestDeviceOnMainThread(std::unique_ptr<DawnRequestDeviceUserdata>&& data, bool succeeded, WGPUDevice device)
+ {
+     RunLoop::mainSingleton().dispatch([data = WTF::move(data), succeeded, device] mutable {
++        logDawnRequestDeviceBoundary("complete: entered", succeeded, device);
+         if (!succeeded || !device) {
++            logDawnRequestDeviceBoundary("complete: callback null", succeeded, device);
+             data->callback(nullptr);
+             return;
+         }
++        logDawnRequestDeviceBoundary("complete: reading device features", succeeded, device);
+         auto features = DawnCompat::supportedFeaturesFromDevice(device);
++        logDawnRequestDeviceBoundary("complete: reading device limits", succeeded, device);
+         auto limits = DawnCompat::supportedLimitsFromDevice(device);
++        logDawnRequestDeviceBoundary("complete: creating DeviceImpl", succeeded, device);
+         auto backing = adoptWebGPU(device);
++        logDawnRequestDeviceBoundary("complete: callback DeviceImpl", succeeded, device);
+         data->callback(DeviceImpl::create(WTF::move(backing), WTF::move(features), WTF::move(limits), data->convertToBackingContext.copyRef(), data->instance));
+     });
+ }
