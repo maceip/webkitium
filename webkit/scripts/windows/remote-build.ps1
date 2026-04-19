@@ -351,8 +351,10 @@ $patchRecords = @()
 foreach ($p in ($commonPatches + $winPatches)) {
   Write-Host "Applying $($p.FullName)"
   $wgslCMake = Join-Path $source "Source\WebGPU\WGSL\CMakeLists.txt"
-  if ($p.Name -eq "0005-windows-wgsl-generator-three-args.patch" -and (Test-Path $wgslCMake) -and (Select-String -Path $wgslCMake -Pattern "TypeOverloads.h" -Quiet)) {
+  if ($p.Name -like "*wgsl-generator-three-args.patch" -and (Test-Path $wgslCMake) -and (Select-String -Path $wgslCMake -Pattern "TypeOverloads.h" -Quiet)) {
     Write-Host "Skipping $($p.Name); WGSL generator already emits TypeOverloads.h"
+  } elseif ($p.Name -like "*wgslc-iovalidator.patch" -and (Test-Path $wgslCMake) -and (Select-String -Path $wgslCMake -Pattern "IOValidator.cpp" -Quiet)) {
+    Write-Host "Skipping $($p.Name); wgslc already includes IOValidator.cpp"
   } elseif (Test-Git apply --check --reverse $p.FullName) {
     Write-Host "Skipping already-applied patch $($p.Name)"
   } else {

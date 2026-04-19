@@ -46,7 +46,7 @@ fi
 # limits a single line to ~8191 chars (generate-serializers.py with many .serialization.in paths).
 # Default C:/W/n<hash> keeps per-path prefixes small. Override with NG_WINDOWS_CLEAN_SOURCE.
 if [[ -z "${NG_WINDOWS_CLEAN_SOURCE+x}" && "$FAST_RETRY" == "1" ]]; then
-  CLEAN_SOURCE="C:/W/webkitium-fast"
+  CLEAN_SOURCE="$(webkitium_windows_fast_clean_source)"
 elif [[ -z "${NG_WINDOWS_CLEAN_SOURCE+x}" ]]; then
   _wk_short="$(printf '%s' "$ID" | md5sum | awk '{print substr($1,1,14)}')"
   CLEAN_SOURCE="C:/W/n${_wk_short}"
@@ -166,8 +166,27 @@ for change_index, change in enumerate(changes):
             else:
                 shutil.copy2(root / patch, target)
 PY
-cp -a "$NG_ROOT/webkit/patches/common/." "$STAGE/patches/common/" 2>/dev/null || true
-cp -a "$NG_ROOT/webkit/patches/windows/." "$STAGE/patches/windows/" 2>/dev/null || true
+stage_root_patches() {
+  local bucket="$1"
+  local source_prefix="webkit/patches/$bucket"
+  local target_dir="$STAGE/patches/$bucket"
+  mkdir -p "$target_dir"
+
+  if [[ "$NG_WINDOWS_PATCH_SOURCE" == "committed" ]]; then
+    git -C "$NG_ROOT" ls-tree -r --name-only HEAD -- "$source_prefix" | while IFS= read -r patch; do
+      case "$patch" in
+        *.patch|*.diff)
+          git -C "$NG_ROOT" show "HEAD:$patch" > "$target_dir/$(basename "$patch")"
+          ;;
+      esac
+    done
+  else
+    cp -a "$NG_ROOT/$source_prefix/." "$target_dir/" 2>/dev/null || true
+  fi
+}
+
+stage_root_patches common
+stage_root_patches windows
 cp "$SCRIPT_DIR/remote-build.ps1" "$STAGE/"
 cp "$SCRIPT_DIR/ssm-worker.ps1" "$STAGE/"
 

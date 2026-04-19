@@ -93,6 +93,10 @@ build_id() {
   printf '%s-%s' "$(date -u +%Y%m%dT%H%M%SZ)" "$RANDOM"
 }
 
+webkitium_windows_fast_clean_source() {
+  printf '%s' "${NG_WINDOWS_FAST_CLEAN_SOURCE:-C:/W/webkitium-fast}"
+}
+
 # Generic SSM marker poller: poll BUILD_DONE.txt / BUILD_FAILED.txt on a remote instance.
 # Args: workdir instance region document_name [max_seconds] [interval]
 # document_name: "AWS-RunPowerShellScript" for Windows, "AWS-RunShellScript" for macOS/Linux.
