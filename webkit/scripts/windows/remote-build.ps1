@@ -309,6 +309,7 @@ if ($config.useCleanCheckout -eq $true) {
   if ((Test-Path (Join-Path $cleanRoot ".git")) -and $reuseCheckout) {
     Write-Host "Reusing existing checkout: $cleanRoot"
     Set-Location $cleanRoot
+    Invoke-Git sparse-checkout disable
     Invoke-Git fetch origin $commit
     Invoke-Git reset --hard $commit
     Invoke-Git clean -fdx -e WebKitBuild/
