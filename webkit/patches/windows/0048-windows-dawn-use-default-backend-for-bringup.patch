@@ -1,0 +1,13 @@
+diff --git a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUImpl.cpp
+index 2420ff0..b06ec9b 100644
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUImpl.cpp
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUImpl.cpp
+@@ -97,7 +97,7 @@ void GPUImpl::requestAdapter(const RequestAdapterOptions& options, CompletionHan
+         .featureLevel = WGPUFeatureLevel_Undefined,
+         .powerPreference = options.powerPreference ? convertToBackingContext->convertToBacking(*options.powerPreference) : static_cast<WGPUPowerPreference>(WGPUPowerPreference_Undefined),
+         .forceFallbackAdapter = options.forceFallbackAdapter,
+-        .backendType = WGPUBackendType_D3D12,
++        .backendType = WGPUBackendType_Undefined,
+         .compatibleSurface = nullptr,
+     };
+ #else
