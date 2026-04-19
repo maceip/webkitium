@@ -834,6 +834,13 @@ $listenerScript = {
 }
 $listenerJob = Start-Job -ScriptBlock $listenerScript -ArgumentList $probePort
 
+foreach ($nativeLog in @(
+  "C:\Windows\Temp\webkitium-dawn-request-device.log",
+  "C:\Windows\Temp\webkitium-webcore-request-device.log"
+)) {
+  Remove-Item $nativeLog -Force -ErrorAction SilentlyContinue
+}
+
 # Launch MiniBrowser
 try {
   $mbProc = Start-Process -FilePath $mb -ArgumentList $testHtmlUrl -PassThru -WindowStyle Hidden

@@ -1,0 +1,36 @@
+diff --git a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
+index bb8b1b1..f4d8652 100644
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
+@@ -224,10 +224,10 @@ static void logDawnRequestDeviceStatus(const DawnCompat::DeviceRequestResult& re
+     stream << std::endl;
+ }
+ 
+-static void completeDawnRequestDeviceOnMainThread(std::unique_ptr<DawnRequestDeviceUserdata>&& data, WGPURequestDeviceStatus status, WGPUDevice device)
++static void completeDawnRequestDeviceOnMainThread(std::unique_ptr<DawnRequestDeviceUserdata>&& data, bool succeeded, WGPUDevice device)
+ {
+-    RunLoop::mainSingleton().dispatch([data = WTF::move(data), status, device] mutable {
+-        if (status != WGPURequestDeviceStatus_Success || !device) {
++    RunLoop::mainSingleton().dispatch([data = WTF::move(data), succeeded, device] mutable {
++        if (!succeeded || !device) {
+             data->callback(nullptr);
+             return;
+         }
+@@ -246,7 +246,7 @@ static void dawnRequestDeviceCallback(WGPURequestDeviceStatus status, WGPUDevice
+     if (!data)
+         return;
+ #if PLATFORM(WIN)
+-    completeDawnRequestDeviceOnMainThread(WTF::move(data), status, device);
++    completeDawnRequestDeviceOnMainThread(WTF::move(data), status == WGPURequestDeviceStatus_Success, device);
+ #else
+     if (status != WGPURequestDeviceStatus_Success || !device) {
+         data->callback(nullptr);
+@@ -273,7 +273,7 @@ void AdapterImpl::requestDevice(const DeviceDescriptor& descriptor, CompletionHa
+         auto request = DawnCompat::adapterRequestDeviceSync(instance, adapter, label, queueLabel);
+         logDawnRequestDeviceStatus(request);
+         wgpuAdapterRelease(adapter);
+-        completeDawnRequestDeviceOnMainThread(WTF::move(data), request.succeeded ? WGPURequestDeviceStatus_Success : WGPURequestDeviceStatus_Error, request.device);
++        completeDawnRequestDeviceOnMainThread(WTF::move(data), request.succeeded, request.device);
+     }).detach();
+ #else
+     auto label = descriptor.label.utf8();
