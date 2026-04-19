@@ -1,0 +1,95 @@
+diff --git a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
+index 5d1db3a..f899794 100644
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
+@@ -34,8 +34,13 @@
+ #include <WebGPU/WebGPUExt.h>
+ #if !PLATFORM(WIN)
+ #include <wtf/BlockPtr.h>
++#else
++#include <wtf/RunLoop.h>
+ #endif
+ #include <wtf/TZoneMallocInlines.h>
++#if PLATFORM(WIN)
++#include <thread>
++#endif
+ 
+ namespace WebCore::WebGPU {
+ 
+@@ -206,11 +211,30 @@ struct DawnRequestDeviceUserdata {
+     WGPUInstance instance { nullptr };
+ };
+ 
++#if PLATFORM(WIN)
++static void completeDawnRequestDeviceOnMainThread(std::unique_ptr<DawnRequestDeviceUserdata>&& data, WGPURequestDeviceStatus status, WGPUDevice device)
++{
++    RunLoop::mainSingleton().dispatch([data = WTF::move(data), status, device] mutable {
++        if (status != WGPURequestDeviceStatus_Success || !device) {
++            data->callback(nullptr);
++            return;
++        }
++        auto features = DawnCompat::supportedFeaturesFromDevice(device);
++        auto limits = DawnCompat::supportedLimitsFromDevice(device);
++        auto backing = adoptWebGPU(device);
++        data->callback(DeviceImpl::create(WTF::move(backing), WTF::move(features), WTF::move(limits), data->convertToBackingContext.copyRef(), data->instance));
++    });
++}
++#endif
++
+ static void dawnRequestDeviceCallback(WGPURequestDeviceStatus status, WGPUDevice device, WGPUStringView, void* userdata1, void*)
+ {
+     std::unique_ptr<DawnRequestDeviceUserdata> data(static_cast<DawnRequestDeviceUserdata*>(userdata1));
+     if (!data)
+         return;
++#if PLATFORM(WIN)
++    completeDawnRequestDeviceOnMainThread(WTF::move(data), status, device);
++#else
+     if (status != WGPURequestDeviceStatus_Success || !device) {
+         data->callback(nullptr);
+         return;
+@@ -219,15 +243,13 @@ static void dawnRequestDeviceCallback(WGPURequestDeviceStatus status, WGPUDevice
+     auto limits = DawnCompat::supportedLimitsFromDevice(device);
+     auto backing = adoptWebGPU(device);
+     data->callback(DeviceImpl::create(WTF::move(backing), WTF::move(features), WTF::move(limits), data->convertToBackingContext.copyRef(), data->instance));
++#endif
+ }
+ 
+ void AdapterImpl::requestDevice(const DeviceDescriptor& descriptor, CompletionHandler<void(RefPtr<Device>&&)>&& callback)
+ {
+ #if PLATFORM(WIN)
+     auto utf8Label = descriptor.label.utf8();
+-    WGPUDeviceDescriptor deviceDescriptor { };
+-    deviceDescriptor.label = DawnCompat::toDawnStringView(utf8Label);
+-    deviceDescriptor.defaultQueue.label = DawnCompat::toDawnStringView(CString("default"_s));
+ 
+     auto* userdata = new DawnRequestDeviceUserdata {
+         WTF::move(callback),
+@@ -235,12 +257,23 @@ void AdapterImpl::requestDevice(const DeviceDescriptor& descriptor, CompletionHa
+         m_dawnInstance,
+     };
+ 
+-    WGPURequestDeviceCallbackInfo callbackInfo { };
+-    callbackInfo.mode = WGPUCallbackMode_AllowSpontaneous;
+-    callbackInfo.callback = dawnRequestDeviceCallback;
+-    callbackInfo.userdata1 = userdata;
++    auto adapter = m_backing.get();
++    if (!adapter) {
++        delete userdata;
++        callback(nullptr);
++        return;
++    }
++
++    std::unique_ptr<DawnRequestDeviceUserdata> data(userdata);
++    std::thread([adapter, label = WTF::move(utf8Label), data = WTF::move(data)] mutable {
++        auto queueLabel = CString("default"_s);
++        WGPUDeviceDescriptor asyncDeviceDescriptor { };
++        asyncDeviceDescriptor.label = DawnCompat::toDawnStringView(label);
++        asyncDeviceDescriptor.defaultQueue.label = DawnCompat::toDawnStringView(queueLabel);
+ 
+-    (void)wgpuAdapterRequestDevice(m_backing.get(), &deviceDescriptor, callbackInfo);
++        WGPUDevice device = wgpuAdapterCreateDevice(adapter, &asyncDeviceDescriptor);
++        completeDawnRequestDeviceOnMainThread(WTF::move(data), device ? WGPURequestDeviceStatus_Success : WGPURequestDeviceStatus_Error, device);
++    }).detach();
+ #else
+     auto label = descriptor.label.utf8();
+ 
