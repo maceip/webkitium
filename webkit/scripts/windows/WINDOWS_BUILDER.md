@@ -71,6 +71,8 @@ curl -X POST http://localhost:8787/builds \
 
 Or **`./webkit/scripts/common/run-windows-webgpu-dawn.sh <id>`** — wrapper that sets WebGPU preset + **`NG_WINDOWS_ENABLE_SCCACHE=1`**, then **`run-build.sh windows`**.
 
+**MiniBrowser gradient relaunch (short-path `C:/W/`, 2026-04-19):** use preset **`minibrowser-gradient-retry`** (see **`config/platforms.json`**) or the same keys via **`platformEnv`**. That keeps **`NG_WINDOWS_ENABLE_SCCACHE=1`**, **`NG_WINDOWS_REUSE_CHECKOUT=1`**, **`NG_WINDOWS_PRESERVE_BUILD_DIR=0`**, and pins **`NG_WINDOWS_CLEAN_SOURCE`** to the builder tree (sccache variant by default; override to **`C:/W/minibrowser-gradient-cmakeargs-20260419`** for the other run). **`build.sh`** already folds the required **`build-webkit --cmakeargs`**: **`clang-cl`** under **`C:/Progra~1/LLVM/bin/`** and **`CMAKE_*_COMPILER_LAUNCHER`** as **`C:/Bootstrap/toolbin/sccache.exe`** when sccache is on.
+
 ---
 
 ## 6. Script inventory (audited)
