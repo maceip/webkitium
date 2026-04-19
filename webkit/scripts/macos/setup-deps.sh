@@ -12,7 +12,7 @@ require_cmd python3
 REGION="${NG_MACOS_REGION:-eu-central-1}"
 INSTANCE_ID="${NG_MACOS_INSTANCE_ID:-i-092d7452a5deac519}"
 SOURCE="${NG_MACOS_SOURCE:-/Users/ec2-user/Work/WebKit}"
-BOOTSTRAP="${NG_MACOS_BOOTSTRAP:-/Users/ec2-user/ng-bootstrap}"
+BOOTSTRAP="${NG_MACOS_BOOTSTRAP:-/Users/ec2-user/webkitium-bootstrap}"
 
 PING="$(aws ssm describe-instance-information \
   --region "$REGION" \

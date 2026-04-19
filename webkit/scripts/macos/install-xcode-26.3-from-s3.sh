@@ -2,8 +2,8 @@
 # Run on macOS builder (root or sudo). Installs CLT 26.3 dmg + Xcode 26.3 xip from S3.
 set -euxo pipefail
 export HOME="${HOME:-/var/root}"
-WORKDIR="${WORKDIR:-/tmp/ng-xcode263-install}"
-BUCKET_PREFIX="${NG_MACOS_XCODE263_S3:-s3://cory-build-artifacts-euc1-095713295645-20260407/ng-webkit/macos/toolchain-xcode26.3-20260416}"
+WORKDIR="${WORKDIR:-/tmp/webkitium-xcode263-install}"
+BUCKET_PREFIX="${NG_MACOS_XCODE263_S3:-s3://cory-build-artifacts-euc1-095713295645-20260407/webkitium/macos/toolchain-xcode26.3-20260416}"
 mkdir -p "$WORKDIR"
 cd "$WORKDIR"
 

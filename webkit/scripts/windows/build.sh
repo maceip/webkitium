@@ -10,8 +10,8 @@ load_env
 ID="${1:-$(build_id)}"
 REGION="${AWS_REGION:-eu-west-1}"
 INSTANCE_ID="${NG_WINDOWS_INSTANCE_ID:-i-05ab9a8ed6d325b3d}"
-WORKDIR="${NG_WINDOWS_WORKDIR:-C:/Bootstrap/ng-webkit-$ID}"
-S3_PREFIX="${NG_WINDOWS_ARTIFACT_S3:-${NG_ARTIFACT_BUCKET:-s3://cory-build-artifacts-euc1-095713295645-20260407/ng-webkit}/windows/$ID}"
+WORKDIR="${NG_WINDOWS_WORKDIR:-C:/Bootstrap/webkitium-$ID}"
+S3_PREFIX="${NG_WINDOWS_ARTIFACT_S3:-${NG_ARTIFACT_BUCKET:-s3://cory-build-artifacts-euc1-095713295645-20260407/webkitium}/windows/$ID}"
 BOOTSTRAP="${NG_WINDOWS_BOOTSTRAP:-C:/Bootstrap}"
 TOOLBIN="${NG_WINDOWS_TOOLBIN:-C:/Bootstrap/toolbin}"
 RUBY="${NG_WINDOWS_RUBY:-C:/Ruby34-x64}"
@@ -46,7 +46,7 @@ fi
 # limits a single line to ~8191 chars (generate-serializers.py with many .serialization.in paths).
 # Default C:/W/n<hash> keeps per-path prefixes small. Override with NG_WINDOWS_CLEAN_SOURCE.
 if [[ -z "${NG_WINDOWS_CLEAN_SOURCE+x}" && "$FAST_RETRY" == "1" ]]; then
-  CLEAN_SOURCE="C:/W/ng-webkit-fast"
+  CLEAN_SOURCE="C:/W/webkitium-fast"
 elif [[ -z "${NG_WINDOWS_CLEAN_SOURCE+x}" ]]; then
   _wk_short="$(printf '%s' "$ID" | md5sum | awk '{print substr($1,1,14)}')"
   CLEAN_SOURCE="C:/W/n${_wk_short}"

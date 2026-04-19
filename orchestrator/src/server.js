@@ -28,7 +28,7 @@ function applyRepoEnv() {
 applyRepoEnv();
 
 /** Directory basename segments that imply state was pointed at a non-Webkitium checkout (still matched for sanitization). */
-const FOREIGN_NG_SEGMENTS = new Set(['WebKit-ng', 'webkit-ng']);
+const FOREIGN_NG_SEGMENTS = new Set(['WebKit-ng', 'webkit-ng', 'ng-webkit']);
 
 function pathHasForeignNgTreeSegment(p) {
   return resolve(p).split(/[/\\]/).some((seg) => FOREIGN_NG_SEGMENTS.has(seg));
@@ -364,7 +364,7 @@ function artifactPrefixForPlatform(id, platform, request) {
     ...normalizeStringRecord(request.env, 'env'),
     ...normalizeStringRecord(request.platformEnv?.[platform], `platformEnv.${platform}`)
   };
-  const bucket = env.NG_ARTIFACT_BUCKET || 's3://cory-build-artifacts-euc1-095713295645-20260407/ng-webkit';
+  const bucket = env.NG_ARTIFACT_BUCKET || 's3://cory-build-artifacts-euc1-095713295645-20260407/webkitium';
   if (platform === 'windows') return env.NG_WINDOWS_ARTIFACT_S3 || `${bucket}/windows/${id}`;
   if (platform === 'macos') return env.NG_MACOS_ARTIFACT_S3 || `${bucket}/macos/${id}`;
   if (platform === 'android') return env.NG_ANDROID_ARTIFACT_S3 || `${bucket}/android/${id}`;

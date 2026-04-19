@@ -3,7 +3,7 @@
   Provision a Webkitium Windows build host.
 
   This script is intentionally idempotent. It installs the toolchain locations
-  assumed by platforms/windows/build.sh and platforms/windows/remote-build.ps1:
+  assumed by webkit/scripts/windows/build.sh and webkit/scripts/windows/remote-build.ps1:
 
     C:\Program Files\Git\cmd
     C:\Ruby34-x64

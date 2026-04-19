@@ -128,7 +128,7 @@ PYEOF
 # --- Archive ---
 cp "$WORKDIR/manifest-pre.json" "$ARTDIR/"
 cp "$WORKDIR/manifest-post.json" "$ARTDIR/"
-TARPATH="$ARTDIR/ng-webkit-macos-$BUILD_ID.tar.gz"
+TARPATH="$ARTDIR/webkitium-macos-$BUILD_ID.tar.gz"
 echo "Creating archive..."
 tar -czf "$TARPATH" -C "$OUTPUT" .
 echo "Archive: $(du -h "$TARPATH" | awk '{print $1}')"

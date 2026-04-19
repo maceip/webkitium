@@ -49,7 +49,7 @@ NG_WINDOWS_ENABLE_WEBGPU=1 \
 - Builder: `i-05ab9a8ed6d325b3d`, `eu-west-1`
 - Green AMI: `ami-0151481223e75e08f`
 - Artifact prefix:
-  `s3://cory-build-artifacts-euc1-095713295645-20260407/ng-webkit/windows/dawn-api-compat39/`
+  `s3://cory-build-artifacts-euc1-095713295645-20260407/webkitium/windows/dawn-api-compat39/`
 - Compile result: all `[9558/9558]` targets linked.
 - Dawn load check: packaged Dawn runtime loads beside `MiniBrowser.exe`.
 - Manual MiniBrowser check: `navigator.gpu` exists and `requestAdapter()`
@@ -252,14 +252,14 @@ Reattach to the active Windows marker poll:
 List a completed build:
 
 ```bash
-aws s3 ls s3://cory-build-artifacts-euc1-095713295645-20260407/ng-webkit/windows/<build-id>/ \
+aws s3 ls s3://cory-build-artifacts-euc1-095713295645-20260407/webkitium/windows/<build-id>/ \
   --recursive --human-readable --summarize --region eu-central-1
 ```
 
 Inspect Dawn load validation:
 
 ```bash
-aws s3 cp s3://cory-build-artifacts-euc1-095713295645-20260407/ng-webkit/windows/<build-id>/validation-recovered.json - \
+aws s3 cp s3://cory-build-artifacts-euc1-095713295645-20260407/webkitium/windows/<build-id>/validation-recovered.json - \
   --region eu-central-1
 ```
 

@@ -9,7 +9,7 @@ load_env
 
 REGION="${NG_MACOS_REGION:-eu-central-1}"
 INSTANCE_ID="${NG_MACOS_INSTANCE_ID:-i-092d7452a5deac519}"
-BOOTSTRAP="${NG_MACOS_BOOTSTRAP:-/Users/ec2-user/ng-bootstrap}"
+BOOTSTRAP="${NG_MACOS_BOOTSTRAP:-/Users/ec2-user/webkitium-bootstrap}"
 XCODE_VER="${NG_XCODE_VERSION:-}"
 
 require_cmd aws

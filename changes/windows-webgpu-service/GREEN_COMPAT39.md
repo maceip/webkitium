@@ -11,16 +11,16 @@ This is the recovery note for the first green Windows WebGPU/Dawn build.
 - Source preset: `iangrunert-win-gigacage-skia-fixes`
 - Source repo: `https://github.com/iangrunert/WebKit.git`
 - Source commit: `64f58084c78130b874d05dbcfb508147354095af`
-- Workdir: `C:/Bootstrap/ng-webkit-dawn-api-compat39`
+- Workdir: `C:/Bootstrap/webkitium-dawn-api-compat39`
 - Source checkout: `C:/W/nec6421af80557e`
 - Result: `[9558/9558]` complete
 - Duration: `1h:16m:56s`
 
 ## Artifacts
 
-- Runtime/build artifact: `s3://cory-build-artifacts-euc1-095713295645-20260407/ng-webkit/windows/dawn-api-compat39`
+- Runtime/build artifact: `s3://cory-build-artifacts-euc1-095713295645-20260407/webkitium/windows/dawn-api-compat39`
 - Green AMI: `ami-0151481223e75e08f`
-- Green AMI name: `ng-webkit-win-dawn-green-20260417T124727Z`
+- Green AMI name: `webkitium-win-dawn-green-20260417T124727Z`
 - Green snapshot: `snap-0a16085d213ef3607`
 
 The AMI was created after the green build. Check AWS for final AMI state before launching from it.
@@ -103,7 +103,7 @@ Do not assume rebuilds are cached until `build.ninja` or sccache stats prove it.
 2. Use `./webkit/scripts/common/run-windows-webgpu-dawn.sh <new-id>`.
 3. Keep `NG_WINDOWS_NINJA_JOBS=4` until memory and linker behavior are proven stable.
 4. Keep `ENABLE_WEBXR=OFF`.
-5. Verify artifacts contain `patch-manifest.json`, `manifest-pre.json`, `manifest-post.json`, `validation-report.json`, and `ng-webkit-windows-<id>.tar.gz`.
+5. Verify artifacts contain `patch-manifest.json`, `manifest-pre.json`, `manifest-post.json`, `validation-report.json`, and `webkitium-windows-<id>.tar.gz`.
 6. Fix sccache as a runner issue before expecting fast turnaround.
 
 ---

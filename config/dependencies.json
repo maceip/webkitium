@@ -1,5 +1,5 @@
 {
-  "artifactBucket": "s3://cory-build-artifacts-euc1-095713295645-20260407/ng-webkit/deps",
+  "artifactBucket": "s3://cory-build-artifacts-euc1-095713295645-20260407/webkitium/deps",
   "platforms": {
     "android": {
       "source": "wpe-android bootstrap",
@@ -19,12 +19,12 @@
     },
     "windows": {
       "source": "known-good Windows WebGPU/Dawn compat39 lane",
-      "installRoot": "C:\\Bootstrap\\ng-deps",
+      "installRoot": "C:\\Bootstrap\\webkitium-deps",
       "items": [
         {
           "id": "windows-webgpu-dawn-compat39-baseline",
           "kind": "s3-prefix",
-          "uri": "s3://cory-build-artifacts-euc1-095713295645-20260407/ng-webkit/windows/dawn-api-compat39/"
+          "uri": "s3://cory-build-artifacts-euc1-095713295645-20260407/webkitium/windows/dawn-api-compat39/"
         },
         {
           "id": "windows-webgpu-dawn-green-ami",
@@ -36,7 +36,7 @@
     },
     "macos": {
       "source": "native macOS WebKit bootstrap",
-      "installRoot": "/Users/ec2-user/ng-deps",
+      "installRoot": "/Users/ec2-user/webkitium-deps",
       "items": [
         {
           "id": "macos-homebrew-core-build-tools",

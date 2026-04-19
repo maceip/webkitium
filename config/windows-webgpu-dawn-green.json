@@ -4,9 +4,9 @@
   "description": "Known-green Windows WebGPU/Dawn build lane from dawn-api-compat39.",
   "greenBuild": {
     "buildId": "20260418T175536-34490",
-    "artifactPrefix": "s3://cory-build-artifacts-euc1-095713295645-20260407/ng-webkit/windows/20260418T175536-34490",
+    "artifactPrefix": "s3://cory-build-artifacts-euc1-095713295645-20260407/webkitium/windows/20260418T175536-34490",
     "amiId": "ami-0d8e9b991584f150d",
-    "amiName": "ng-webkit-windows-dawn-green-sccache-20260418T184644Z",
+    "amiName": "webkitium-windows-dawn-green-sccache-20260418T184644Z",
     "snapshotId": "snap-02e685893944a72ba"
   },
   "source": {

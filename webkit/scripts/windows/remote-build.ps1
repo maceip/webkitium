@@ -86,7 +86,7 @@ function Assert-DiskHeadroom {
     $freeGiB = [math]::Floor([double]$disk.FreeSpace / 1GB)
     Write-Host "Disk $dl ${freeGiB} GiB free (minimum required: $min GiB)"
     if ($freeGiB -lt $min) {
-      throw "Insufficient disk space on ${dl}: ${freeGiB} GiB free; need at least $min GiB. Prune old checkouts under C:\W\, WebKitBuild, vcpkg buildtrees, or sccache. See platforms/windows/WINDOWS_BUILDER.md"
+      throw "Insufficient disk space on ${dl}: ${freeGiB} GiB free; need at least $min GiB. Prune old checkouts under C:\W\, WebKitBuild, vcpkg buildtrees, or sccache. See webkit/scripts/windows/WINDOWS_BUILDER.md"
     }
   }
 }
@@ -827,7 +827,7 @@ if ($config.bootstrap -and (Test-Path $config.bootstrap)) {
 # Archive only bin/ (distributable binaries + DLLs). Use tar (available on Win10+/Server 2019+)
 # instead of Compress-Archive which is single-threaded and hangs on large directories.
 $binDir = Join-Path $out "bin"
-$archivePath = Join-Path $artDir ("ng-webkit-windows-" + $config.buildId + ".tar.gz")
+$archivePath = Join-Path $artDir ("webkitium-windows-" + $config.buildId + ".tar.gz")
 Write-Host "Creating archive $archivePath from $binDir"
 Push-Location $binDir
 tar -czf $archivePath .

@@ -8,13 +8,13 @@ load_env
 
 ID="${1:-$(build_id)}"
 ARCH="${NG_ANDROID_ARCH:-arm64}"
-S3_PREFIX="${NG_ANDROID_ARTIFACT_S3:-${NG_ARTIFACT_BUCKET:-s3://cory-build-artifacts-euc1-095713295645-20260407/ng-webkit}/android/$ID}"
+S3_PREFIX="${NG_ANDROID_ARTIFACT_S3:-${NG_ARTIFACT_BUCKET:-s3://cory-build-artifacts-euc1-095713295645-20260407/webkitium}/android/$ID}"
 SOURCE="${NG_ANDROID_SOURCE:-/home/ubuntu/webkit/wpe-android}"
 REPO="${NG_ANDROID_REPO:-https://github.com/Igalia/wpe-android.git}"
 ANDROID_HOME_VAL="${ANDROID_HOME:-/home/ubuntu/Android/Sdk}"
 
 REGION="${NG_ANDROID_REGION:-${AWS_REGION:-eu-central-1}}"
-WORKDIR="${NG_ANDROID_WORKDIR:-/home/ubuntu/ng-bootstrap/ng-webkit-$ID}"
+WORKDIR="${NG_ANDROID_WORKDIR:-/home/ubuntu/webkitium-bootstrap/webkitium-$ID}"
 # Default: remote Linux builder (SSM). Local Gradle only when NG_ANDROID_LOCAL=1 or NG_ANDROID_REMOTE=0.
 DEFAULT_REMOTE="${NG_ANDROID_DEFAULT_INSTANCE_ID:-i-08a3afbbac86a0002}"
 if [[ "${NG_ANDROID_LOCAL:-0}" == "1" || "${NG_ANDROID_REMOTE:-1}" == "0" ]]; then

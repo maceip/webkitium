@@ -6,7 +6,7 @@ diff --git a/Source/cmake/OptionsWin.cmake b/Source/cmake/OptionsWin.cmake
      include(OptionsMSVC)
  endif ()
 +
-+# ng-webkit Windows builders run WebKit's Perl wrapper before CMake. Some
++# Webkitium Windows builders run WebKit's Perl wrapper before CMake. Some
 +# wrapper paths lose CMAKE_*_COMPILER_LAUNCHER command-line values, which makes
 +# sccache silently cold. Let the runner provide the launcher through the
 +# environment and force it into the cache before WebKit targets are created.
@@ -14,8 +14,8 @@ diff --git a/Source/cmake/OptionsWin.cmake b/Source/cmake/OptionsWin.cmake
 +    set(CMAKE_C_COMPILER_LAUNCHER "$ENV{NG_SCCACHE_EXE}" CACHE FILEPATH "C compiler launcher" FORCE)
 +    set(CMAKE_CXX_COMPILER_LAUNCHER "$ENV{NG_SCCACHE_EXE}" CACHE FILEPATH "CXX compiler launcher" FORCE)
 +    set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT Embedded CACHE STRING "MSVC debug information format" FORCE)
-+    message(STATUS "ng-webkit Windows sccache launcher: $ENV{NG_SCCACHE_EXE}")
-+    message(STATUS "ng-webkit Windows MSVC debug information format: Embedded")
++    message(STATUS "Webkitium Windows sccache launcher: $ENV{NG_SCCACHE_EXE}")
++    message(STATUS "Webkitium Windows MSVC debug information format: Embedded")
 +endif ()
  
  # Define minimum supported Windows version

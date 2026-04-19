@@ -55,7 +55,7 @@
             "sccache-report.json"
           ],
           "acceptance": [
-            "Reuses C:/W/ng-webkit-fast unless NG_WINDOWS_CLEAN_SOURCE overrides it",
+            "Reuses C:/W/webkitium-fast unless NG_WINDOWS_CLEAN_SOURCE overrides it",
             "Preserves WebKitBuild for incremental Ninja retries",
             "Keeps sccache mandatory and verified"
           ]

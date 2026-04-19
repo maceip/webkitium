@@ -13,3 +13,7 @@ These files define **AWS regions**, **S3 prefixes**, **builder instance IDs**, a
 ## Environment
 
 **`.env.example`** lists common overrides. Orchestrator and shell scripts load **`.env`** at the repo root when it exists.
+
+### S3 prefix (`webkitium/`)
+
+Default **`NG_ARTIFACT_BUCKET`** and script fallbacks use the top-level prefix **`…/webkitium`** (not the legacy **`…/ng-webkit`** layout). Existing objects under the old prefix keep working if you set **`NG_ARTIFACT_BUCKET`** (and platform overrides such as **`NG_WINDOWS_ARTIFACT_S3`**) to the legacy URL, or after **`aws s3 sync`** from **`ng-webkit/`** to **`webkitium/`** on the same bucket.

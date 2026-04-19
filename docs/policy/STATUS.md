@@ -24,7 +24,7 @@ Runner notes and API: [`RUNNER.md`](./RUNNER.md). Automation policy: [`BUILD_AUT
 ## Example download (Windows + WebGPU)
 
 ```bash
-aws s3 cp s3://cory-build-artifacts-euc1-095713295645-20260407/ng-webkit/windows/dawn-d3d12-runtime-20260416T011849Z/ng-webkit-windows-dawn-d3d12-runtime-20260416T011849Z.tar.gz \
+aws s3 cp s3://cory-build-artifacts-euc1-095713295645-20260407/webkitium/windows/dawn-d3d12-runtime-20260416T011849Z/webkitium-windows-dawn-d3d12-runtime-20260416T011849Z.tar.gz \
   . --region eu-central-1
 ```
 

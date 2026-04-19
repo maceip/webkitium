@@ -9,7 +9,7 @@ Current European builder:
 - Type: `mac2-m2.metal`
 - AMI: `ami-039876db2ebd24e4e` (`amzn-ec2-macos-15.7.4-20260217-233754-arm64`)
 - Source path: `/Users/ec2-user/Work/WebKit`
-- Bootstrap path: `/Users/ec2-user/ng-bootstrap`
+- Bootstrap path: `/Users/ec2-user/webkitium-bootstrap`
 
 The initial goal is to learn the native macOS WebKit build requirements, then fold
 the reliable dependency and build steps back into `setup-deps.sh` and `build.sh`.
