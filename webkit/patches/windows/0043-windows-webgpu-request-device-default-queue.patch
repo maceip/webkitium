@@ -1,0 +1,12 @@
+diff --git a/Source/WebCore/Modules/WebGPU/GPUAdapter.cpp b/Source/WebCore/Modules/WebGPU/GPUAdapter.cpp
+--- a/Source/WebCore/Modules/WebGPU/GPUAdapter.cpp
++++ b/Source/WebCore/Modules/WebGPU/GPUAdapter.cpp
+@@ -130,7 +130,7 @@ void GPUAdapter::requestDevice(ScriptExecutionContext& scriptExecutionContext, c
+             promise.reject(Exception(ExceptionCode::OperationError));
+         else {
+             auto queueLabel = deviceDescriptor ? deviceDescriptor->defaultQueue.label : ""_s;
+-            Ref<GPUDevice> gpuDevice = GPUDevice::create(scriptExecutionContextRef.ptr(), device.releaseNonNull(), deviceDescriptor ? WTF::move(queueLabel) : ""_s, GPUAdapterInfo::create(protectedThis->name()));
++            Ref<GPUDevice> gpuDevice = GPUDevice::create(scriptExecutionContextRef.ptr(), device.releaseNonNull(), WTF::move(queueLabel), GPUAdapterInfo::create(protectedThis->name()));
+             gpuDevice->suspendIfNeeded();
+             promise.resolve(WTF::move(gpuDevice));
+         }
