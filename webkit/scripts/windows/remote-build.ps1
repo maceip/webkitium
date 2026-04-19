@@ -29,6 +29,20 @@ function Test-Git {
   return ($exitCode -eq 0)
 }
 
+function Remove-StaleGitLocks {
+  param([string]$Repository)
+  $gitProcesses = @(Get-Process git -ErrorAction SilentlyContinue)
+  if ($gitProcesses.Count -gt 0) {
+    Write-Host "Git process is active; leaving git lock files in place."
+    return
+  }
+
+  Get-ChildItem (Join-Path $Repository ".git") -Recurse -Filter "*.lock" -ErrorAction SilentlyContinue | ForEach-Object {
+    Write-Host "Removing stale git lock $($_.FullName)"
+    Remove-Item -Force $_.FullName
+  }
+}
+
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $configPath = Join-Path $here "build-config.json"
 if (-not (Test-Path $configPath)) {
@@ -309,6 +323,7 @@ if ($config.useCleanCheckout -eq $true) {
   if ((Test-Path (Join-Path $cleanRoot ".git")) -and $reuseCheckout) {
     Write-Host "Reusing existing checkout: $cleanRoot"
     Set-Location $cleanRoot
+    Remove-StaleGitLocks $cleanRoot
     Invoke-Git sparse-checkout disable
     Invoke-Git fetch origin $commit
     Invoke-Git reset --hard $commit
