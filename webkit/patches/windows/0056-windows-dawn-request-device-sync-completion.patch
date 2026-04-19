@@ -1,0 +1,51 @@
+diff --git a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
+index ca2bc7a9df3c..9b716caa9cd2 100644
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
+@@ -290,31 +290,28 @@ void AdapterImpl::requestDevice(const DeviceDescriptor& descriptor, CompletionHa
+ #if PLATFORM(WIN)
+     auto utf8Label = descriptor.label.utf8();
+ 
+-    auto* userdata = new DawnRequestDeviceUserdata {
+-        WTF::move(callback),
+-        m_convertToBackingContext.copyRef(),
+-        m_dawnInstance,
+-    };
+-
+     auto adapter = m_backing.get();
+     if (!adapter) {
+-        delete userdata;
+         callback(nullptr);
+         return;
+     }
+ 
+-    std::unique_ptr<DawnRequestDeviceUserdata> data(userdata);
+     wgpuAdapterReference(adapter);
+-    std::thread([adapter, label = WTF::move(utf8Label), data = WTF::move(data)] mutable {
+-        auto queueLabel = CString("default"_s);
+-
+-        auto instance = data->instance;
+-        auto request = DawnCompat::adapterRequestDeviceSync(instance, adapter, label, queueLabel);
+-        logDawnRequestDeviceStatus(request);
+-        wgpuAdapterRelease(adapter);
+-        completeDawnRequestDeviceOnMainThread(WTF::move(data), request.succeeded, request.device);
+-    }).detach();
++    auto queueLabel = CString("default"_s);
++    auto request = DawnCompat::adapterRequestDeviceSync(m_dawnInstance, adapter, utf8Label, queueLabel);
++    logDawnRequestDeviceStatus(request);
++    wgpuAdapterRelease(adapter);
++
++    if (!request.succeeded || !request.device) {
++        callback(nullptr);
++        return;
++    }
++
++    auto features = DawnCompat::supportedFeaturesFromDevice(request.device);
++    auto limits = DawnCompat::supportedLimitsFromDevice(request.device);
++    auto backing = adoptWebGPU(request.device);
++    RefPtr<Device> wrappedDevice = DeviceImpl::create(WTF::move(backing), WTF::move(features), WTF::move(limits), m_convertToBackingContext.copyRef(), m_dawnInstance);
++    logDawnRequestDeviceWrapped("sync: created DeviceImpl", wrappedDevice.get());
++    callback(WTF::move(wrappedDevice));
+ #else
+     auto label = descriptor.label.utf8();
+ 
