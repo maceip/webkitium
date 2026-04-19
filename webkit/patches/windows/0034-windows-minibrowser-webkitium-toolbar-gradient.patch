@@ -22,6 +22,18 @@ index fba0731..fe3112a 100644
 +)
 +
  set_target_properties(MiniBrowser PROPERTIES WIN32_EXECUTABLE ON)
+diff --git a/Source/WebCore/PlatformWin.cmake b/Source/WebCore/PlatformWin.cmake
+index 75d508f..d6d87a2 100644
+--- a/Source/WebCore/PlatformWin.cmake
++++ b/Source/WebCore/PlatformWin.cmake
+@@ -148,6 +148,7 @@ list(APPEND WebCore_LIBRARIES
+     crypt32
+     iphlpapi
+     usp10
++    ws2_32
+ )
+ 
+ list(APPEND WebCoreTestSupport_LIBRARIES
 diff --git a/Source/cmake/WebKitCompilerFlags.cmake b/Source/cmake/WebKitCompilerFlags.cmake
 index 6aef295..b18ad50 100644
 --- a/Source/cmake/WebKitCompilerFlags.cmake
