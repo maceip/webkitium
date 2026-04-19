@@ -1,0 +1,13 @@
+diff --git a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
+index 3df2f3e646d6..e4b69ec10124 100644
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
+@@ -207,7 +207,7 @@ static void requestDeviceCallback(void* userdata1, WGPURequestDeviceStatus statu
+ #endif
+ 
+ struct DawnRequestDeviceUserdata {
+-    CompletionHandler<void(RefPtr<Device>&&)>&& callback;
++    CompletionHandler<void(RefPtr<Device>&&)> callback;
+     Ref<ConvertToBackingContext> convertToBackingContext;
+     WGPUInstance instance { nullptr };
+ };
