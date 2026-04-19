@@ -1,0 +1,13 @@
+diff --git a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
+index 2fd036b..bb5f8c7 100644
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
+@@ -252,6 +252,7 @@ static void completeDawnRequestDeviceOnMainThread(std::unique_ptr<DawnRequestDev
+         logDawnRequestDeviceBoundary("complete: creating DeviceImpl", succeeded, device);
+         auto backing = adoptWebGPU(device);
+         logDawnRequestDeviceBoundary("complete: callback DeviceImpl", succeeded, device);
+-        data->callback(DeviceImpl::create(WTF::move(backing), WTF::move(features), WTF::move(limits), data->convertToBackingContext.copyRef(), data->instance));
++        RefPtr<Device> wrappedDevice = DeviceImpl::create(WTF::move(backing), WTF::move(features), WTF::move(limits), data->convertToBackingContext.copyRef(), data->instance);
++        data->callback(WTF::move(wrappedDevice));
+     });
+ }
