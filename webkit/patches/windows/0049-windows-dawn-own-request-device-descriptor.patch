@@ -1,0 +1,130 @@
+diff --git a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDawnCompat.h b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDawnCompat.h
+index 25e34e2..2c7d8ab 100644
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDawnCompat.h
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDawnCompat.h
+@@ -56,6 +56,15 @@ String adapterDisplayName(WGPUAdapter);
+ 
+ void waitForFuture(WGPUInstance, WGPUFuture);
+ 
++struct DeviceRequestResult {
++    WGPUDevice device { nullptr };
++    bool succeeded { false };
++    unsigned status { 0 };
++    String message;
++};
++
++DeviceRequestResult adapterRequestDeviceSync(WGPUInstance, WGPUAdapter, const CString& label, const CString& defaultQueueLabel);
++
+ WGPUShaderModule deviceCreateShaderModule(WGPUDevice, const String& wgsl, const String& label);
+ 
+ void setLabel(WGPUBuffer, const String&);
+diff --git a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDawnCompat.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDawnCompat.cpp
+index b4cc5f3..9670766 100644
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDawnCompat.cpp
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDawnCompat.cpp
+@@ -247,6 +247,42 @@ void waitForFuture(WGPUInstance instance, WGPUFuture future)
+         wgpuInstanceWaitAny(instance, 1, &waitInfo, UINT64_MAX);
+ }
+ 
++struct DeviceRequestUserdata {
++    DeviceRequestResult result;
++};
++
++static void adapterRequestDeviceCallback(WGPURequestDeviceStatus status, WGPUDevice device, WGPUStringView message, void* userdata1, void*)
++{
++    auto* userdata = static_cast<DeviceRequestUserdata*>(userdata1);
++    if (!userdata)
++        return;
++
++    userdata->result.status = static_cast<unsigned>(status);
++    userdata->result.message = stringFromDawn(message);
++    userdata->result.succeeded = status == WGPURequestDeviceStatus_Success && device;
++    if (userdata->result.succeeded)
++        userdata->result.device = device;
++    else if (device)
++        wgpuDeviceRelease(device);
++}
++
++DeviceRequestResult adapterRequestDeviceSync(WGPUInstance instance, WGPUAdapter adapter, const CString& label, const CString& defaultQueueLabel)
++{
++    WGPUDeviceDescriptor descriptor { };
++    descriptor.label = toDawnStringView(label);
++    descriptor.defaultQueue.label = toDawnStringView(defaultQueueLabel);
++
++    DeviceRequestUserdata userdata;
++    WGPURequestDeviceCallbackInfo callbackInfo { };
++    callbackInfo.mode = WGPUCallbackMode_AllowProcessEvents;
++    callbackInfo.callback = adapterRequestDeviceCallback;
++    callbackInfo.userdata1 = &userdata;
++
++    auto future = wgpuAdapterRequestDevice(adapter, &descriptor, callbackInfo);
++    waitForFuture(instance, future);
++    return WTF::move(userdata.result);
++}
++
+ WGPUShaderModule deviceCreateShaderModule(WGPUDevice device, const String& wgsl, const String& label)
+ {
+     auto codeUtf8 = wgsl.utf8();
+diff --git a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
+index 3c1f2d8..bb8b1b1 100644
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
+@@ -212,19 +212,13 @@ struct DawnRequestDeviceUserdata {
+ };
+ 
+ #if PLATFORM(WIN)
+-static void logDawnRequestDeviceStatus(WGPURequestDeviceStatus status, WGPUStringView message)
++static void logDawnRequestDeviceStatus(const DawnCompat::DeviceRequestResult& result)
+ {
+     std::ofstream stream("C:\\Windows\\Temp\\webkitium-dawn-request-device.log", std::ios::app);
+     if (!stream)
+         return;
+ 
+-    stream << "status=" << static_cast<unsigned>(status) << " message=";
+-    if (message.data) {
+-        if (message.length == WGPU_STRLEN)
+-            stream << message.data;
+-        else
+-            stream.write(message.data, message.length);
+-    }
++    stream << "status=" << result.status << " succeeded=" << result.succeeded << " device=" << result.device << " message=" << result.message.utf8().data();
+     stream << std::endl;
+ }
+ 
+@@ -245,13 +239,12 @@ static void completeDawnRequestDeviceOnMainThread(std::unique_ptr<DawnRequestDev
+ }
+ #endif
+ 
+-static void dawnRequestDeviceCallback(WGPURequestDeviceStatus status, WGPUDevice device, WGPUStringView message, void* userdata1, void*)
++static void dawnRequestDeviceCallback(WGPURequestDeviceStatus status, WGPUDevice device, WGPUStringView, void* userdata1, void*)
+ {
+     std::unique_ptr<DawnRequestDeviceUserdata> data(static_cast<DawnRequestDeviceUserdata*>(userdata1));
+     if (!data)
+         return;
+ #if PLATFORM(WIN)
+-    logDawnRequestDeviceStatus(status, message);
+     completeDawnRequestDeviceOnMainThread(WTF::move(data), status, device);
+ #else
+     if (status != WGPURequestDeviceStatus_Success || !device) {
+@@ -271,18 +264,11 @@ void AdapterImpl::requestDevice(const DeviceDescriptor& descriptor, CompletionHa
+     wgpuAdapterReference(adapter);
+     std::thread([adapter, label = WTF::move(utf8Label), data = WTF::move(data)] mutable {
+         auto queueLabel = CString("default"_s);
+-        WGPUDeviceDescriptor asyncDeviceDescriptor { };
+-        asyncDeviceDescriptor.label = DawnCompat::toDawnStringView(label);
+-        asyncDeviceDescriptor.defaultQueue.label = DawnCompat::toDawnStringView(queueLabel);
+ 
+         auto instance = data->instance;
+-        WGPURequestDeviceCallbackInfo callbackInfo { };
+-        callbackInfo.mode = WGPUCallbackMode_AllowProcessEvents;
+-        callbackInfo.callback = dawnRequestDeviceCallback;
+-        callbackInfo.userdata1 = data.release();
+-
+-        auto future = wgpuAdapterRequestDevice(adapter, &asyncDeviceDescriptor, callbackInfo);
+-        DawnCompat::waitForFuture(instance, future);
++        auto request = DawnCompat::adapterRequestDeviceSync(instance, adapter, label, queueLabel);
++        logDawnRequestDeviceStatus(request);
+         wgpuAdapterRelease(adapter);
++        completeDawnRequestDeviceOnMainThread(WTF::move(data), request.succeeded ? WGPURequestDeviceStatus_Success : WGPURequestDeviceStatus_Error, request.device);
+     }).detach();
+ #else
