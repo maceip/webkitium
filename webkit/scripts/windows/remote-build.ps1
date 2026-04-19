@@ -639,10 +639,21 @@ $testHtml = @"
     }
   }
 
+  function postReport(kind, report) {
+    try {
+      fetch('http://localhost:$probePort/' + kind, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(report)
+      }).catch(() => { });
+    } catch (e) { }
+  }
+
   function mark(report, stage) {
     report.stage = stage;
     report.timings.push({ stage, ms: Date.now() - startedAt });
     document.getElementById('out').textContent = JSON.stringify(report, null, 2);
+    postReport('stage', report);
   }
 
   async function computeSmoke(device) {
@@ -781,9 +792,16 @@ $listenerScript = {
   $l = [System.Net.HttpListener]::new()
   $l.Prefixes.Add("http://localhost:$port/")
   $l.Start()
+  $latestBody = $null
+  $deadline = (Get-Date).AddSeconds(35)
   try {
-    while ($true) {
-      $ctx = $l.GetContext()  # blocks until request (we rely on timeout via job)
+    $task = $l.GetContextAsync()
+    while ((Get-Date) -lt $deadline) {
+      if (-not $task.Wait(1000)) {
+        continue
+      }
+      $ctx = $task.Result
+      $task = $l.GetContextAsync()
       $ctx.Response.Headers.Add("Access-Control-Allow-Origin", "*")
       $ctx.Response.Headers.Add("Access-Control-Allow-Methods", "POST, OPTIONS")
       $ctx.Response.Headers.Add("Access-Control-Allow-Headers", "content-type")
@@ -800,8 +818,15 @@ $listenerScript = {
       $ctx.Response.OutputStream.Close()
 
       if ($ctx.Request.HttpMethod -eq "POST" -and $body) {
-        return $body
+        $latestBody = $body
+        if ($ctx.Request.Url.AbsolutePath -eq "/report") {
+          return $body
+        }
       }
+    }
+
+    if ($latestBody) {
+      return $latestBody
     }
   } finally {
     $l.Stop()
@@ -813,7 +838,7 @@ $listenerJob = Start-Job -ScriptBlock $listenerScript -ArgumentList $probePort
 try {
   $mbProc = Start-Process -FilePath $mb -ArgumentList $testHtmlUrl -PassThru -WindowStyle Hidden
   Write-Host "MiniBrowser launched pid=$($mbProc.Id) url=$testHtmlUrl"
-  $waitResult = Wait-Job $listenerJob -Timeout 30
+  $waitResult = Wait-Job $listenerJob -Timeout 40
   if ($waitResult) {
     $reportJson = Receive-Job $listenerJob
     try {
