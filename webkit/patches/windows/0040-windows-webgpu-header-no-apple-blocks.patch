@@ -1,0 +1,46 @@
+diff --git a/Source/WebGPU/WebGPU/WebGPU.h b/Source/WebGPU/WebGPU/WebGPU.h
+index 973f8c8..1f1a624 100644
+--- a/Source/WebGPU/WebGPU/WebGPU.h
++++ b/Source/WebGPU/WebGPU/WebGPU.h
+@@ -31,13 +31,18 @@
+ #define WEBGPU_H_
+ 
+ #include <wtf/Compiler.h>
++#include <wtf/Platform.h>
+ #include <wtf/SwiftBridging.h>
+ 
+ #if __has_include(<swift/bridging>)
+ #include <swift/bridging>
+ #endif
+ 
++#if OS(WINDOWS)
++typedef const void* CFArrayRef;
++#else
+ #include <CoreFoundation/CoreFoundation.h>
++#endif
+ 
+ #pragma clang diagnostic push
+ #pragma clang diagnostic ignored "-Wnullability-completeness"
+@@ -888,6 +893,14 @@ typedef struct WGPUExtent3D {
+     uint32_t depthOrArrayLayers;
+ } WGPUExtent3D WGPU_STRUCTURE_ATTRIBUTE;
+ 
++#if OS(WINDOWS)
++typedef void (*WGPUWorkItem)(void);
++typedef void (*WGPUScheduleWorkBlock)(WGPUWorkItem workItem);
++typedef void (*WGPUDeviceLostBlockCallback)(WGPUDeviceLostReason reason, char const* message);
++typedef void (*WGPURenderBuffersWereRecreatedBlockCallback)(CFArrayRef ioSurfaces);
++typedef void (*WGPUOnSubmittedWorkScheduledCallback)(WGPUWorkItem);
++typedef void (*WGPUCompositorIntegrationRegisterBlockCallback)(WGPURenderBuffersWereRecreatedBlockCallback renderBuffersWereRecreated, WGPUOnSubmittedWorkScheduledCallback onSubmittedWorkScheduledCallback);
++#else
+ typedef void (^WGPUWorkItem)(void);
+ typedef void (^WGPUScheduleWorkBlock)(WGPUWorkItem workItem);
+ typedef void (^WGPUDeviceLostBlockCallback)(WGPUDeviceLostReason reason, char const * message);
+@@ -895,6 +908,7 @@ typedef void (^WGPUDeviceLostBlockCallback)(WGPUDeviceLostReason reason, char co
+ typedef void (^WGPURenderBuffersWereRecreatedBlockCallback)(CFArrayRef ioSurfaces);
+ typedef void (^WGPUOnSubmittedWorkScheduledCallback)(WGPUWorkItem);
+ typedef void (^WGPUCompositorIntegrationRegisterBlockCallback)(WGPURenderBuffersWereRecreatedBlockCallback renderBuffersWereRecreated, WGPUOnSubmittedWorkScheduledCallback onSubmittedWorkScheduledCallback);
++#endif
+ 
+ typedef struct WGPUInstanceCocoaDescriptor {
+     // The API contract is: callers must call WebGPU's functions in a non-racey way with respect
