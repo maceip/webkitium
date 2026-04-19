@@ -1,0 +1,50 @@
+diff --git a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
+index 3e3be8a..3c1f2d8 100644
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
+@@ -39,6 +39,7 @@
+ #include <wtf/TZoneMallocInlines.h>
+ #if PLATFORM(WIN)
+ #include <thread>
++#include <fstream>
+ #endif
+ 
+ namespace WebCore::WebGPU {
+@@ -211,6 +212,22 @@ struct DawnRequestDeviceUserdata {
+ };
+ 
+ #if PLATFORM(WIN)
++static void logDawnRequestDeviceStatus(WGPURequestDeviceStatus status, WGPUStringView message)
++{
++    std::ofstream stream("C:\\Windows\\Temp\\webkitium-dawn-request-device.log", std::ios::app);
++    if (!stream)
++        return;
++
++    stream << "status=" << static_cast<unsigned>(status) << " message=";
++    if (message.data) {
++        if (message.length == WGPU_STRLEN)
++            stream << message.data;
++        else
++            stream.write(message.data, message.length);
++    }
++    stream << std::endl;
++}
++
+ static void completeDawnRequestDeviceOnMainThread(std::unique_ptr<DawnRequestDeviceUserdata>&& data, WGPURequestDeviceStatus status, WGPUDevice device)
+ {
+     RunLoop::mainSingleton().dispatch([data = WTF::move(data), status, device] mutable {
+@@ -229,12 +245,13 @@ static void completeDawnRequestDeviceOnMainThread(std::unique_ptr<DawnRequestDev
+ }
+ #endif
+ 
+-static void dawnRequestDeviceCallback(WGPURequestDeviceStatus status, WGPUDevice device, WGPUStringView, void* userdata1, void*)
++static void dawnRequestDeviceCallback(WGPURequestDeviceStatus status, WGPUDevice device, WGPUStringView message, void* userdata1, void*)
+ {
+     std::unique_ptr<DawnRequestDeviceUserdata> data(static_cast<DawnRequestDeviceUserdata*>(userdata1));
+     if (!data)
+         return;
+ #if PLATFORM(WIN)
++    logDawnRequestDeviceStatus(status, message);
+     completeDawnRequestDeviceOnMainThread(WTF::move(data), status, device);
+ #else
+     if (status != WGPURequestDeviceStatus_Success || !device) {
