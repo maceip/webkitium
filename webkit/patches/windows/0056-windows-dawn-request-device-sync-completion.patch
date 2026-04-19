@@ -2,7 +2,7 @@ diff --git a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp 
 index ca2bc7a9df3c..9b716caa9cd2 100644
 --- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
 +++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
-@@ -290,31 +290,28 @@ void AdapterImpl::requestDevice(const DeviceDescriptor& descriptor, CompletionHa
+@@ -290,30 +290,29 @@ void AdapterImpl::requestDevice(const DeviceDescriptor& descriptor, CompletionHa
  #if PLATFORM(WIN)
      auto utf8Label = descriptor.label.utf8();
  
