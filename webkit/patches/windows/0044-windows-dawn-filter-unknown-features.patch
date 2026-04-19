@@ -1,0 +1,56 @@
+diff --git a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDawnCompat.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDawnCompat.cpp
+index 74d6362..fa2d4e1 100644
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDawnCompat.cpp
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDawnCompat.cpp
+@@ -114,22 +114,14 @@ String dawnFeatureName(WGPUFeatureName feature)
+         return "clip-distances"_s;
+     case WGPUFeatureName_DualSourceBlending:
+         return "dual-source-blending"_s;
+-    case WGPUFeatureName_Subgroups:
+-        return "subgroups"_s;
+     case WGPUFeatureName_TextureFormatsTier1:
+         return "texture-formats-tier1"_s;
+-    case WGPUFeatureName_TextureFormatsTier2:
+-        return "texture-formats-tier2"_s;
+-    case WGPUFeatureName_PrimitiveIndex:
+-        return "primitive-index"_s;
+-    case WGPUFeatureName_TextureComponentSwizzle:
+-        return "texture-component-swizzle"_s;
+     case WGPUFeatureName_Force32:
+         break;
+     default:
+         break;
+     }
+-    return "unknown-feature"_s;
++    return emptyString();
+ }
+ 
+ Ref<SupportedLimits> supportedLimitsFromDawnLimits(const WGPULimits& limits)
+@@ -202,8 +202,11 @@ Ref<SupportedFeatures> supportedFeaturesFromAdapter(WGPUAdapter adapter)
+ 
+     Vector<String> names;
+     names.reserveInitialCapacity(resolved.featureCount);
+-    for (size_t i = 0; i < resolved.featureCount; ++i)
+-        names.append(dawnFeatureName(resolved.features[i]));
++    for (size_t i = 0; i < resolved.featureCount; ++i) {
++        auto name = dawnFeatureName(resolved.features[i]);
++        if (!name.isEmpty())
++            names.append(WTF::move(name));
++    }
+ 
+     return SupportedFeatures::create(WTF::move(names));
+ }
+@@ -231,8 +234,11 @@ Ref<SupportedFeatures> supportedFeaturesFromDevice(WGPUDevice device)
+ 
+     Vector<String> names;
+     names.reserveInitialCapacity(resolved.featureCount);
+-    for (size_t i = 0; i < resolved.featureCount; ++i)
+-        names.append(dawnFeatureName(resolved.features[i]));
++    for (size_t i = 0; i < resolved.featureCount; ++i) {
++        auto name = dawnFeatureName(resolved.features[i]);
++        if (!name.isEmpty())
++            names.append(WTF::move(name));
++    }
+ 
+     return SupportedFeatures::create(WTF::move(names));
+ }
