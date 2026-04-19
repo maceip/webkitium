@@ -65,10 +65,16 @@ fi
 
 # Baseline Win port (finish compile first). Set NG_WINDOWS_ENABLE_WEBGPU=1 for WebGPU/Dawn CMake flags.
 # Override fully with NG_WINDOWS_BUILD_INNER if needed.
-_WIN_BASE="perl Tools\\Scripts\\build-webkit --release --win --makeargs=-j${NINJA_JOBS} -DCMAKE_C_COMPILER=C:/Progra~1/LLVM/bin/clang-cl.exe -DCMAKE_CXX_COMPILER=C:/Progra~1/LLVM/bin/clang-cl.exe -DCMAKE_RC_COMPILER=C:/Progra~1/LLVM/bin/llvm-rc.exe -DCMAKE_LINKER=C:/Progra~1/LLVM/bin/lld-link.exe -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld -DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld -DCMAKE_MODULE_LINKER_FLAGS=-fuse-ld=lld -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded -DCMAKE_C_FLAGS=\"-D_CRT_SECURE_NO_WARNINGS -flto=thin\" -DCMAKE_CXX_FLAGS=\"-D_CRT_SECURE_NO_WARNINGS -flto=thin\""
+#
+# build-webkit only forwards CMake definitions passed through --cmakeargs.
+# Keep WebKit's built-in ccache discovery disabled; the launcher below is the
+# single source of truth for sccache.
+_WIN_CMAKE_ARGS="-DCMAKE_C_COMPILER=C:/Progra~1/LLVM/bin/clang-cl.exe -DCMAKE_CXX_COMPILER=C:/Progra~1/LLVM/bin/clang-cl.exe -DCMAKE_RC_COMPILER=C:/Progra~1/LLVM/bin/llvm-rc.exe -DCMAKE_LINKER=C:/Progra~1/LLVM/bin/lld-link.exe -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld -DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld -DCMAKE_MODULE_LINKER_FLAGS=-fuse-ld=lld -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded"
 if [[ "$ENABLE_SCCACHE" == "1" ]]; then
-  _WIN_BASE+=" -DCMAKE_C_COMPILER_LAUNCHER=$SCCACHE_EXE -DCMAKE_CXX_COMPILER_LAUNCHER=$SCCACHE_EXE"
+  _WIN_CMAKE_ARGS+=" -DCMAKE_C_COMPILER_LAUNCHER=$SCCACHE_EXE -DCMAKE_CXX_COMPILER_LAUNCHER=$SCCACHE_EXE"
 fi
+_WIN_CMAKE_ARGS+=" -DCMAKE_C_FLAGS=-D_CRT_SECURE_NO_WARNINGS -DCMAKE_CXX_FLAGS=-D_CRT_SECURE_NO_WARNINGS"
+_WIN_BASE="perl Tools\\Scripts\\build-webkit --release --win --no-use-ccache --makeargs=-j${NINJA_JOBS} --cmakeargs=\"${_WIN_CMAKE_ARGS}\""
 if [[ "${NG_WINDOWS_ENABLE_WEBGPU:-0}" == "1" ]]; then
   BUILD_INNER="${NG_WINDOWS_BUILD_INNER:-${_WIN_BASE} --webgpu -DENABLE_EXPERIMENTAL_FEATURES=ON -DENABLE_WEBXR=OFF}"
 else
@@ -203,6 +209,7 @@ stage_root_patches common
 stage_root_patches windows
 cp "$SCRIPT_DIR/remote-build.ps1" "$STAGE/"
 cp "$SCRIPT_DIR/ssm-worker.ps1" "$STAGE/"
+cp "$SCRIPT_DIR/../common/worker-control.py" "$STAGE/"
 
 CONFIG_JSON="$STAGE/build-config.json"
 PATCH_MANIFEST_JSON="$STAGE/patch-manifest.json"
