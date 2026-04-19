@@ -1,0 +1,20 @@
+{
+  "activeChanges": [
+    {
+      "id": "passkeys-credentials-get",
+      "enabled": false,
+      "platforms": ["android", "windows", "macos", "linux", "ios"]
+    },
+    {
+      "id": "windows-webgpu-service",
+      "enabled": false,
+      "platforms": ["windows"]
+    },
+    {
+      "id": "windows-minibrowser-fluent-tabs",
+      "enabled": false,
+      "platforms": ["windows"]
+    }
+  ],
+  "_comment": "Lane ids are stable names for changes/<id>/. windows-webgpu-service stays disabled when those patches live under webkit/patches/windows/. Enable only if you split them back into changes/windows-webgpu-service/patches/."
+}

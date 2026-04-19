@@ -1,0 +1,3365 @@
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/Block.h b/Source/WebCore/Modules/WebGPU/Implementation/Block.h
+--- a/Source/WebCore/Modules/WebGPU/Implementation/Block.h	2026-04-16 11:51:32.862435929 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/Block.h	1970-01-01 00:00:00.000000000 +0000
+@@ -1,23 +0,0 @@
+-#pragma once
+-
+-#ifdef __cplusplus
+-extern "C" {
+-#endif
+-
+-inline void* _NSConcreteMallocBlock[32] = { };
+-
+-static inline void* _Block_copy(const void* block)
+-{
+-    return const_cast<void*>(block);
+-}
+-
+-static inline void _Block_release(const void*)
+-{
+-}
+-
+-#define Block_copy(block) _Block_copy(block)
+-#define Block_release(block) _Block_release(block)
+-
+-#ifdef __cplusplus
+-}
+-#endif
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU/WebGPUExt.h b/Source/WebCore/Modules/WebGPU/Implementation/WebGPU/WebGPUExt.h
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU/WebGPUExt.h	2026-04-16 11:51:32.857435164 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPU/WebGPUExt.h	2026-04-16 17:10:41.690471201 +0000
+@@ -25,6 +25,7 @@
+ 
+ #pragma once
+ 
++#include <wtf/Platform.h>
+ #include <WebGPU/WebGPU.h>
+ #include <span>
+ #include <wtf/Vector.h>
+@@ -40,7 +41,7 @@
+ typedef struct WGPUSwapChainDescriptor {
+     WGPUChainedStruct const* nextInChain;
+     char const* label;
+-    WGPUTextureUsageFlags usage;
++    WGPUTextureUsage usage;
+     WGPUTextureFormat format;
+     uint32_t width;
+     uint32_t height;
+@@ -77,6 +78,7 @@
+ 
+ static constexpr auto WGPUTextureSampleType_ExternalTexture = static_cast<WGPUTextureSampleType>(WGPUTextureSampleType_Force32 - 1);
+ 
++#if !PLATFORM(WIN)
+ typedef struct WGPUExternalTextureBindingLayout {
+ } WGPUExternalTextureBindingLayout;
+ 
+@@ -85,7 +87,54 @@
+     CVPixelBufferRef pixelBuffer;
+     WGPUColorSpace colorSpace;
+ } WGPUExternalTextureDescriptor;
++#endif
+ 
++#if PLATFORM(WIN)
++#include <dawn/webgpu.h>
++static inline void wgpuAdapterReference(WGPUAdapter a) { wgpuAdapterAddRef(a); }
++static inline void wgpuBindGroupReference(WGPUBindGroup a) { wgpuBindGroupAddRef(a); }
++static inline void wgpuBindGroupLayoutReference(WGPUBindGroupLayout a) { wgpuBindGroupLayoutAddRef(a); }
++static inline void wgpuBufferReference(WGPUBuffer a) { wgpuBufferAddRef(a); }
++static inline void wgpuCommandBufferReference(WGPUCommandBuffer a) { wgpuCommandBufferAddRef(a); }
++static inline void wgpuCommandEncoderReference(WGPUCommandEncoder a) { wgpuCommandEncoderAddRef(a); }
++static inline void wgpuComputePassEncoderReference(WGPUComputePassEncoder a) { wgpuComputePassEncoderAddRef(a); }
++static inline void wgpuComputePipelineReference(WGPUComputePipeline a) { wgpuComputePipelineAddRef(a); }
++static inline void wgpuDeviceReference(WGPUDevice a) { wgpuDeviceAddRef(a); }
++static inline void wgpuInstanceReference(WGPUInstance a) { wgpuInstanceAddRef(a); }
++static inline void wgpuPipelineLayoutReference(WGPUPipelineLayout a) { wgpuPipelineLayoutAddRef(a); }
++static inline void wgpuQuerySetReference(WGPUQuerySet a) { wgpuQuerySetAddRef(a); }
++static inline void wgpuQueueReference(WGPUQueue a) { wgpuQueueAddRef(a); }
++static inline void wgpuRenderBundleReference(WGPURenderBundle a) { wgpuRenderBundleAddRef(a); }
++static inline void wgpuRenderBundleEncoderReference(WGPURenderBundleEncoder a) { wgpuRenderBundleEncoderAddRef(a); }
++static inline void wgpuRenderPassEncoderReference(WGPURenderPassEncoder a) { wgpuRenderPassEncoderAddRef(a); }
++static inline void wgpuRenderPipelineReference(WGPURenderPipeline a) { wgpuRenderPipelineAddRef(a); }
++static inline void wgpuSamplerReference(WGPUSampler a) { wgpuSamplerAddRef(a); }
++static inline void wgpuShaderModuleReference(WGPUShaderModule a) { wgpuShaderModuleAddRef(a); }
++static inline void wgpuSurfaceReference(WGPUSurface a) { wgpuSurfaceAddRef(a); }
++static inline void wgpuTextureReference(WGPUTexture a) { wgpuTextureAddRef(a); }
++static inline void wgpuTextureViewReference(WGPUTextureView a) { wgpuTextureViewAddRef(a); }
++static inline WGPUBool wgpuAdapterIsValid(WGPUAdapter a) { return !!a; }
++static inline WGPUBool wgpuBindGroupIsValid(WGPUBindGroup a) { return !!a; }
++static inline WGPUBool wgpuBindGroupLayoutIsValid(WGPUBindGroupLayout a) { return !!a; }
++static inline WGPUBool wgpuBufferIsValid(WGPUBuffer a) { return !!a; }
++static inline WGPUBool wgpuCommandBufferIsValid(WGPUCommandBuffer a) { return !!a; }
++static inline WGPUBool wgpuCommandEncoderIsValid(WGPUCommandEncoder a) { return !!a; }
++static inline WGPUBool wgpuComputePassEncoderIsValid(WGPUComputePassEncoder a) { return !!a; }
++static inline WGPUBool wgpuComputePipelineIsValid(WGPUComputePipeline a) { return !!a; }
++static inline WGPUBool wgpuDeviceIsValid(WGPUDevice a) { return !!a; }
++static inline WGPUBool wgpuPipelineLayoutIsValid(WGPUPipelineLayout a) { return !!a; }
++static inline WGPUBool wgpuPresentationContextIsValid(WGPUSurface a) { return !!a; }
++static inline WGPUBool wgpuQuerySetIsValid(WGPUQuerySet a) { return !!a; }
++static inline WGPUBool wgpuQueueIsValid(WGPUQueue a) { return !!a; }
++static inline WGPUBool wgpuRenderBundleIsValid(WGPURenderBundle a) { return !!a; }
++static inline WGPUBool wgpuRenderBundleEncoderIsValid(WGPURenderBundleEncoder a) { return !!a; }
++static inline WGPUBool wgpuRenderPassEncoderIsValid(WGPURenderPassEncoder a) { return !!a; }
++static inline WGPUBool wgpuRenderPipelineIsValid(WGPURenderPipeline a) { return !!a; }
++static inline WGPUBool wgpuSamplerIsValid(WGPUSampler a) { return !!a; }
++static inline WGPUBool wgpuShaderModuleIsValid(WGPUShaderModule a) { return !!a; }
++static inline WGPUBool wgpuTextureIsValid(WGPUTexture a) { return !!a; }
++static inline WGPUBool wgpuTextureViewIsValid(WGPUTextureView a) { return !!a; }
++#else
+ static inline void wgpuAdapterReference(WGPUAdapter) { }
+ static inline void wgpuBindGroupReference(WGPUBindGroup) { }
+ static inline void wgpuBindGroupLayoutReference(WGPUBindGroupLayout) { }
+@@ -108,6 +157,7 @@
+ static inline void wgpuSurfaceReference(WGPUSurface) { }
+ static inline void wgpuTextureReference(WGPUTexture) { }
+ static inline void wgpuTextureViewReference(WGPUTextureView) { }
++#endif
+ static inline void wgpuExternalTextureReference(WGPUExternalTexture) { }
+ static inline void wgpuExternalTextureRelease(WGPUExternalTexture) { }
+ static inline void wgpuXRBindingReference(WGPUXRBinding) { }
+@@ -175,3 +225,27 @@
+     }
+     wgpuRenderBundleEncoderSetBindGroup(encoder, groupIndex, group, copiedOffsets.size(), copiedOffsets.span().data());
+ }
++
++template<typename Offsets>
++static inline void wgpuRenderPassEncoderSetBindGroupWithDynamicOffsets(WGPURenderPassEncoder encoder, uint32_t groupIndex, WGPUBindGroup group, Offsets&& offsets)
++{
++    Vector<uint32_t> copiedOffsets;
++    if (offsets) {
++        copiedOffsets.reserveInitialCapacity(offsets->size());
++        for (auto offset : *offsets)
++            copiedOffsets.append(offset);
++    }
++    wgpuRenderPassEncoderSetBindGroup(encoder, groupIndex, group, copiedOffsets.size(), copiedOffsets.span().data());
++}
++
++template<typename Offsets>
++static inline void wgpuComputePassEncoderSetBindGroupWithDynamicOffsets(WGPUComputePassEncoder encoder, uint32_t groupIndex, WGPUBindGroup group, Offsets&& offsets)
++{
++    Vector<uint32_t> copiedOffsets;
++    if (offsets) {
++        copiedOffsets.reserveInitialCapacity(offsets->size());
++        for (auto offset : *offsets)
++            copiedOffsets.append(offset);
++    }
++    wgpuComputePassEncoderSetBindGroup(encoder, groupIndex, group, copiedOffsets.size(), copiedOffsets.span().data());
++}
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp	2026-04-16 11:51:32.865982496 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp	2026-04-16 17:39:28.884548742 +0000
+@@ -30,8 +30,11 @@
+ 
+ #include "WebGPUConvertToBackingContext.h"
+ #include "WebGPUDeviceImpl.h"
++#include "WebGPUDawnCompat.h"
+ #include <WebGPU/WebGPUExt.h>
++#if !PLATFORM(WIN)
+ #include <wtf/BlockPtr.h>
++#endif
+ #include <wtf/TZoneMallocInlines.h>
+ 
+ namespace WebCore::WebGPU {
+@@ -39,8 +42,7 @@
+ static String adapterName(WGPUAdapter adapter)
+ {
+ #if PLATFORM(WIN)
+-    UNUSED_PARAM(adapter);
+-    return String::fromLatin1("Dawn");
++    return DawnCompat::adapterDisplayName(adapter);
+ #else
+     WGPUAdapterProperties properties;
+     wgpuAdapterGetProperties(adapter, &properties);
+@@ -51,64 +53,34 @@
+ static Ref<SupportedFeatures> supportedFeatures(const Vector<WGPUFeatureName>& features)
+ {
+     Vector<String> result;
+-    for (auto feature : features)
++    for (auto feature : features) {
++#if PLATFORM(WIN)
++        result.append(DawnCompat::dawnFeatureName(feature));
++#else
+         result.append(wgpuAdapterFeatureName(feature));
++#endif
++    }
+ 
+     return SupportedFeatures::create(WTF::move(result));
+ }
+ 
+ static Ref<SupportedFeatures> supportedFeatures(WGPUAdapter adapter)
+ {
++#if PLATFORM(WIN)
++    return DawnCompat::supportedFeaturesFromAdapter(adapter);
++#else
+     auto featureCount = wgpuAdapterEnumerateFeatures(adapter, nullptr);
+     Vector<WGPUFeatureName> features(featureCount);
+     wgpuAdapterEnumerateFeatures(adapter, features.mutableSpan().data());
+ 
+     return supportedFeatures(features);
++#endif
+ }
+ 
+ static Ref<SupportedLimits> supportedLimits(WGPUAdapter adapter)
+ {
+ #if PLATFORM(WIN)
+-    WGPULimits limits { };
+-    auto result = wgpuAdapterGetLimits(adapter, &limits);
+-    ASSERT_UNUSED(result, result);
+-    return SupportedLimits::create(
+-        limits.maxTextureDimension1D,
+-        limits.maxTextureDimension2D,
+-        limits.maxTextureDimension3D,
+-        limits.maxTextureArrayLayers,
+-        limits.maxBindGroups,
+-        limits.maxBindGroupsPlusVertexBuffers,
+-        limits.maxBindingsPerBindGroup,
+-        limits.maxDynamicUniformBuffersPerPipelineLayout,
+-        limits.maxDynamicStorageBuffersPerPipelineLayout,
+-        limits.maxSampledTexturesPerShaderStage,
+-        limits.maxSamplersPerShaderStage,
+-        limits.maxStorageBuffersPerShaderStage,
+-        limits.maxStorageTexturesPerShaderStage,
+-        limits.maxUniformBuffersPerShaderStage,
+-        limits.maxUniformBufferBindingSize,
+-        limits.maxStorageBufferBindingSize,
+-        limits.minUniformBufferOffsetAlignment,
+-        limits.minStorageBufferOffsetAlignment,
+-        limits.maxVertexBuffers,
+-        limits.maxBufferSize,
+-        limits.maxVertexAttributes,
+-        limits.maxVertexBufferArrayStride,
+-        limits.maxInterStageShaderComponents,
+-        limits.maxInterStageShaderVariables,
+-        limits.maxColorAttachments,
+-        limits.maxColorAttachmentBytesPerSample,
+-        limits.maxComputeWorkgroupStorageSize,
+-        limits.maxComputeInvocationsPerWorkgroup,
+-        limits.maxComputeWorkgroupSizeX,
+-        limits.maxComputeWorkgroupSizeY,
+-        limits.maxComputeWorkgroupSizeZ,
+-        limits.maxComputeWorkgroupsPerDimension,
+-        limits.maxStorageBuffersInFragmentStage,
+-        limits.maxStorageTexturesInFragmentStage,
+-        limits.maxStorageBuffersInVertexStage,
+-        limits.maxStorageTexturesInVertexStage);
++    return DawnCompat::supportedLimitsFromAdapter(adapter);
+ #else
+     WGPUSupportedLimits limits;
+     auto result = wgpuAdapterGetLimits(adapter, &limits);
+@@ -167,10 +139,17 @@
+ 
+ WTF_MAKE_TZONE_ALLOCATED_IMPL(AdapterImpl);
+ 
+-AdapterImpl::AdapterImpl(WebGPUPtr<WGPUAdapter>&& adapter, ConvertToBackingContext& convertToBackingContext)
++AdapterImpl::AdapterImpl(WebGPUPtr<WGPUAdapter>&& adapter, ConvertToBackingContext& convertToBackingContext
++#if PLATFORM(WIN)
++    , WGPUInstance dawnInstance
++#endif
++    )
+     : Adapter(adapterName(adapter.get()), supportedFeatures(adapter.get()), supportedLimits(adapter.get()), WebGPU::isFallbackAdapter(adapter.get()))
+     , m_backing(WTF::move(adapter))
+     , m_convertToBackingContext(convertToBackingContext)
++#if PLATFORM(WIN)
++    , m_dawnInstance(dawnInstance)
++#endif
+ {
+ }
+ 
+@@ -212,23 +191,57 @@
+     return true;
+ }
+ 
++#if !PLATFORM(WIN)
+ static void requestDeviceCallback(WGPURequestDeviceStatus status, WGPUDevice device, const char* message, void* userdata)
+ {
+     auto block = reinterpret_cast<void(^)(WGPURequestDeviceStatus, WGPUDevice, const char*)>(userdata);
+     block(status, device, message);
+     Block_release(block); // Block_release is matched with Block_copy below in AdapterImpl::requestDevice().
+ }
++#endif
+ 
+-void AdapterImpl::requestDevice(const DeviceDescriptor& descriptor, CompletionHandler<void(RefPtr<Device>&&)>&& callback)
++struct DawnRequestDeviceUserdata {
++    CompletionHandler<void(RefPtr<Device>&&)>&& callback;
++    Ref<ConvertToBackingContext> convertToBackingContext;
++    WGPUInstance instance { nullptr };
++};
++
++static void dawnRequestDeviceCallback(WGPURequestDeviceStatus status, WGPUDevice device, WGPUStringView, void* userdata1, void*)
+ {
+-#if PLATFORM(WIN)
+-    UNUSED_PARAM(descriptor);
+-    auto device = wgpuAdapterCreateDevice(m_backing.get(), nullptr);
+-    if (!device) {
+-        callback(nullptr);
++    std::unique_ptr<DawnRequestDeviceUserdata> data(static_cast<DawnRequestDeviceUserdata*>(userdata1));
++    if (!data)
++        return;
++    if (status != WGPURequestDeviceStatus_Success || !device) {
++        data->callback(nullptr);
+         return;
+     }
+-    callback(DeviceImpl::create(adoptWebGPU(device), supportedFeatures(m_backing.get()), supportedLimits(m_backing.get()), m_convertToBackingContext));
++    auto features = DawnCompat::supportedFeaturesFromDevice(device);
++    auto limits = DawnCompat::supportedLimitsFromDevice(device);
++    auto backing = adoptWebGPU(device);
++    data->callback(DeviceImpl::create(WTF::move(backing), WTF::move(features), WTF::move(limits), data->convertToBackingContext.copyRef(), data->instance));
++}
++
++void AdapterImpl::requestDevice(const DeviceDescriptor& descriptor, CompletionHandler<void(RefPtr<Device>&&)>&& callback)
++{
++#if PLATFORM(WIN)
++    auto utf8Label = descriptor.label.utf8();
++    WGPUDeviceDescriptor deviceDescriptor { };
++    deviceDescriptor.label = DawnCompat::toDawnStringView(utf8Label);
++    deviceDescriptor.defaultQueue.label = DawnCompat::toDawnStringView(CString("default"_s));
++
++    auto* userdata = new DawnRequestDeviceUserdata {
++        WTF::move(callback),
++        m_convertToBackingContext.copyRef(),
++        m_dawnInstance,
++    };
++
++    WGPURequestDeviceCallbackInfo callbackInfo { };
++    callbackInfo.mode = WGPUCallbackMode_AllowProcessEvents;
++    callbackInfo.callback = dawnRequestDeviceCallback;
++    callbackInfo.userdata1 = userdata;
++
++    auto future = wgpuAdapterRequestDevice(m_backing.get(), &deviceDescriptor, callbackInfo);
++    DawnCompat::waitForFuture(m_dawnInstance, future);
+ #else
+     auto label = descriptor.label.utf8();
+ 
+@@ -370,7 +383,11 @@
+ 
+ bool AdapterImpl::xrCompatible()
+ {
++#if PLATFORM(WIN)
++    return false;
++#else
+     return wgpuAdapterXRCompatible(m_backing.get());
++#endif
+ }
+ 
+ } // namespace WebCore::WebGPU
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.h b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.h
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.h	2026-04-16 11:51:32.007705221 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.h	2026-04-16 11:27:02.480084652 +0000
+@@ -31,6 +31,7 @@
+ #include "WebGPUPtr.h"
+ #include <WebGPU/WebGPU.h>
+ #include <wtf/Deque.h>
++#include <wtf/Platform.h>
+ #include <wtf/TZoneMalloc.h>
+ 
+ namespace WebCore::WebGPU {
+@@ -40,9 +41,17 @@
+ class AdapterImpl final : public Adapter {
+     WTF_MAKE_TZONE_ALLOCATED(AdapterImpl);
+ public:
+-    static Ref<AdapterImpl> create(WebGPUPtr<WGPUAdapter>&& adapter, ConvertToBackingContext& convertToBackingContext)
++    static Ref<AdapterImpl> create(WebGPUPtr<WGPUAdapter>&& adapter, ConvertToBackingContext& convertToBackingContext
++#if PLATFORM(WIN)
++        , WGPUInstance dawnInstance
++#endif
++        )
+     {
+-        return adoptRef(*new AdapterImpl(WTF::move(adapter), convertToBackingContext));
++        return adoptRef(*new AdapterImpl(WTF::move(adapter), convertToBackingContext
++#if PLATFORM(WIN)
++            , dawnInstance
++#endif
++            ));
+     }
+ 
+     virtual ~AdapterImpl();
+@@ -50,7 +59,11 @@
+ private:
+     friend class DowncastConvertToBackingContext;
+ 
+-    AdapterImpl(WebGPUPtr<WGPUAdapter>&&, ConvertToBackingContext&);
++    AdapterImpl(WebGPUPtr<WGPUAdapter>&&, ConvertToBackingContext&
++#if PLATFORM(WIN)
++        , WGPUInstance dawnInstance
++#endif
++        );
+ 
+     AdapterImpl(const AdapterImpl&) = delete;
+     AdapterImpl(AdapterImpl&&) = delete;
+@@ -65,6 +78,9 @@
+ 
+     WebGPUPtr<WGPUAdapter> m_backing;
+     const Ref<ConvertToBackingContext> m_convertToBackingContext;
++#if PLATFORM(WIN)
++    WGPUInstance m_dawnInstance { nullptr };
++#endif
+ };
+ 
+ } // namespace WebCore::WebGPU
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUBindGroupImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUBindGroupImpl.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUBindGroupImpl.cpp	2026-04-16 11:51:32.007705221 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUBindGroupImpl.cpp	2026-04-16 11:27:02.480131493 +0000
+@@ -24,6 +24,8 @@
+  */
+ 
+ #include "config.h"
++#include <wtf/Platform.h>
++#include "WebGPUDawnCompat.h"
+ #include "WebGPUBindGroupImpl.h"
+ 
+ #if HAVE(WEBGPU_IMPLEMENTATION)
+@@ -47,7 +49,15 @@
+ 
+ void BindGroupImpl::setLabelInternal(const String& label)
+ {
+-    wgpuBindGroupSetLabel(m_backing.get(), label.utf8().data());
++    #if PLATFORM(WIN)
++
++        DawnCompat::setLabel(m_backing.get(), label);
++
++    #else
++
++        wgpuBindGroupSetLabel(m_backing.get(), label.utf8().data());
++
++    #endif
+ }
+ 
+ bool BindGroupImpl::updateExternalTextures(ExternalTexture& externalTexture)
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUBindGroupLayoutImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUBindGroupLayoutImpl.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUBindGroupLayoutImpl.cpp	2026-04-16 11:51:32.007705221 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUBindGroupLayoutImpl.cpp	2026-04-16 11:27:02.480177733 +0000
+@@ -24,6 +24,8 @@
+  */
+ 
+ #include "config.h"
++#include <wtf/Platform.h>
++#include "WebGPUDawnCompat.h"
+ #include "WebGPUBindGroupLayoutImpl.h"
+ 
+ #if HAVE(WEBGPU_IMPLEMENTATION)
+@@ -46,7 +48,15 @@
+ 
+ void BindGroupLayoutImpl::setLabelInternal(const String& label)
+ {
+-    wgpuBindGroupLayoutSetLabel(m_backing.get(), label.utf8().data());
++    #if PLATFORM(WIN)
++
++        DawnCompat::setLabel(m_backing.get(), label);
++
++    #else
++
++        wgpuBindGroupLayoutSetLabel(m_backing.get(), label.utf8().data());
++
++    #endif
+ }
+ 
+ } // namespace WebCore::WebGPU
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUBufferImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUBufferImpl.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUBufferImpl.cpp	2026-04-16 11:51:32.007705221 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUBufferImpl.cpp	2026-04-16 15:10:02.739953078 +0000
+@@ -24,22 +24,36 @@
+  */
+ 
+ #include "config.h"
++#include <wtf/Platform.h>
++#include "WebGPUDawnCompat.h"
+ #include "WebGPUBufferImpl.h"
+ 
+ #if HAVE(WEBGPU_IMPLEMENTATION)
+ 
+ #include "WebGPUConvertToBackingContext.h"
+ #include <WebGPU/WebGPUExt.h>
++#if !PLATFORM(WIN)
+ #include <wtf/BlockPtr.h>
++#endif
+ #include <wtf/TZoneMallocInlines.h>
++#if PLATFORM(WIN)
++#include <memory>
++#endif
+ 
+ namespace WebCore::WebGPU {
+ 
+ WTF_MAKE_TZONE_ALLOCATED_IMPL(BufferImpl);
+ 
+-BufferImpl::BufferImpl(WebGPUPtr<WGPUBuffer>&& buffer, ConvertToBackingContext& convertToBackingContext)
++BufferImpl::BufferImpl(WebGPUPtr<WGPUBuffer>&& buffer, ConvertToBackingContext& convertToBackingContext
++#if PLATFORM(WIN)
++    , WGPUInstance dawnInstance
++#endif
++    )
+     : m_backing(WTF::move(buffer))
+     , m_convertToBackingContext(convertToBackingContext)
++#if PLATFORM(WIN)
++    , m_dawnInstance(dawnInstance)
++#endif
+ {
+ }
+ 
+@@ -54,30 +68,62 @@
+     return bufferSize > offset ? (bufferSize - offset) : 0;
+ }
+ 
++#if !PLATFORM(WIN)
+ static void mapAsyncCallback(WGPUBufferMapAsyncStatus status, void* userdata)
+ {
+     auto block = reinterpret_cast<void(^)(WGPUBufferMapAsyncStatus)>(userdata);
+     block(status);
+     Block_release(block); // Block_release is matched with Block_copy below in BufferImpl::mapAsync().
+ }
++#endif
++
++#if PLATFORM(WIN)
++struct DawnBufferMapUserdata {
++    CompletionHandler<void(bool)> callback;
++    WGPUInstance instance { nullptr };
++};
++
++static void dawnBufferMapCallback(WGPUMapAsyncStatus status, WGPUStringView, void* userdata1, void*)
++{
++    std::unique_ptr<DawnBufferMapUserdata> data(static_cast<DawnBufferMapUserdata*>(userdata1));
++    if (!data)
++        return;
++    data->callback(status == WGPUMapAsyncStatus_Success);
++}
++#endif
+ 
+ void BufferImpl::mapAsync(MapModeFlags mapModeFlags, Size64 offset, std::optional<Size64> size, CompletionHandler<void(bool)>&& callback)
+ {
+     auto backingMapModeFlags = m_convertToBackingContext->convertMapModeFlagsToBacking(mapModeFlags);
+     auto usedSize = getMappedSize(m_backing.get(), size, offset);
+ 
++#if PLATFORM(WIN)
++    auto* userdata = new DawnBufferMapUserdata { WTF::move(callback), m_dawnInstance };
++    WGPUBufferMapCallbackInfo callbackInfo { };
++    callbackInfo.mode = WGPUCallbackMode_AllowProcessEvents;
++    callbackInfo.callback = dawnBufferMapCallback;
++    callbackInfo.userdata1 = userdata;
++    auto future = wgpuBufferMapAsync(m_backing.get(), backingMapModeFlags, static_cast<size_t>(offset), static_cast<size_t>(usedSize), callbackInfo);
++    DawnCompat::waitForFuture(m_dawnInstance, future);
++#else
+     // FIXME: Check the casts.
+     auto blockPtr = makeBlockPtr([callback = WTF::move(callback)](WGPUBufferMapAsyncStatus status) mutable {
+         callback(status == WGPUBufferMapAsyncStatus_Success);
+     });
+     wgpuBufferMapAsync(m_backing.get(), backingMapModeFlags, static_cast<size_t>(offset), static_cast<size_t>(usedSize), &mapAsyncCallback, Block_copy(blockPtr.get())); // Block_copy is matched with Block_release above in mapAsyncCallback().
++#endif
+ }
+ 
+ void BufferImpl::getMappedRange(Size64 offset, std::optional<Size64> size, NOESCAPE const Function<void(std::span<uint8_t>)>& callback)
+ {
+     auto usedSize = getMappedSize(m_backing.get(), size, offset);
+ 
++#if PLATFORM(WIN)
++    auto* data = static_cast<uint8_t*>(wgpuBufferGetMappedRange(m_backing.get(), static_cast<size_t>(offset), static_cast<size_t>(usedSize)));
++    callback(data ? std::span<uint8_t> { data, static_cast<size_t>(usedSize) } : std::span<uint8_t> { });
++#else
+     callback(wgpuBufferGetMappedRange(m_backing.get(), static_cast<size_t>(offset), static_cast<size_t>(usedSize)));
++#endif
+ }
+ 
+ std::span<uint8_t> BufferImpl::getBufferContents()
+@@ -113,7 +159,15 @@
+ 
+ void BufferImpl::setLabelInternal(const String& label)
+ {
+-    wgpuBufferSetLabel(m_backing.get(), label.utf8().data());
++    #if PLATFORM(WIN)
++
++        DawnCompat::setLabel(m_backing.get(), label);
++
++    #else
++
++        wgpuBufferSetLabel(m_backing.get(), label.utf8().data());
++
++    #endif
+ }
+ 
+ } // namespace WebCore::WebGPU
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUBufferImpl.h b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUBufferImpl.h
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUBufferImpl.h	2026-04-16 11:51:32.007705221 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUBufferImpl.h	2026-04-16 11:27:02.480273275 +0000
+@@ -31,6 +31,7 @@
+ #include "WebGPUPtr.h"
+ #include <WebGPU/WebGPU.h>
+ #include <wtf/Deque.h>
++#include <wtf/Platform.h>
+ #include <wtf/TZoneMalloc.h>
+ 
+ namespace WebCore::WebGPU {
+@@ -40,9 +41,17 @@
+ class BufferImpl final : public Buffer {
+     WTF_MAKE_TZONE_ALLOCATED(BufferImpl);
+ public:
+-    static Ref<BufferImpl> create(WebGPUPtr<WGPUBuffer>&& buffer, ConvertToBackingContext& convertToBackingContext)
++    static Ref<BufferImpl> create(WebGPUPtr<WGPUBuffer>&& buffer, ConvertToBackingContext& convertToBackingContext
++#if PLATFORM(WIN)
++        , WGPUInstance dawnInstance
++#endif
++        )
+     {
+-        return adoptRef(*new BufferImpl(WTF::move(buffer), convertToBackingContext));
++        return adoptRef(*new BufferImpl(WTF::move(buffer), convertToBackingContext
++#if PLATFORM(WIN)
++            , dawnInstance
++#endif
++            ));
+     }
+ 
+     virtual ~BufferImpl();
+@@ -50,7 +59,11 @@
+ private:
+     friend class DowncastConvertToBackingContext;
+ 
+-    BufferImpl(WebGPUPtr<WGPUBuffer>&&, ConvertToBackingContext&);
++    BufferImpl(WebGPUPtr<WGPUBuffer>&&, ConvertToBackingContext&
++#if PLATFORM(WIN)
++        , WGPUInstance dawnInstance
++#endif
++        );
+ 
+     BufferImpl(const BufferImpl&) = delete;
+     BufferImpl(BufferImpl&&) = delete;
+@@ -72,6 +85,9 @@
+ 
+     const WebGPUPtr<WGPUBuffer> m_backing;
+     const Ref<ConvertToBackingContext> m_convertToBackingContext;
++#if PLATFORM(WIN)
++    WGPUInstance m_dawnInstance { nullptr };
++#endif
+ };
+ 
+ } // namespace WebCore::WebGPU
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUCommandBufferImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUCommandBufferImpl.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUCommandBufferImpl.cpp	2026-04-16 11:51:32.007705221 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUCommandBufferImpl.cpp	2026-04-16 11:27:02.480319376 +0000
+@@ -24,6 +24,8 @@
+  */
+ 
+ #include "config.h"
++#include <wtf/Platform.h>
++#include "WebGPUDawnCompat.h"
+ #include "WebGPUCommandBufferImpl.h"
+ 
+ #if HAVE(WEBGPU_IMPLEMENTATION)
+@@ -46,7 +48,15 @@
+ 
+ void CommandBufferImpl::setLabelInternal(const String& label)
+ {
+-    wgpuCommandBufferSetLabel(m_backing.get(), label.utf8().data());
++    #if PLATFORM(WIN)
++
++        DawnCompat::setLabel(m_backing.get(), label);
++
++    #else
++
++        wgpuCommandBufferSetLabel(m_backing.get(), label.utf8().data());
++
++    #endif
+ }
+ 
+ } // namespace WebCore::WebGPU
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUCommandEncoderImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUCommandEncoderImpl.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUCommandEncoderImpl.cpp	2026-04-16 11:51:32.007705221 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUCommandEncoderImpl.cpp	2026-04-16 14:46:31.929935666 +0000
+@@ -24,6 +24,8 @@
+  */
+ 
+ #include "config.h"
++#include <wtf/Platform.h>
++#include "WebGPUDawnCompat.h"
+ #include "WebGPUCommandEncoderImpl.h"
+ 
+ #if HAVE(WEBGPU_IMPLEMENTATION)
+@@ -53,6 +55,10 @@
+ 
+ RefPtr<RenderPassEncoder> CommandEncoderImpl::beginRenderPass(const RenderPassDescriptor& descriptor)
+ {
++#if PLATFORM(WIN)
++    UNUSED_PARAM(descriptor);
++    return nullptr;
++#else
+     auto label = descriptor.label.utf8();
+ 
+     Vector<WGPURenderPassColorAttachment> colorAttachments;
+@@ -113,7 +119,11 @@
+ 
+     WGPURenderPassDescriptor backingDescriptor {
+         .maxDrawCount = descriptor.maxDrawCount.value_or(UINT64_MAX),
++#if PLATFORM(WIN)
++        .label = DawnCompat::toDawnStringView(label),
++#else
+         .label = label.data(),
++#endif
+         .colorAttachmentCount = colorAttachments.size(),
+         .colorAttachments = colorAttachments.size() ? colorAttachments.span().data() : nullptr,
+         .depthStencilAttachment = depthStencilAttachment ? &depthStencilAttachment.value() : nullptr,
+@@ -122,10 +132,15 @@
+     };
+ 
+     return RenderPassEncoderImpl::create(adoptWebGPU(wgpuCommandEncoderBeginRenderPass(m_backing.get(), &backingDescriptor)), convertToBackingContext);
++#endif
+ }
+ 
+ RefPtr<ComputePassEncoder> CommandEncoderImpl::beginComputePass(const std::optional<ComputePassDescriptor>& descriptor)
+ {
++#if PLATFORM(WIN)
++    UNUSED_PARAM(descriptor);
++    return nullptr;
++#else
+     String label = descriptor ? descriptor->label : emptyString();
+ 
+     WGPUComputePassTimestampWrites timestampWrites {
+@@ -135,11 +150,16 @@
+     };
+ 
+     WGPUComputePassDescriptor backingDescriptor {
++#if PLATFORM(WIN)
++        .label = DawnCompat::toDawnStringView(label),
++#else
+         .label = label,
++#endif
+         .timestampWrites = timestampWrites.querySet ? &timestampWrites : nullptr
+     };
+ 
+     return ComputePassEncoderImpl::create(adoptWebGPU(wgpuCommandEncoderBeginComputePass(m_backing.get(), &backingDescriptor)), m_convertToBackingContext);
++#endif
+ }
+ 
+ void CommandEncoderImpl::copyBufferToBuffer(
+@@ -158,6 +178,11 @@
+     const ImageCopyTexture& destination,
+     const Extent3D& copySize)
+ {
++#if PLATFORM(WIN)
++    UNUSED_PARAM(source);
++    UNUSED_PARAM(destination);
++    UNUSED_PARAM(copySize);
++#else
+     Ref convertToBackingContext = m_convertToBackingContext;
+ 
+     WGPUImageCopyBuffer backingSource {
+@@ -179,6 +204,7 @@
+     WGPUExtent3D backingCopySize = convertToBackingContext->convertToBacking(copySize);
+ 
+     wgpuCommandEncoderCopyBufferToTexture(m_backing.get(), &backingSource, &backingDestination, &backingCopySize);
++#endif
+ }
+ 
+ void CommandEncoderImpl::copyTextureToBuffer(
+@@ -186,6 +212,11 @@
+     const ImageCopyBuffer& destination,
+     const Extent3D& copySize)
+ {
++#if PLATFORM(WIN)
++    UNUSED_PARAM(source);
++    UNUSED_PARAM(destination);
++    UNUSED_PARAM(copySize);
++#else
+     Ref convertToBackingContext = m_convertToBackingContext;
+ 
+     WGPUImageCopyTexture backingSource {
+@@ -207,6 +238,7 @@
+     WGPUExtent3D backingCopySize = convertToBackingContext->convertToBacking(copySize);
+ 
+     wgpuCommandEncoderCopyTextureToBuffer(m_backing.get(), &backingSource, &backingDestination, &backingCopySize);
++#endif
+ }
+ 
+ void CommandEncoderImpl::copyTextureToTexture(
+@@ -214,6 +246,11 @@
+     const ImageCopyTexture& destination,
+     const Extent3D& copySize)
+ {
++#if PLATFORM(WIN)
++    UNUSED_PARAM(source);
++    UNUSED_PARAM(destination);
++    UNUSED_PARAM(copySize);
++#else
+     Ref convertToBackingContext = m_convertToBackingContext;
+ 
+     WGPUImageCopyTexture backingSource {
+@@ -233,6 +270,7 @@
+     WGPUExtent3D backingCopySize = convertToBackingContext->convertToBacking(copySize);
+ 
+     wgpuCommandEncoderCopyTextureToTexture(m_backing.get(), &backingSource, &backingDestination, &backingCopySize);
++#endif
+ }
+ 
+ void CommandEncoderImpl::clearBuffer(
+@@ -245,7 +283,15 @@
+ 
+ void CommandEncoderImpl::pushDebugGroup(String&& groupLabel)
+ {
+-    wgpuCommandEncoderPushDebugGroup(m_backing.get(), groupLabel.utf8().data());
++    #if PLATFORM(WIN)
++
++        DawnCompat::pushDebugGroup(m_backing.get(), groupLabel);
++
++    #else
++
++        wgpuCommandEncoderPushDebugGroup(m_backing.get(), groupLabel.utf8().data());
++
++    #endif
+ }
+ 
+ void CommandEncoderImpl::popDebugGroup()
+@@ -255,7 +301,15 @@
+ 
+ void CommandEncoderImpl::insertDebugMarker(String&& markerLabel)
+ {
+-    wgpuCommandEncoderInsertDebugMarker(m_backing.get(), markerLabel.utf8().data());
++    #if PLATFORM(WIN)
++
++        DawnCompat::insertDebugMarker(m_backing.get(), markerLabel);
++
++    #else
++
++        wgpuCommandEncoderInsertDebugMarker(m_backing.get(), markerLabel.utf8().data());
++
++    #endif
+ }
+ 
+ void CommandEncoderImpl::writeTimestamp(const QuerySet& querySet, Size32 queryIndex)
+@@ -277,7 +331,12 @@
+ RefPtr<CommandBuffer> CommandEncoderImpl::finish(const CommandBufferDescriptor& descriptor)
+ {
+     WGPUCommandBufferDescriptor backingDescriptor {
++#if PLATFORM(WIN)
++        .nextInChain = nullptr,
++        .label = DawnCompat::toDawnStringView(descriptor.label),
++#else
+         .label = descriptor.label,
++#endif
+     };
+ 
+     return CommandBufferImpl::create(adoptWebGPU(wgpuCommandEncoderFinish(m_backing.get(), &backingDescriptor)), m_convertToBackingContext);
+@@ -285,7 +344,15 @@
+ 
+ void CommandEncoderImpl::setLabelInternal(const String& label)
+ {
+-    wgpuCommandEncoderSetLabel(m_backing.get(), label.utf8().data());
++    #if PLATFORM(WIN)
++
++        DawnCompat::setLabel(m_backing.get(), label);
++
++    #else
++
++        wgpuCommandEncoderSetLabel(m_backing.get(), label.utf8().data());
++
++    #endif
+ }
+ 
+ } // namespace WebCore::WebGPU
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUCompositorIntegrationImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUCompositorIntegrationImpl.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUCompositorIntegrationImpl.cpp	2026-04-16 11:51:32.007705221 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUCompositorIntegrationImpl.cpp	2026-04-16 15:34:49.266010411 +0000
+@@ -32,13 +32,17 @@
+ #include "WebGPUDevice.h"
+ #include "WebGPUQueue.h"
+ #include "WebGPUTextureFormat.h"
++#if !PLATFORM(WIN)
+ #include <CoreFoundation/CoreFoundation.h>
+ #include <WebCore/IOSurface.h>
+ #include <WebCore/NativeImage.h>
+ #include <WebGPU/WebGPUExt.h>
+ #include <pal/spi/cg/CoreGraphicsSPI.h>
++#endif
+ #include <wtf/TZoneMallocInlines.h>
++#if !PLATFORM(WIN)
+ #include <wtf/spi/cocoa/IOSurfaceSPI.h>
++#endif
+ 
+ namespace WebCore::WebGPU {
+ 
+@@ -53,15 +57,20 @@
+ 
+ void CompositorIntegrationImpl::prepareForDisplay(uint32_t frameIndex, CompletionHandler<void()>&& completionHandler)
+ {
++#if PLATFORM(WIN)
++    UNUSED_PARAM(frameIndex);
++    completionHandler();
++#else
+     if (RefPtr presentationContext = m_presentationContext)
+         presentationContext->present(frameIndex);
+ 
+     m_onSubmittedWorkScheduledCallback(WTF::move(completionHandler));
++#endif
+ }
+ 
+ void CompositorIntegrationImpl::updateContentsHeadroom(float headroom)
+ {
+-#if HAVE(SUPPORT_HDR_DISPLAY)
++#if !PLATFORM(WIN) && HAVE(SUPPORT_HDR_DISPLAY)
+     for (auto& ioSurface : m_renderBuffers)
+         ioSurface->setContentEDRHeadroom(headroom);
+ #else
+@@ -119,6 +128,10 @@
+ 
+ void CompositorIntegrationImpl::withDisplayBufferAsNativeImage(uint32_t bufferIndex, Function<void(WebCore::NativeImage*)> completion)
+ {
++#if PLATFORM(WIN)
++    UNUSED_PARAM(bufferIndex);
++    completion(nullptr);
++#else
+     if (!m_renderBuffers.size() || bufferIndex >= m_renderBuffers.size() || !m_device.get())
+         return completion(nullptr);
+ 
+@@ -148,6 +161,7 @@
+ 
+     CGImageSetCachingFlags(displayImage->platformImage().get(), kCGImageCachingTransient);
+     completion(displayImage.get());
++#endif
+ }
+ 
+ void CompositorIntegrationImpl::paintCompositedResultsToCanvas(WebCore::ImageBuffer&, uint32_t)
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUCompositorIntegrationImpl.h b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUCompositorIntegrationImpl.h
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUCompositorIntegrationImpl.h	2026-04-16 11:51:32.007705221 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUCompositorIntegrationImpl.h	2026-04-16 15:34:39.455930405 +0000
+@@ -29,8 +29,10 @@
+ 
+ #include "WebGPUCompositorIntegration.h"
+ 
++#if !PLATFORM(WIN)
+ #include "WebGPUPresentationContextImpl.h"
+ #include <WebCore/IOSurface.h>
++#endif
+ #include <WebGPU/WebGPU.h>
+ #include <wtf/CompletionHandler.h>
+ #include <wtf/Function.h>
+@@ -51,6 +53,7 @@
+ namespace WebCore::WebGPU {
+ 
+ class ConvertToBackingContext;
++class PresentationContextImpl;
+ 
+ class CompositorIntegrationImpl final : public CompositorIntegration {
+     WTF_MAKE_TZONE_ALLOCATED(CompositorIntegrationImpl);
+@@ -62,6 +65,7 @@
+ 
+     virtual ~CompositorIntegrationImpl();
+ 
++#if !PLATFORM(WIN)
+     void setPresentationContext(PresentationContextImpl& presentationContext)
+     {
+         ASSERT(!m_presentationContext);
+@@ -75,6 +79,7 @@
+         ASSERT(!m_onSubmittedWorkScheduledCallback);
+         m_onSubmittedWorkScheduledCallback = WTF::move(onSubmittedWorkScheduledCallback);
+     }
++#endif
+ 
+     void withDisplayBufferAsNativeImage(uint32_t bufferIndex, Function<void(WebCore::NativeImage*)>) final;
+     void NODELETE paintCompositedResultsToCanvas(WebCore::ImageBuffer&, uint32_t) final;
+@@ -101,9 +106,11 @@
+     WTF::Function<void(CFArrayRef)> m_renderBuffersWereRecreatedCallback;
+ #endif
+ 
++#if !PLATFORM(WIN)
+     WTF::Function<void(CompletionHandler<void()>&&)> m_onSubmittedWorkScheduledCallback;
+ 
+     RefPtr<PresentationContextImpl> m_presentationContext;
++#endif
+     const Ref<ConvertToBackingContext> m_convertToBackingContext;
+     WeakPtr<Device> m_device;
+ };
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUComputePassEncoderImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUComputePassEncoderImpl.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUComputePassEncoderImpl.cpp	2026-04-16 11:51:32.007705221 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUComputePassEncoderImpl.cpp	2026-04-16 11:51:10.421822051 +0000
+@@ -24,6 +24,8 @@
+  */
+ 
+ #include "config.h"
++#include <wtf/Platform.h>
++#include "WebGPUDawnCompat.h"
+ #include "WebGPUComputePassEncoderImpl.h"
+ 
+ #if HAVE(WEBGPU_IMPLEMENTATION)
+@@ -71,7 +73,7 @@
+ void ComputePassEncoderImpl::setBindGroup(Index32 index, const BindGroup* bindGroup,
+     std::optional<Vector<BufferDynamicOffset>>&& offsets)
+ {
+-    wgpuComputePassEncoderSetBindGroup(m_backing.get(), index, bindGroup ? m_convertToBackingContext->convertToBacking(*bindGroup) : nullptr, WTF::move(offsets));
++    wgpuComputePassEncoderSetBindGroupWithDynamicOffsets(m_backing.get(), index, bindGroup ? m_convertToBackingContext->convertToBacking(*bindGroup) : nullptr, WTF::move(offsets));
+ }
+ 
+ void ComputePassEncoderImpl::setBindGroup(Index32, const BindGroup*, std::span<const uint32_t>, Size64, Size32)
+@@ -81,7 +83,15 @@
+ 
+ void ComputePassEncoderImpl::pushDebugGroup(String&& groupLabel)
+ {
+-    wgpuComputePassEncoderPushDebugGroup(m_backing.get(), groupLabel.utf8().data());
++    #if PLATFORM(WIN)
++
++        DawnCompat::pushDebugGroup(m_backing.get(), groupLabel);
++
++    #else
++
++        wgpuComputePassEncoderPushDebugGroup(m_backing.get(), groupLabel.utf8().data());
++
++    #endif
+ }
+ 
+ void ComputePassEncoderImpl::popDebugGroup()
+@@ -91,12 +101,28 @@
+ 
+ void ComputePassEncoderImpl::insertDebugMarker(String&& markerLabel)
+ {
+-    wgpuComputePassEncoderInsertDebugMarker(m_backing.get(), markerLabel.utf8().data());
++    #if PLATFORM(WIN)
++
++        DawnCompat::insertDebugMarker(m_backing.get(), markerLabel);
++
++    #else
++
++        wgpuComputePassEncoderInsertDebugMarker(m_backing.get(), markerLabel.utf8().data());
++
++    #endif
+ }
+ 
+ void ComputePassEncoderImpl::setLabelInternal(const String& label)
+ {
+-    wgpuComputePassEncoderSetLabel(m_backing.get(), label.utf8().data());
++    #if PLATFORM(WIN)
++
++        DawnCompat::setLabel(m_backing.get(), label);
++
++    #else
++
++        wgpuComputePassEncoderSetLabel(m_backing.get(), label.utf8().data());
++
++    #endif
+ }
+ 
+ } // namespace WebCore::WebGPU
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUComputePipelineImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUComputePipelineImpl.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUComputePipelineImpl.cpp	2026-04-16 11:51:32.007705221 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUComputePipelineImpl.cpp	2026-04-16 11:27:02.480478698 +0000
+@@ -24,6 +24,8 @@
+  */
+ 
+ #include "config.h"
++#include <wtf/Platform.h>
++#include "WebGPUDawnCompat.h"
+ #include "WebGPUComputePipelineImpl.h"
+ 
+ #if HAVE(WEBGPU_IMPLEMENTATION)
+@@ -53,7 +55,15 @@
+ 
+ void ComputePipelineImpl::setLabelInternal(const String& label)
+ {
+-    wgpuComputePipelineSetLabel(m_backing.get(), label.utf8().data());
++    #if PLATFORM(WIN)
++
++        DawnCompat::setLabel(m_backing.get(), label);
++
++    #else
++
++        wgpuComputePipelineSetLabel(m_backing.get(), label.utf8().data());
++
++    #endif
+ }
+ 
+ } // namespace WebCore::WebGPU
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUConvertToBackingContext.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUConvertToBackingContext.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUConvertToBackingContext.cpp	2026-04-16 11:51:32.007705221 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUConvertToBackingContext.cpp	2026-04-16 18:13:25.776908232 +0000
+@@ -223,9 +223,17 @@
+     case FeatureName::Float32Filterable:
+         return WGPUFeatureName_Float32Filterable;
+     case FeatureName::Float16Renderable:
++#if PLATFORM(WIN)
++        return static_cast<WGPUFeatureName>(0);
++#else
+         return WGPUFeatureName_Float16Renderable;
++#endif
+     case FeatureName::Float32Renderable:
++#if PLATFORM(WIN)
++        return static_cast<WGPUFeatureName>(0);
++#else
+         return WGPUFeatureName_Float32Renderable;
++#endif
+     case FeatureName::Float32Blendable:
+         return WGPUFeatureName_Float32Blendable;
+     case FeatureName::ClipDistances:
+@@ -729,9 +737,17 @@
+     case VertexFormat::Sint32x4:
+         return WGPUVertexFormat_Sint32x4;
+     case VertexFormat::Unorm1010102:
++#if PLATFORM(WIN)
++        return WGPUVertexFormat_Unorm10_10_10_2;
++#else
+         return WGPUVertexFormat_Unorm1010102;
++#endif
+     case VertexFormat::Unorm8x4Bgra:
++#if PLATFORM(WIN)
++        return WGPUVertexFormat_Unorm8x4BGRA;
++#else
+         return WGPUVertexFormat_Unorm8x4Bgra;
++#endif
+     }
+ }
+ 
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUCreateImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUCreateImpl.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUCreateImpl.cpp	2026-04-16 11:51:32.854912098 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUCreateImpl.cpp	2026-04-16 11:27:02.480552679 +0000
+@@ -34,7 +34,9 @@
+ #include "WebGPUImpl.h"
+ #include "WebGPUPtr.h"
+ #include <WebGPU/WebGPUExt.h>
++#if !PLATFORM(WIN)
+ #include <wtf/BlockPtr.h>
++#endif
+ 
+ #if PLATFORM(COCOA)
+ #include <wtf/darwin/WeakLinking.h>
+@@ -46,6 +48,11 @@
+ 
+ RefPtr<GPU> create(ScheduleWorkFunction&& scheduleWorkFunction, const WebCore::ProcessIdentity* webProcessIdentity)
+ {
++#if PLATFORM(WIN)
++    UNUSED_PARAM(scheduleWorkFunction);
++    UNUSED_PARAM(webProcessIdentity);
++    WGPUInstanceDescriptor descriptor { };
++#else
+ #if !HAVE(TASK_IDENTITY_TOKEN)
+     UNUSED_PARAM(webProcessIdentity);
+ #endif
+@@ -66,6 +73,7 @@
+         }
+ #endif
+     };
++#endif
+ 
+     if (!&wgpuCreateInstance)
+         return nullptr;
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDawnCompat.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDawnCompat.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDawnCompat.cpp	1970-01-01 00:00:00.000000000 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDawnCompat.cpp	2026-04-16 18:36:20.568890593 +0000
+@@ -0,0 +1,295 @@
++/*
++ * Copyright (C) 2026 Apple Inc. All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ *
++ * THIS SOFTWARE IS PROVIDED BY APPLE INC. AND ITS CONTRIBUTORS ``AS IS''
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE INC. OR ITS CONTRIBUTORS
++ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
++ * THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include "config.h"
++
++#if PLATFORM(WIN)
++
++#include "WebGPUDawnCompat.h"
++
++#include <algorithm>
++#include <cstring>
++#include <span>
++
++namespace WebCore::WebGPU::DawnCompat {
++
++WGPUStringView toDawnStringView(const char* utf8NullTerminated)
++{
++    if (!utf8NullTerminated || !*utf8NullTerminated)
++        return { nullptr, 0 };
++    return { utf8NullTerminated, WGPU_STRLEN };
++}
++
++WGPUStringView toDawnStringView(const CString& utf8)
++{
++    if (utf8.isEmpty())
++        return { nullptr, 0 };
++    return { utf8.data(), WGPU_STRLEN };
++}
++
++WGPUStringView toDawnStringView(const String& string)
++{
++    return toDawnStringView(string.utf8());
++}
++
++String stringFromDawn(WGPUStringView view)
++{
++    if (!view.data)
++        return { };
++    size_t byteLength = view.length == WGPU_STRLEN ? strlen(view.data) : view.length;
++    return String::fromUTF8(std::span<const char> { view.data, byteLength });
++}
++
++String adapterDisplayName(WGPUAdapter adapter)
++{
++    WGPUAdapterInfo info { };
++    if (wgpuAdapterGetInfo(adapter, &info) != WGPUStatus_Success)
++        return "Dawn"_s;
++    String description = stringFromDawn(info.description);
++    String device = stringFromDawn(info.device);
++    wgpuAdapterInfoFreeMembers(info);
++    if (!description.isEmpty())
++        return description;
++    if (!device.isEmpty())
++        return device;
++    return "Dawn"_s;
++}
++
++String dawnFeatureName(WGPUFeatureName feature)
++{
++    switch (feature) {
++    case WGPUFeatureName_CoreFeaturesAndLimits:
++        return "core-features-and-limits"_s;
++    case WGPUFeatureName_DepthClipControl:
++        return "depth-clip-control"_s;
++    case WGPUFeatureName_Depth32FloatStencil8:
++        return "depth32float-stencil8"_s;
++    case WGPUFeatureName_TextureCompressionBC:
++        return "texture-compression-bc"_s;
++    case WGPUFeatureName_TextureCompressionBCSliced3D:
++        return "texture-compression-bc-sliced-3d"_s;
++    case WGPUFeatureName_TextureCompressionETC2:
++        return "texture-compression-etc2"_s;
++    case WGPUFeatureName_TextureCompressionASTC:
++        return "texture-compression-astc"_s;
++    case WGPUFeatureName_TextureCompressionASTCSliced3D:
++        return "texture-compression-astc-sliced-3d"_s;
++    case WGPUFeatureName_TimestampQuery:
++        return "timestamp-query"_s;
++    case WGPUFeatureName_IndirectFirstInstance:
++        return "indirect-first-instance"_s;
++    case WGPUFeatureName_ShaderF16:
++        return "shader-f16"_s;
++    case WGPUFeatureName_RG11B10UfloatRenderable:
++        return "rg11b10ufloat-renderable"_s;
++    case WGPUFeatureName_BGRA8UnormStorage:
++        return "bgra8unorm-storage"_s;
++    case WGPUFeatureName_Float32Filterable:
++        return "float32-filterable"_s;
++    case WGPUFeatureName_Float32Blendable:
++        return "float32-blendable"_s;
++    case WGPUFeatureName_ClipDistances:
++        return "clip-distances"_s;
++    case WGPUFeatureName_DualSourceBlending:
++        return "dual-source-blending"_s;
++    case WGPUFeatureName_Subgroups:
++        return "subgroups"_s;
++    case WGPUFeatureName_TextureFormatsTier1:
++        return "texture-formats-tier1"_s;
++    case WGPUFeatureName_TextureFormatsTier2:
++        return "texture-formats-tier2"_s;
++    case WGPUFeatureName_PrimitiveIndex:
++        return "primitive-index"_s;
++    case WGPUFeatureName_TextureComponentSwizzle:
++        return "texture-component-swizzle"_s;
++    case WGPUFeatureName_Force32:
++        break;
++    default:
++        break;
++    }
++    return "unknown-feature"_s;
++}
++
++Ref<SupportedLimits> supportedLimitsFromDawnLimits(const WGPULimits& limits)
++{
++    // WebKit still exposes maxInterStageShaderComponents; Dawn reports variables only. Approximate conservatively.
++    uint32_t maxInterStageShaderComponents = std::min(60u, limits.maxInterStageShaderVariables * 4);
++
++    uint32_t perStageBuffers = limits.maxStorageBuffersPerShaderStage;
++    uint32_t perStageTextures = limits.maxStorageTexturesPerShaderStage;
++
++    return SupportedLimits::create(
++        limits.maxTextureDimension1D,
++        limits.maxTextureDimension2D,
++        limits.maxTextureDimension3D,
++        limits.maxTextureArrayLayers,
++        limits.maxBindGroups,
++        limits.maxBindGroupsPlusVertexBuffers,
++        limits.maxBindingsPerBindGroup,
++        limits.maxDynamicUniformBuffersPerPipelineLayout,
++        limits.maxDynamicStorageBuffersPerPipelineLayout,
++        limits.maxSampledTexturesPerShaderStage,
++        limits.maxSamplersPerShaderStage,
++        limits.maxStorageBuffersPerShaderStage,
++        limits.maxStorageTexturesPerShaderStage,
++        limits.maxUniformBuffersPerShaderStage,
++        limits.maxUniformBufferBindingSize,
++        limits.maxStorageBufferBindingSize,
++        limits.minUniformBufferOffsetAlignment,
++        limits.minStorageBufferOffsetAlignment,
++        limits.maxVertexBuffers,
++        limits.maxBufferSize,
++        limits.maxVertexAttributes,
++        limits.maxVertexBufferArrayStride,
++        maxInterStageShaderComponents,
++        limits.maxInterStageShaderVariables,
++        limits.maxColorAttachments,
++        limits.maxColorAttachmentBytesPerSample,
++        limits.maxComputeWorkgroupStorageSize,
++        limits.maxComputeInvocationsPerWorkgroup,
++        limits.maxComputeWorkgroupSizeX,
++        limits.maxComputeWorkgroupSizeY,
++        limits.maxComputeWorkgroupSizeZ,
++        limits.maxComputeWorkgroupsPerDimension,
++        perStageBuffers,
++        perStageTextures,
++        perStageBuffers,
++        perStageTextures);
++}
++
++Ref<SupportedLimits> supportedLimitsFromAdapter(WGPUAdapter adapter)
++{
++    WGPULimits limits { };
++    auto status = wgpuAdapterGetLimits(adapter, &limits);
++    ASSERT_UNUSED(status, status == WGPUStatus_Success);
++    return supportedLimitsFromDawnLimits(limits);
++}
++
++Ref<SupportedFeatures> supportedFeaturesFromAdapter(WGPUAdapter adapter)
++{
++    WGPUSupportedFeatures probe { };
++    wgpuAdapterGetFeatures(adapter, &probe);
++
++    Vector<WGPUFeatureName> backing;
++    backing.resize(probe.featureCount);
++    WGPUSupportedFeatures resolved {
++        .featureCount = probe.featureCount,
++        .features = backing.mutableSpan().data(),
++    };
++    wgpuAdapterGetFeatures(adapter, &resolved);
++
++    Vector<String> names;
++    names.reserveInitialCapacity(resolved.featureCount);
++    for (size_t i = 0; i < resolved.featureCount; ++i)
++        names.append(dawnFeatureName(resolved.features[i]));
++
++    return SupportedFeatures::create(WTF::move(names));
++}
++
++Ref<SupportedLimits> supportedLimitsFromDevice(WGPUDevice device)
++{
++    WGPULimits limits { };
++    auto status = wgpuDeviceGetLimits(device, &limits);
++    ASSERT_UNUSED(status, status == WGPUStatus_Success);
++    return supportedLimitsFromDawnLimits(limits);
++}
++
++Ref<SupportedFeatures> supportedFeaturesFromDevice(WGPUDevice device)
++{
++    WGPUSupportedFeatures probe { };
++    wgpuDeviceGetFeatures(device, &probe);
++
++    Vector<WGPUFeatureName> backing;
++    backing.resize(probe.featureCount);
++    WGPUSupportedFeatures resolved {
++        .featureCount = probe.featureCount,
++        .features = backing.mutableSpan().data(),
++    };
++    wgpuDeviceGetFeatures(device, &resolved);
++
++    Vector<String> names;
++    names.reserveInitialCapacity(resolved.featureCount);
++    for (size_t i = 0; i < resolved.featureCount; ++i)
++        names.append(dawnFeatureName(resolved.features[i]));
++
++    return SupportedFeatures::create(WTF::move(names));
++}
++
++void waitForFuture(WGPUInstance instance, WGPUFuture future)
++{
++    WGPUFutureWaitInfo waitInfo { };
++    waitInfo.future = future;
++    waitInfo.completed = false;
++    while (!waitInfo.completed)
++        wgpuInstanceWaitAny(instance, 1, &waitInfo, UINT64_MAX);
++}
++
++WGPUShaderModule deviceCreateShaderModule(WGPUDevice device, const String& wgsl, const String& label)
++{
++    auto codeUtf8 = wgsl.utf8();
++    WGPUShaderSourceWGSL wgslSource { };
++    wgslSource.chain.next = nullptr;
++    wgslSource.chain.sType = WGPUSType_ShaderSourceWGSL;
++    wgslSource.code = toDawnStringView(codeUtf8);
++
++    WGPUShaderModuleDescriptor moduleDescriptor { };
++    moduleDescriptor.nextInChain = &wgslSource.chain;
++    moduleDescriptor.label = toDawnStringView(label);
++
++    return wgpuDeviceCreateShaderModule(device, &moduleDescriptor);
++}
++
++void setLabel(WGPUBuffer o, const String& label) { wgpuBufferSetLabel(o, toDawnStringView(label)); }
++void setLabel(WGPUBindGroup o, const String& label) { wgpuBindGroupSetLabel(o, toDawnStringView(label)); }
++void setLabel(WGPUBindGroupLayout o, const String& label) { wgpuBindGroupLayoutSetLabel(o, toDawnStringView(label)); }
++void setLabel(WGPUCommandBuffer o, const String& label) { wgpuCommandBufferSetLabel(o, toDawnStringView(label)); }
++void setLabel(WGPUCommandEncoder o, const String& label) { wgpuCommandEncoderSetLabel(o, toDawnStringView(label)); }
++void setLabel(WGPUComputePassEncoder o, const String& label) { wgpuComputePassEncoderSetLabel(o, toDawnStringView(label)); }
++void setLabel(WGPUComputePipeline o, const String& label) { wgpuComputePipelineSetLabel(o, toDawnStringView(label)); }
++void setLabel(WGPUDevice o, const String& label) { wgpuDeviceSetLabel(o, toDawnStringView(label)); }
++void setLabel(WGPUPipelineLayout o, const String& label) { wgpuPipelineLayoutSetLabel(o, toDawnStringView(label)); }
++void setLabel(WGPUQuerySet o, const String& label) { wgpuQuerySetSetLabel(o, toDawnStringView(label)); }
++void setLabel(WGPUQueue o, const String& label) { wgpuQueueSetLabel(o, toDawnStringView(label)); }
++void setLabel(WGPURenderBundle o, const String& label) { wgpuRenderBundleSetLabel(o, toDawnStringView(label)); }
++void setLabel(WGPURenderBundleEncoder o, const String& label) { wgpuRenderBundleEncoderSetLabel(o, toDawnStringView(label)); }
++void setLabel(WGPURenderPassEncoder o, const String& label) { wgpuRenderPassEncoderSetLabel(o, toDawnStringView(label)); }
++void setLabel(WGPURenderPipeline o, const String& label) { wgpuRenderPipelineSetLabel(o, toDawnStringView(label)); }
++void setLabel(WGPUSampler o, const String& label) { wgpuSamplerSetLabel(o, toDawnStringView(label)); }
++void setLabel(WGPUShaderModule o, const String& label) { wgpuShaderModuleSetLabel(o, toDawnStringView(label)); }
++void setLabel(WGPUTexture o, const String& label) { wgpuTextureSetLabel(o, toDawnStringView(label)); }
++void setLabel(WGPUTextureView o, const String& label) { wgpuTextureViewSetLabel(o, toDawnStringView(label)); }
++
++void pushDebugGroup(WGPUCommandEncoder o, const String& label) { wgpuCommandEncoderPushDebugGroup(o, toDawnStringView(label)); }
++void insertDebugMarker(WGPUCommandEncoder o, const String& label) { wgpuCommandEncoderInsertDebugMarker(o, toDawnStringView(label)); }
++void pushDebugGroup(WGPUComputePassEncoder o, const String& label) { wgpuComputePassEncoderPushDebugGroup(o, toDawnStringView(label)); }
++void insertDebugMarker(WGPUComputePassEncoder o, const String& label) { wgpuComputePassEncoderInsertDebugMarker(o, toDawnStringView(label)); }
++void pushDebugGroup(WGPURenderPassEncoder o, const String& label) { wgpuRenderPassEncoderPushDebugGroup(o, toDawnStringView(label)); }
++void insertDebugMarker(WGPURenderPassEncoder o, const String& label) { wgpuRenderPassEncoderInsertDebugMarker(o, toDawnStringView(label)); }
++void pushDebugGroup(WGPURenderBundleEncoder o, const String& label) { wgpuRenderBundleEncoderPushDebugGroup(o, toDawnStringView(label)); }
++void insertDebugMarker(WGPURenderBundleEncoder o, const String& label) { wgpuRenderBundleEncoderInsertDebugMarker(o, toDawnStringView(label)); }
++
++} // namespace WebCore::WebGPU::DawnCompat
++
++#endif // PLATFORM(WIN)
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDawnCompat.h b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDawnCompat.h
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDawnCompat.h	1970-01-01 00:00:00.000000000 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDawnCompat.h	2026-04-16 14:18:27.207374507 +0000
+@@ -0,0 +1,93 @@
++/*
++ * Copyright (C) 2026 Apple Inc. All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ *
++ * THIS SOFTWARE IS PROVIDED BY APPLE INC. AND ITS CONTRIBUTORS ``AS IS''
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
++ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE INC. OR ITS CONTRIBUTORS
++ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
++ * THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#pragma once
++
++#if PLATFORM(WIN)
++
++#include "../InternalAPI/WebGPUSupportedFeatures.h"
++#include "../InternalAPI/WebGPUSupportedLimits.h"
++#include <dawn/webgpu.h>
++#include <wtf/text/CString.h>
++#include <wtf/text/WTFString.h>
++
++namespace WebCore::WebGPU::DawnCompat {
++
++WGPUStringView toDawnStringView(const char* utf8NullTerminated);
++WGPUStringView toDawnStringView(const CString& utf8);
++WGPUStringView toDawnStringView(const String&);
++
++String stringFromDawn(WGPUStringView);
++
++Ref<SupportedLimits> supportedLimitsFromDawnLimits(const WGPULimits&);
++
++Ref<SupportedLimits> supportedLimitsFromAdapter(WGPUAdapter);
++
++Ref<SupportedFeatures> supportedFeaturesFromAdapter(WGPUAdapter);
++
++Ref<SupportedLimits> supportedLimitsFromDevice(WGPUDevice);
++
++Ref<SupportedFeatures> supportedFeaturesFromDevice(WGPUDevice);
++
++String dawnFeatureName(WGPUFeatureName);
++
++String adapterDisplayName(WGPUAdapter);
++
++void waitForFuture(WGPUInstance, WGPUFuture);
++
++WGPUShaderModule deviceCreateShaderModule(WGPUDevice, const String& wgsl, const String& label);
++
++void setLabel(WGPUBuffer, const String&);
++void setLabel(WGPUBindGroup, const String&);
++void setLabel(WGPUBindGroupLayout, const String&);
++void setLabel(WGPUCommandBuffer, const String&);
++void setLabel(WGPUCommandEncoder, const String&);
++void setLabel(WGPUComputePassEncoder, const String&);
++void setLabel(WGPUComputePipeline, const String&);
++void setLabel(WGPUDevice, const String&);
++void setLabel(WGPUPipelineLayout, const String&);
++void setLabel(WGPUQuerySet, const String&);
++void setLabel(WGPUQueue, const String&);
++void setLabel(WGPURenderBundle, const String&);
++void setLabel(WGPURenderBundleEncoder, const String&);
++void setLabel(WGPURenderPassEncoder, const String&);
++void setLabel(WGPURenderPipeline, const String&);
++void setLabel(WGPUSampler, const String&);
++void setLabel(WGPUShaderModule, const String&);
++void setLabel(WGPUTexture, const String&);
++void setLabel(WGPUTextureView, const String&);
++
++void pushDebugGroup(WGPUCommandEncoder, const String&);
++void insertDebugMarker(WGPUCommandEncoder, const String&);
++void pushDebugGroup(WGPUComputePassEncoder, const String&);
++void insertDebugMarker(WGPUComputePassEncoder, const String&);
++void pushDebugGroup(WGPURenderPassEncoder, const String&);
++void insertDebugMarker(WGPURenderPassEncoder, const String&);
++void pushDebugGroup(WGPURenderBundleEncoder, const String&);
++void insertDebugMarker(WGPURenderBundleEncoder, const String&);
++
++} // namespace WebCore::WebGPU::DawnCompat
++
++#endif // PLATFORM(WIN)
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDeviceImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDeviceImpl.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDeviceImpl.cpp	2026-04-16 11:51:32.862545691 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDeviceImpl.cpp	2026-04-16 18:58:44.830879762 +0000
+@@ -46,7 +46,9 @@
+ #include "WebGPUOutOfMemoryError.h"
+ #include "WebGPUPipelineLayoutDescriptor.h"
+ #include "WebGPUPipelineLayoutImpl.h"
++#if !PLATFORM(WIN)
+ #include "WebGPUPresentationContextImpl.h"
++#endif
+ #include "WebGPUQuerySetDescriptor.h"
+ #include "WebGPUQuerySetImpl.h"
+ #include "WebGPURenderBundleEncoderDescriptor.h"
+@@ -61,15 +63,33 @@
+ #include "WebGPUTextureImpl.h"
+ #include "WebGPUTextureViewImpl.h"
+ #include "WebGPUValidationError.h"
++#if !PLATFORM(WIN)
+ #include "WebGPUXRBindingImpl.h"
++#endif
++#if PLATFORM(COCOA)
+ #include <CoreGraphics/CGColorSpace.h>
++#endif
++#include "WebGPUDawnCompat.h"
+ #include <WebGPU/WebGPUExt.h>
++#if !PLATFORM(WIN)
+ #include <wtf/BlockPtr.h>
++#endif
+ #include <wtf/SegmentedVector.h>
+ #include <wtf/TZoneMallocInlines.h>
++#if PLATFORM(WIN)
++#include <memory>
++#endif
+ 
+ namespace WebCore::WebGPU {
+ 
++#if PLATFORM(WIN)
++#define DAWN_LABEL_CSTRING(utf8CString) DawnCompat::toDawnStringView(utf8CString)
++#define DAWN_LABEL_STRING(webcoreString) DawnCompat::toDawnStringView(webcoreString)
++#else
++#define DAWN_LABEL_CSTRING(utf8CString) (utf8CString).data()
++#define DAWN_LABEL_STRING(webcoreString) (webcoreString)
++#endif
++
+ static auto invalidEntryPointName()
+ {
+     return CString(""_s);
+@@ -77,18 +97,31 @@
+ 
+ WTF_MAKE_TZONE_ALLOCATED_IMPL(DeviceImpl);
+ 
+-DeviceImpl::DeviceImpl(WebGPUPtr<WGPUDevice>&& device, Ref<SupportedFeatures>&& features, Ref<SupportedLimits>&& limits, ConvertToBackingContext& convertToBackingContext)
++DeviceImpl::DeviceImpl(WebGPUPtr<WGPUDevice>&& device, Ref<SupportedFeatures>&& features, Ref<SupportedLimits>&& limits, ConvertToBackingContext& convertToBackingContext
++#if PLATFORM(WIN)
++    , WGPUInstance dawnInstance
++#endif
++    )
+     : Device(WTF::move(features), WTF::move(limits))
+     , m_backing(device.copyRef())
+     , m_convertToBackingContext(convertToBackingContext)
+-    , m_queue(QueueImpl::create(WebGPUPtr<WGPUQueue> { wgpuDeviceGetQueue(device.get()) }, convertToBackingContext))
++    , m_queue(QueueImpl::create(WebGPUPtr<WGPUQueue> { wgpuDeviceGetQueue(device.get()) }, convertToBackingContext
++#if PLATFORM(WIN)
++        , dawnInstance
++#endif
++        ))
++#if PLATFORM(WIN)
++    , m_dawnInstance(dawnInstance)
++#endif
+ {
+ }
+ 
+ DeviceImpl::~DeviceImpl()
+ {
++#if !PLATFORM(WIN)
+     wgpuDeviceClearDeviceLostCallback(m_backing.get());
+     wgpuDeviceClearUncapturedErrorCallback(m_backing.get());
++#endif
+ }
+ 
+ Ref<Queue> DeviceImpl::queue()
+@@ -98,6 +131,13 @@
+ 
+ void DeviceImpl::destroy()
+ {
++#if PLATFORM(WIN)
++    if (m_pendingDeviceLostCompletion) {
++        auto completion = WTF::move(*m_pendingDeviceLostCompletion);
++        m_pendingDeviceLostCompletion.reset();
++        completion(WebCore::WebGPU::DeviceLostReason::Destroyed);
++    }
++#endif
+     wgpuDeviceDestroy(m_backing.get());
+ }
+ 
+@@ -116,13 +156,20 @@
+     Ref convertToBackingContext = m_convertToBackingContext;
+ 
+     WGPUBufferDescriptor backingDescriptor {
+-        .label = label.data(),
++#if PLATFORM(WIN)
++        .nextInChain = nullptr,
++#endif
++        .label = DAWN_LABEL_CSTRING(label),
+         .usage = convertToBackingContext->convertBufferUsageFlagsToBacking(descriptor.usage),
+         .size = descriptor.size,
+         .mappedAtCreation = descriptor.mappedAtCreation,
+     };
+ 
+-    return BufferImpl::create(adoptWebGPU(wgpuDeviceCreateBuffer(m_backing.get(), &backingDescriptor)), convertToBackingContext);
++    return BufferImpl::create(adoptWebGPU(wgpuDeviceCreateBuffer(m_backing.get(), &backingDescriptor)), convertToBackingContext
++#if PLATFORM(WIN)
++        , m_dawnInstance
++#endif
++        );
+ }
+ 
+ RefPtr<Texture> DeviceImpl::createTexture(const TextureDescriptor& descriptor)
+@@ -136,7 +183,10 @@
+     });
+ 
+     WGPUTextureDescriptor backingDescriptor {
+-        .label = label.data(),
++#if PLATFORM(WIN)
++        .nextInChain = nullptr,
++#endif
++        .label = DAWN_LABEL_CSTRING(label),
+         .usage = convertToBackingContext->convertTextureUsageFlagsToBacking(descriptor.usage),
+         .dimension = convertToBackingContext->convertToBacking(descriptor.dimension),
+         .size = convertToBackingContext->convertToBacking(descriptor.size),
+@@ -155,7 +205,10 @@
+     Ref convertToBackingContext = m_convertToBackingContext;
+ 
+     WGPUSamplerDescriptor backingDescriptor {
+-        .label = descriptor.label,
++#if PLATFORM(WIN)
++        .nextInChain = nullptr,
++#endif
++        .label = DAWN_LABEL_STRING(descriptor.label),
+         .addressModeU = convertToBackingContext->convertToBacking(descriptor.addressModeU),
+         .addressModeV = convertToBackingContext->convertToBacking(descriptor.addressModeV),
+         .addressModeW = convertToBackingContext->convertToBacking(descriptor.addressModeW),
+@@ -199,15 +252,20 @@
+ 
+ RefPtr<ExternalTexture> DeviceImpl::importExternalTexture(const ExternalTextureDescriptor& descriptor)
+ {
++#if PLATFORM(WIN)
++    UNUSED_PARAM(descriptor);
++    return nullptr;
++#else
+     auto label = descriptor.label.utf8();
+ 
+     auto pixelBuffer = std::get_if<RetainPtr<CVPixelBufferRef>>(&descriptor.videoBacking);
+     WGPUExternalTextureDescriptor backingDescriptor {
+-        .label = label.data(),
++        .label = DAWN_LABEL_CSTRING(label),
+         .pixelBuffer = pixelBuffer ? pixelBuffer->get() : nullptr,
+         .colorSpace = convertToWGPUColorSpace(descriptor.colorSpace),
+     };
+     return ExternalTextureImpl::create(adoptWebGPU(wgpuDeviceImportExternalTexture(m_backing.get(), &backingDescriptor)), descriptor, m_convertToBackingContext);
++#endif
+ }
+ 
+ RefPtr<BindGroupLayout> DeviceImpl::createBindGroupLayout(const BindGroupLayoutDescriptor& descriptor)
+@@ -217,13 +275,17 @@
+     auto backingEntries = WTF::map(descriptor.entries, [&](auto& entry) {
+         return WGPUBindGroupLayoutEntry {
+             .binding = entry.binding,
++#if !PLATFORM(WIN)
+             .metalBinding = { entry.binding, entry.binding, entry.binding },
++#endif
+             .visibility = m_convertToBackingContext->convertShaderStageFlagsToBacking(entry.visibility),
+             .buffer = {
+                 .type = entry.buffer ? m_convertToBackingContext->convertToBacking(entry.buffer->type) : WGPUBufferBindingType_Undefined,
+                 .hasDynamicOffset = entry.buffer ? entry.buffer->hasDynamicOffset : false,
+                 .minBindingSize = entry.buffer ? entry.buffer->minBindingSize : 0,
++#if !PLATFORM(WIN)
+                 .bufferSizeForBinding = 0,
++#endif
+             },
+             .sampler = {
+                 .type = entry.sampler ? m_convertToBackingContext->convertToBacking(entry.sampler->type) : WGPUSamplerBindingType_Undefined,
+@@ -242,7 +304,10 @@
+     });
+ 
+     WGPUBindGroupLayoutDescriptor backingDescriptor {
+-        .label = label.data(),
++#if PLATFORM(WIN)
++        .nextInChain = nullptr,
++#endif
++        .label = DAWN_LABEL_CSTRING(label),
+         .entryCount = backingEntries.size(),
+         .entries = backingEntries.size() ? backingEntries.span().data() : nullptr,
+     };
+@@ -262,7 +327,10 @@
+     }
+ 
+     WGPUPipelineLayoutDescriptor backingDescriptor {
+-        .label = label.data(),
++#if PLATFORM(WIN)
++        .nextInChain = nullptr,
++#endif
++        .label = DAWN_LABEL_CSTRING(label),
+         .bindGroupLayoutCount = descriptor.bindGroupLayouts ? backingBindGroupLayouts.size() : 0,
+         .bindGroupLayouts = descriptor.bindGroupLayouts ? backingBindGroupLayouts.span().data() : nullptr,
+     };
+@@ -290,7 +358,10 @@
+     });
+ 
+     WGPUBindGroupDescriptor backingDescriptor {
+-        .label = label.data(),
++#if PLATFORM(WIN)
++        .nextInChain = nullptr,
++#endif
++        .label = DAWN_LABEL_CSTRING(label),
+         .layout = convertToBackingContext->convertToBacking(protect(descriptor.layout).get()),
+         .entryCount = backingEntries.size(),
+         .entries = backingEntries.size() ? backingEntries.span().data() : nullptr,
+@@ -301,6 +372,9 @@
+ 
+ RefPtr<ShaderModule> DeviceImpl::createShaderModule(const ShaderModuleDescriptor& descriptor)
+ {
++#if PLATFORM(WIN)
++    return ShaderModuleImpl::create(adoptWebGPU(DawnCompat::deviceCreateShaderModule(m_backing.get(), descriptor.code, descriptor.label)), m_convertToBackingContext, m_dawnInstance);
++#else
+     auto label = descriptor.label.utf8();
+ 
+     auto entryPoints = descriptor.hints.map([](const auto& hint) {
+@@ -321,14 +395,45 @@
+ 
+     WGPUShaderModuleDescriptor backingDescriptor {
+         .wgslDescriptor = descriptor.code,
+-        .label = label.data(),
++        .label = DAWN_LABEL_CSTRING(label),
+         .hintCount = hintsEntries.size(),
+         .hints = hintsEntries.size() ? &hintsEntries[0] : nullptr,
+     };
+ 
+-    return ShaderModuleImpl::create(adoptWebGPU(wgpuDeviceCreateShaderModule(m_backing.get(), &backingDescriptor)), convertToBackingContext);
++    return ShaderModuleImpl::create(adoptWebGPU(wgpuDeviceCreateShaderModule(m_backing.get(), &backingDescriptor)), convertToBackingContext
++#if PLATFORM(WIN)
++        , m_dawnInstance
++#endif
++        );
++#endif
+ }
+ 
++#if PLATFORM(WIN)
++RefPtr<ComputePipeline> DeviceImpl::createComputePipeline(const ComputePipelineDescriptor& descriptor)
++{
++    UNUSED_PARAM(descriptor);
++    return nullptr;
++}
++
++RefPtr<RenderPipeline> DeviceImpl::createRenderPipeline(const RenderPipelineDescriptor& descriptor)
++{
++    UNUSED_PARAM(descriptor);
++    return nullptr;
++}
++
++void DeviceImpl::createComputePipelineAsync(const ComputePipelineDescriptor& descriptor, CompletionHandler<void(RefPtr<ComputePipeline>&&, String&&)>&& callback)
++{
++    UNUSED_PARAM(descriptor);
++    callback(nullptr, "Compute pipeline creation is not implemented for Windows Dawn yet"_s);
++}
++
++void DeviceImpl::createRenderPipelineAsync(const RenderPipelineDescriptor& descriptor, CompletionHandler<void(RefPtr<RenderPipeline>&&, String&&)>&& callback)
++{
++    UNUSED_PARAM(descriptor);
++    callback(nullptr, "Render pipeline creation is not implemented for Windows Dawn yet"_s);
++}
++
++#else
+ template <typename T>
+ static auto convertToBacking(const ComputePipelineDescriptor& descriptor, ConvertToBackingContext& convertToBackingContext, T&& callback)
+ {
+@@ -355,7 +460,7 @@
+     });
+ 
+     WGPUComputePipelineDescriptor backingDescriptor {
+-        .label = label.data(),
++        .label = DAWN_LABEL_CSTRING(label),
+         .layout = descriptor.layout ? convertToBackingContext.convertToBacking(*protect(descriptor.layout)) : nullptr,
+         .compute = WGPUProgrammableStageDescriptor {
+             .module = convertToBackingContext.convertToBacking(protect(descriptor.compute.module).get()),
+@@ -520,7 +625,7 @@
+     };
+ 
+     WGPURenderPipelineDescriptor backingDescriptor {
+-        .label = label.data(),
++        .label = DAWN_LABEL_CSTRING(label),
+         .layout = descriptor.layout ? convertToBackingContext.convertToBacking(*protect(descriptor.layout)) : nullptr,
+         .vertex = {
+             .module = convertToBackingContext.convertToBacking(protect(descriptor.vertex.module).get()),
+@@ -556,15 +661,66 @@
+     });
+ }
+ 
++#if !PLATFORM(WIN)
+ static void createComputePipelineAsyncCallback(WGPUCreatePipelineAsyncStatus status, WGPUComputePipeline pipeline, String&& message, void* userdata)
+ {
+     auto block = reinterpret_cast<void(^)(WGPUCreatePipelineAsyncStatus, WGPUComputePipeline, String&&)>(userdata);
+     block(status, pipeline, WTF::move(message));
+     Block_release(block); // Block_release is matched with Block_copy below in DeviceImpl::createComputePipelineAsync().
+ }
++#endif
++
++#if PLATFORM(WIN)
++struct DawnComputePipelineAsyncUserdata {
++    CompletionHandler<void(RefPtr<ComputePipeline>&&, String&&)> callback;
++    Ref<ConvertToBackingContext> convertToBackingContext;
++    WGPUInstance instance { nullptr };
++};
++
++static void dawnComputePipelineAsyncCallback(WGPUCreatePipelineAsyncStatus status, WGPUComputePipeline pipeline, WGPUStringView message, void* userdata1, void*)
++{
++    std::unique_ptr<DawnComputePipelineAsyncUserdata> data(static_cast<DawnComputePipelineAsyncUserdata*>(userdata1));
++    if (!data)
++        return;
++    String stringMessage = DawnCompat::stringFromDawn(message);
++    if (status == WGPUCreatePipelineAsyncStatus_Success && pipeline)
++        data->callback(ComputePipelineImpl::create(adoptWebGPU(pipeline), data->convertToBackingContext.copyRef()), ""_s);
++    else
++        data->callback(nullptr, WTF::move(stringMessage));
++}
++
++struct DawnRenderPipelineAsyncUserdata {
++    CompletionHandler<void(RefPtr<RenderPipeline>&&, String&&)> callback;
++    Ref<ConvertToBackingContext> convertToBackingContext;
++    WGPUInstance instance { nullptr };
++};
++
++static void dawnRenderPipelineAsyncCallback(WGPUCreatePipelineAsyncStatus status, WGPURenderPipeline pipeline, WGPUStringView message, void* userdata1, void*)
++{
++    std::unique_ptr<DawnRenderPipelineAsyncUserdata> data(static_cast<DawnRenderPipelineAsyncUserdata*>(userdata1));
++    if (!data)
++        return;
++    String stringMessage = DawnCompat::stringFromDawn(message);
++    if (status == WGPUCreatePipelineAsyncStatus_Success && pipeline)
++        data->callback(RenderPipelineImpl::create(adoptWebGPU(pipeline), data->convertToBackingContext.copyRef()), ""_s);
++    else
++        data->callback(nullptr, WTF::move(stringMessage));
++}
++#endif
+ 
+ void DeviceImpl::createComputePipelineAsync(const ComputePipelineDescriptor& descriptor, CompletionHandler<void(RefPtr<ComputePipeline>&&, String&&)>&& callback)
+ {
++#if PLATFORM(WIN)
++    convertToBacking(descriptor, m_convertToBackingContext, [backing = m_backing.copyRef(), convertToBackingContext = m_convertToBackingContext.copyRef(), callback = WTF::move(callback), instance = m_dawnInstance](const WGPUComputePipelineDescriptor& backingDescriptor) mutable {
++        auto* userdata = new DawnComputePipelineAsyncUserdata { WTF::move(callback), convertToBackingContext.copyRef(), instance };
++        WGPUCreateComputePipelineAsyncCallbackInfo callbackInfo { };
++        callbackInfo.mode = WGPUCallbackMode_AllowProcessEvents;
++        callbackInfo.callback = dawnComputePipelineAsyncCallback;
++        callbackInfo.userdata1 = userdata;
++        auto future = wgpuDeviceCreateComputePipelineAsync(backing.get(), &backingDescriptor, callbackInfo);
++        DawnCompat::waitForFuture(instance, future);
++    });
++#else
+     convertToBacking(descriptor, m_convertToBackingContext, [backing = m_backing.copyRef(), &convertToBackingContext = m_convertToBackingContext.get(), callback = WTF::move(callback)](const WGPUComputePipelineDescriptor& backingDescriptor) mutable {
+         auto blockPtr = makeBlockPtr([convertToBackingContext = protect(convertToBackingContext), callback = WTF::move(callback)](WGPUCreatePipelineAsyncStatus status, WGPUComputePipeline pipeline, String&& message) mutable {
+             if (status == WGPUCreatePipelineAsyncStatus_Success)
+@@ -574,14 +730,17 @@
+         });
+         wgpuDeviceCreateComputePipelineAsync(backing.get(), &backingDescriptor, &createComputePipelineAsyncCallback, Block_copy(blockPtr.get())); // Block_copy is matched with Block_release above in createComputePipelineAsyncCallback().
+     });
++#endif
+ }
+ 
++#if !PLATFORM(WIN)
+ static void createRenderPipelineAsyncCallback(WGPUCreatePipelineAsyncStatus status, WGPURenderPipeline pipeline, String&& message, void* userdata)
+ {
+     auto block = reinterpret_cast<void(^)(WGPUCreatePipelineAsyncStatus, WGPURenderPipeline, String&&)>(userdata);
+     block(status, pipeline, WTF::move(message));
+     Block_release(block); // Block_release is matched with Block_copy below in DeviceImpl::createRenderPipelineAsync().
+ }
++#endif
+ 
+ void DeviceImpl::createRenderPipelineAsync(const RenderPipelineDescriptor& descriptor, CompletionHandler<void(RefPtr<RenderPipeline>&&, String&&)>&& callback)
+ {
+@@ -595,13 +754,17 @@
+         wgpuDeviceCreateRenderPipelineAsync(backing.get(), &backingDescriptor, &createRenderPipelineAsyncCallback, Block_copy(blockPtr.get())); // Block_copy is matched with Block_release above in createRenderPipelineAsyncCallback().
+     });
+ }
++#endif
+ 
+ RefPtr<CommandEncoder> DeviceImpl::createCommandEncoder(const std::optional<CommandEncoderDescriptor>& descriptor)
+ {
+     CString label = descriptor ? descriptor->label.utf8() : CString(""_s);
+ 
+     WGPUCommandEncoderDescriptor backingDescriptor {
+-        .label = label.data(),
++#if PLATFORM(WIN)
++        .nextInChain = nullptr,
++#endif
++        .label = DAWN_LABEL_CSTRING(label),
+     };
+ 
+     return CommandEncoderImpl::create(adoptWebGPU(wgpuDeviceCreateCommandEncoder(m_backing.get(), &backingDescriptor)), m_convertToBackingContext);
+@@ -617,7 +780,10 @@
+     });
+ 
+     WGPURenderBundleEncoderDescriptor backingDescriptor {
+-        .label = label.data(),
++#if PLATFORM(WIN)
++        .nextInChain = nullptr,
++#endif
++        .label = DAWN_LABEL_CSTRING(label),
+         .colorFormatCount = backingColorFormats.size(),
+         .colorFormats = backingColorFormats.size() ? backingColorFormats.span().data() : nullptr,
+         .depthStencilFormat = descriptor.depthStencilFormat ? convertToBackingContext->convertToBacking(*descriptor.depthStencilFormat) : WGPUTextureFormat_Undefined,
+@@ -635,7 +801,10 @@
+     Ref convertToBackingContext = m_convertToBackingContext;
+ 
+     WGPUQuerySetDescriptor backingDescriptor {
+-        .label = label.data(),
++#if PLATFORM(WIN)
++        .nextInChain = nullptr,
++#endif
++        .label = DAWN_LABEL_CSTRING(label),
+         .type = convertToBackingContext->convertToBacking(descriptor.type),
+         .count = descriptor.count,
+     };
+@@ -648,6 +817,7 @@
+     wgpuDevicePushErrorScope(m_backing.get(), protect(m_convertToBackingContext)->convertToBacking(errorFilter));
+ }
+ 
++#if !PLATFORM(WIN)
+ static void popErrorScopeCallback(WGPUErrorType type, const char* message, void* userdata)
+ {
+     auto block = reinterpret_cast<void(^)(WGPUErrorType, const char*)>(userdata);
+@@ -661,9 +831,61 @@
+     block(type, message);
+     Block_release(block);
+ }
++#endif
++
++#if PLATFORM(WIN)
++struct DawnPopErrorScopeUserdata {
++    CompletionHandler<void(bool, std::optional<Error>&&)> callback;
++};
++
++static void dawnPopErrorScopeCallback(WGPUPopErrorScopeStatus status, WGPUErrorType errorType, WGPUStringView message, void* userdata1, void*)
++{
++    std::unique_ptr<DawnPopErrorScopeUserdata> data(static_cast<DawnPopErrorScopeUserdata*>(userdata1));
++    if (!data)
++        return;
++
++    if (status == WGPUPopErrorScopeStatus_Error) {
++        data->callback(false, std::nullopt);
++        return;
++    }
++
++    std::optional<Error> error;
++    bool succeeded = false;
++    auto messageString = DawnCompat::stringFromDawn(message);
++    switch (errorType) {
++    case WGPUErrorType_NoError:
++        succeeded = true;
++        break;
++    case WGPUErrorType_Force32:
++        break;
++    case WGPUErrorType_Internal:
++        error = { { InternalError::create(messageString) } };
++        break;
++    case WGPUErrorType_Validation:
++        error = { { ValidationError::create(messageString) } };
++        break;
++    case WGPUErrorType_OutOfMemory:
++        error = { { OutOfMemoryError::create() } };
++        break;
++    case WGPUErrorType_Unknown:
++        break;
++    }
++
++    data->callback(succeeded, WTF::move(error));
++}
++#endif
+ 
+ void DeviceImpl::popErrorScope(CompletionHandler<void(bool, std::optional<Error>&&)>&& callback)
+ {
++#if PLATFORM(WIN)
++    auto* userdata = new DawnPopErrorScopeUserdata { WTF::move(callback) };
++    WGPUPopErrorScopeCallbackInfo callbackInfo { };
++    callbackInfo.mode = WGPUCallbackMode_AllowProcessEvents;
++    callbackInfo.callback = dawnPopErrorScopeCallback;
++    callbackInfo.userdata1 = userdata;
++    auto future = wgpuDevicePopErrorScope(m_backing.get(), callbackInfo);
++    DawnCompat::waitForFuture(m_dawnInstance, future);
++#else
+     auto blockPtr = makeBlockPtr([callback = WTF::move(callback)](WGPUErrorType errorType, const char* message) mutable {
+         std::optional<Error> error;
+         bool succeeded = false;
+@@ -691,10 +913,14 @@
+         callback(succeeded, WTF::move(error));
+     });
+     wgpuDevicePopErrorScope(m_backing.get(), &popErrorScopeCallback, Block_copy(blockPtr.get())); // Block_copy is matched with Block_release above in popErrorScopeCallback().
++#endif
+ }
+ 
+ void DeviceImpl::resolveUncapturedErrorEvent(CompletionHandler<void(bool, std::optional<Error>&&)>&& callback)
+ {
++#if PLATFORM(WIN)
++    callback(false, std::nullopt);
++#else
+     auto blockPtr = makeBlockPtr([callback = WTF::move(callback)](WGPUErrorType errorType, const char* message) mutable {
+         std::optional<Error> error;
+         bool hasUncapturedError = true;
+@@ -722,10 +948,14 @@
+         callback(hasUncapturedError, WTF::move(error));
+     });
+     wgpuDeviceSetUncapturedErrorCallback(m_backing.get(), &setUncapturedScopeCallback, Block_copy(blockPtr.get()));
++#endif
+ }
+ 
+ void DeviceImpl::resolveDeviceLostPromise(CompletionHandler<void(WebCore::WebGPU::DeviceLostReason)>&& callback)
+ {
++#if PLATFORM(WIN)
++    m_pendingDeviceLostCompletion = WTF::move(callback);
++#else
+     wgpuDeviceSetDeviceLostCallbackWithBlock(m_backing.get(), makeBlockPtr([callback = WTF::move(callback)](WGPUDeviceLostReason reason, const char*) mutable {
+         switch (reason) {
+         case WGPUDeviceLostReason_Undefined:
+@@ -737,16 +967,25 @@
+             return;
+         }
+     }).get());
++#endif
+ }
+ 
+ void DeviceImpl::pauseAllErrorReporting(bool pause)
+ {
++#if !PLATFORM(WIN)
+     wgpuDevicePauseErrorReporting(m_backing.get(), pause);
++#else
++    UNUSED_PARAM(pause);
++#endif
+ }
+ 
+ void DeviceImpl::setLabelInternal(const String& label)
+ {
++#if PLATFORM(WIN)
++    DawnCompat::setLabel(m_backing.get(), label);
++#else
+     wgpuDeviceSetLabel(m_backing.get(), label.utf8().data());
++#endif
+ }
+ 
+ Ref<CommandEncoder> DeviceImpl::invalidCommandEncoder()
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDeviceImpl.h b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDeviceImpl.h
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDeviceImpl.h	2026-04-16 11:51:32.862634162 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDeviceImpl.h	2026-04-16 11:27:02.480801613 +0000
+@@ -33,8 +33,13 @@
+ #include <WebCore/MediaPlayerIdentifier.h>
+ #include <WebGPU/WebGPU.h>
+ #include <wtf/Deque.h>
++#include <wtf/Platform.h>
+ #include <wtf/TZoneMalloc.h>
+ 
++#if PLATFORM(WIN)
++#include <optional>
++#endif
++
+ namespace WebCore::WebGPU {
+ 
+ class ConvertToBackingContext;
+@@ -43,9 +48,17 @@
+ class DeviceImpl final : public Device {
+     WTF_MAKE_TZONE_ALLOCATED(DeviceImpl);
+ public:
+-    static Ref<DeviceImpl> create(WebGPUPtr<WGPUDevice>&& device, Ref<SupportedFeatures>&& features, Ref<SupportedLimits>&& limits, ConvertToBackingContext& convertToBackingContext)
++    static Ref<DeviceImpl> create(WebGPUPtr<WGPUDevice>&& device, Ref<SupportedFeatures>&& features, Ref<SupportedLimits>&& limits, ConvertToBackingContext& convertToBackingContext
++#if PLATFORM(WIN)
++        , WGPUInstance dawnInstance
++#endif
++        )
+     {
+-        return adoptRef(*new DeviceImpl(WTF::move(device), WTF::move(features), WTF::move(limits), convertToBackingContext));
++        return adoptRef(*new DeviceImpl(WTF::move(device), WTF::move(features), WTF::move(limits), convertToBackingContext
++#if PLATFORM(WIN)
++            , dawnInstance
++#endif
++            ));
+     }
+ 
+     virtual ~DeviceImpl();
+@@ -54,7 +67,11 @@
+ private:
+     friend class DowncastConvertToBackingContext;
+ 
+-    DeviceImpl(WebGPUPtr<WGPUDevice>&&, Ref<SupportedFeatures>&&, Ref<SupportedLimits>&&, ConvertToBackingContext&);
++    DeviceImpl(WebGPUPtr<WGPUDevice>&&, Ref<SupportedFeatures>&&, Ref<SupportedLimits>&&, ConvertToBackingContext&
++#if PLATFORM(WIN)
++        , WGPUInstance dawnInstance
++#endif
++        );
+ 
+     DeviceImpl(const DeviceImpl&) = delete;
+     DeviceImpl(DeviceImpl&&) = delete;
+@@ -109,6 +126,10 @@
+     WebGPUPtr<WGPUDevice> m_backing;
+     const Ref<ConvertToBackingContext> m_convertToBackingContext;
+     const Ref<QueueImpl> m_queue;
++#if PLATFORM(WIN)
++    WGPUInstance m_dawnInstance { nullptr };
++    std::optional<CompletionHandler<void(WebCore::WebGPU::DeviceLostReason)>> m_pendingDeviceLostCompletion;
++#endif
+ };
+ 
+ } // namespace WebCore::WebGPU
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDowncastConvertToBackingContext.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDowncastConvertToBackingContext.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDowncastConvertToBackingContext.cpp	2026-04-16 11:51:32.008600603 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDowncastConvertToBackingContext.cpp	2026-04-16 16:47:03.337947493 +0000
+@@ -41,7 +41,9 @@
+ #include "WebGPUExternalTextureImpl.h"
+ #include "WebGPUImpl.h"
+ #include "WebGPUPipelineLayoutImpl.h"
++#if !PLATFORM(WIN)
+ #include "WebGPUPresentationContextImpl.h"
++#endif
+ #include "WebGPUQuerySetImpl.h"
+ #include "WebGPUQueueImpl.h"
+ #include "WebGPURenderBundleEncoderImpl.h"
+@@ -52,10 +54,12 @@
+ #include "WebGPUShaderModuleImpl.h"
+ #include "WebGPUTextureImpl.h"
+ #include "WebGPUTextureViewImpl.h"
++#if !PLATFORM(WIN)
+ #include "WebGPUXRBindingImpl.h"
+ #include "WebGPUXRProjectionLayerImpl.h"
+ #include "WebGPUXRSubImageImpl.h"
+ #include "WebGPUXRViewImpl.h"
++#endif
+ #include <wtf/TZoneMallocInlines.h>
+ 
+ namespace WebCore::WebGPU {
+@@ -124,7 +128,12 @@
+ 
+ WGPUSurface DowncastConvertToBackingContext::convertToBacking(const PresentationContext& presentationContext)
+ {
++#if PLATFORM(WIN)
++    UNUSED_PARAM(presentationContext);
++    return nullptr;
++#else
+     return downcast<PresentationContextImpl>(presentationContext).backing();
++#endif
+ }
+ 
+ WGPUQuerySet DowncastConvertToBackingContext::convertToBacking(const QuerySet& querySet)
+@@ -184,22 +193,42 @@
+ 
+ WGPUXRBinding DowncastConvertToBackingContext::convertToBacking(const XRBinding& xrBinding)
+ {
++#if PLATFORM(WIN)
++    UNUSED_PARAM(xrBinding);
++    return nullptr;
++#else
+     return downcast<XRBindingImpl>(xrBinding).backing();
++#endif
+ }
+ 
+ WGPUXRProjectionLayer DowncastConvertToBackingContext::convertToBacking(const XRProjectionLayer& layer)
+ {
++#if PLATFORM(WIN)
++    UNUSED_PARAM(layer);
++    return nullptr;
++#else
+     return downcast<XRProjectionLayerImpl>(layer).backing();
++#endif
+ }
+ 
+ WGPUXRSubImage DowncastConvertToBackingContext::convertToBacking(const XRSubImage& subImage)
+ {
++#if PLATFORM(WIN)
++    UNUSED_PARAM(subImage);
++    return nullptr;
++#else
+     return downcast<XRSubImageImpl>(subImage).backing();
++#endif
+ }
+ 
+ WGPUXRView DowncastConvertToBackingContext::convertToBacking(const XRView& xrView)
+ {
++#if PLATFORM(WIN)
++    UNUSED_PARAM(xrView);
++    return nullptr;
++#else
+     return downcast<XRViewImpl>(xrView).backing();
++#endif
+ }
+ 
+ } // namespace WebCore::WebGPU
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUImpl.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUImpl.cpp	2026-04-16 11:51:32.854986469 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUImpl.cpp	2026-04-16 18:13:25.777908037 +0000
+@@ -32,13 +32,21 @@
+ #include "WebGPUCompositorIntegrationImpl.h"
+ #include "WebGPUDowncastConvertToBackingContext.h"
+ #include "WebGPUPresentationContextDescriptor.h"
++#if !PLATFORM(WIN)
+ #include "WebGPUPresentationContextImpl.h"
++#endif
++#include "WebGPUDawnCompat.h"
+ #include <WebCore/GraphicsContext.h>
+ #include <WebCore/IntSize.h>
+ #include <WebCore/NativeImage.h>
+ #include <WebGPU/WebGPUExt.h>
++#if !PLATFORM(WIN)
+ #include <wtf/BlockPtr.h>
++#endif
+ #include <wtf/TZoneMallocInlines.h>
++#if PLATFORM(WIN)
++#include <memory>
++#endif
+ 
+ namespace WebCore::WebGPU {
+ 
+@@ -52,33 +60,73 @@
+ 
+ GPUImpl::~GPUImpl() = default;
+ 
++#if !PLATFORM(WIN)
+ static void requestAdapterCallback(WGPURequestAdapterStatus status, WGPUAdapter adapter, const char* message, void* userdata)
+ {
+     auto block = reinterpret_cast<void(^)(WGPURequestAdapterStatus, WGPUAdapter, const char*)>(userdata);
+     block(status, adapter, message);
+     Block_release(block); // Block_release is matched with Block_copy below in GPUImpl::requestAdapter().
+ }
++#endif
++
++struct DawnRequestAdapterUserdata {
++    CompletionHandler<void(RefPtr<Adapter>&&)>&& callback;
++    Ref<ConvertToBackingContext> convertToBackingContext;
++    WGPUInstance instance { nullptr };
++};
++
++static void dawnRequestAdapterCallback(WGPURequestAdapterStatus status, WGPUAdapter adapter, WGPUStringView, void* userdata1, void*)
++{
++    std::unique_ptr<DawnRequestAdapterUserdata> data(static_cast<DawnRequestAdapterUserdata*>(userdata1));
++    if (!data)
++        return;
++    if (status != WGPURequestAdapterStatus_Success || !adapter) {
++        data->callback(nullptr);
++        return;
++    }
++    data->callback(AdapterImpl::create(adoptWebGPU(adapter), data->convertToBackingContext.copyRef(), data->instance));
++}
+ 
+ void GPUImpl::requestAdapter(const RequestAdapterOptions& options, CompletionHandler<void(RefPtr<Adapter>&&)>&& callback)
+ {
+     Ref convertToBackingContext = m_convertToBackingContext;
+ 
++#if PLATFORM(WIN)
+     WGPURequestAdapterOptions backingOptions {
+-        .compatibleSurface = nullptr,
++        .nextInChain = nullptr,
++        .featureLevel = WGPUFeatureLevel_Undefined,
+ #if CPU(X86_64)
+         .powerPreference = WGPUPowerPreference_HighPerformance,
+ #else
+         .powerPreference = options.powerPreference ? convertToBackingContext->convertToBacking(*options.powerPreference) : static_cast<WGPUPowerPreference>(WGPUPowerPreference_Undefined),
+ #endif
+-#if PLATFORM(WIN)
++        .forceFallbackAdapter = options.forceFallbackAdapter,
+         .backendType = WGPUBackendType_D3D12,
++        .compatibleSurface = nullptr,
++    };
+ #else
+-        .backendType = WGPUBackendType_Metal,
++    WGPURequestAdapterOptions backingOptions {
++        .compatibleSurface = nullptr,
++#if CPU(X86_64)
++        .powerPreference = WGPUPowerPreference_HighPerformance,
++#else
++        .powerPreference = options.powerPreference ? convertToBackingContext->convertToBacking(*options.powerPreference) : static_cast<WGPUPowerPreference>(WGPUPowerPreference_Undefined),
+ #endif
++        .backendType = WGPUBackendType_Metal,
+         .forceFallbackAdapter = options.forceFallbackAdapter,
+         .xrCompatible = options.xrCompatible,
+     };
++#endif
+ 
++#if PLATFORM(WIN)
++    auto* userdata = new DawnRequestAdapterUserdata { WTF::move(callback), convertToBackingContext.copyRef(), m_backing.get() };
++    WGPURequestAdapterCallbackInfo callbackInfo { };
++    callbackInfo.mode = WGPUCallbackMode_AllowProcessEvents;
++    callbackInfo.callback = dawnRequestAdapterCallback;
++    callbackInfo.userdata1 = userdata;
++    auto future = wgpuInstanceRequestAdapter(m_backing.get(), &backingOptions, callbackInfo);
++    DawnCompat::waitForFuture(m_backing.get(), future);
++#else
+     auto blockPtr = makeBlockPtr([convertToBackingContext = convertToBackingContext.copyRef(), callback = WTF::move(callback)](WGPURequestAdapterStatus status, WGPUAdapter adapter, const char*) mutable {
+         if (status == WGPURequestAdapterStatus_Success)
+             callback(AdapterImpl::create(adoptWebGPU(adapter), convertToBackingContext));
+@@ -86,17 +134,21 @@
+             callback(nullptr);
+     });
+     wgpuInstanceRequestAdapter(m_backing.get(), &backingOptions, &requestAdapterCallback, Block_copy(blockPtr.get())); // Block_copy is matched with Block_release above in requestAdapterCallback().
++#endif
+ }
+ 
+-static WTF::Function<void(CompletionHandler<void()>&&)> convert(WGPUOnSubmittedWorkScheduledCallback&& onSubmittedWorkScheduledCallback)
++RefPtr<PresentationContext> GPUImpl::createPresentationContext(const PresentationContextDescriptor& presentationContextDescriptor)
+ {
+-    return [onSubmittedWorkScheduledCallback = makeBlockPtr(WTF::move(onSubmittedWorkScheduledCallback))](CompletionHandler<void()>&& completionHandler) {
+-        onSubmittedWorkScheduledCallback(makeBlockPtr(WTF::move(completionHandler)).get());
++#if PLATFORM(WIN)
++    UNUSED_PARAM(presentationContextDescriptor);
++    return nullptr;
++#else
++    auto convert = [](WGPUOnSubmittedWorkScheduledCallback&& onSubmittedWorkScheduledCallback) {
++        return [onSubmittedWorkScheduledCallback = makeBlockPtr(WTF::move(onSubmittedWorkScheduledCallback))](CompletionHandler<void()>&& completionHandler) {
++            onSubmittedWorkScheduledCallback(makeBlockPtr(WTF::move(completionHandler)).get());
++        };
+     };
+-}
+ 
+-RefPtr<PresentationContext> GPUImpl::createPresentationContext(const PresentationContextDescriptor& presentationContextDescriptor)
+-{
+     Ref compositorIntegration = m_convertToBackingContext->convertToBacking(protect(presentationContextDescriptor.compositorIntegration).get());
+ 
+     auto registerCallbacksBlock = makeBlockPtr([&](WGPURenderBuffersWereRecreatedBlockCallback renderBuffersWereRecreatedCallback, WGPUOnSubmittedWorkScheduledCallback onSubmittedWorkScheduledCallback) {
+@@ -113,6 +165,7 @@
+     auto result = PresentationContextImpl::create(adoptWebGPU(wgpuInstanceCreateSurface(m_backing.get(), &surfaceDescriptor)), m_convertToBackingContext);
+     compositorIntegration->setPresentationContext(result);
+     return result;
++#endif
+ }
+ 
+ RefPtr<CompositorIntegration> GPUImpl::createCompositorIntegration()
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUPipelineLayoutImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUPipelineLayoutImpl.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUPipelineLayoutImpl.cpp	2026-04-16 11:51:32.008600603 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUPipelineLayoutImpl.cpp	2026-04-16 11:27:02.480917045 +0000
+@@ -24,6 +24,8 @@
+  */
+ 
+ #include "config.h"
++#include <wtf/Platform.h>
++#include "WebGPUDawnCompat.h"
+ #include "WebGPUPipelineLayoutImpl.h"
+ 
+ #if HAVE(WEBGPU_IMPLEMENTATION)
+@@ -46,7 +48,15 @@
+ 
+ void PipelineLayoutImpl::setLabelInternal(const String& label)
+ {
+-    wgpuPipelineLayoutSetLabel(m_backing.get(), label.utf8().data());
++    #if PLATFORM(WIN)
++
++        DawnCompat::setLabel(m_backing.get(), label);
++
++    #else
++
++        wgpuPipelineLayoutSetLabel(m_backing.get(), label.utf8().data());
++
++    #endif
+ }
+ 
+ } // namespace WebCore::WebGPU
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUPresentationContextImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUPresentationContextImpl.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUPresentationContextImpl.cpp	2026-04-16 11:51:32.009600408 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUPresentationContextImpl.cpp	2026-04-16 17:39:48.303749271 +0000
+@@ -24,19 +24,19 @@
+  */
+ 
+ #include "config.h"
+-#include "WebGPUPresentationContextImpl.h"
+ 
+ #if HAVE(WEBGPU_IMPLEMENTATION)
+ 
+-#include "NativeImage.h"
++#include "WebGPUPresentationContextImpl.h"
++
+ #include "WebGPUCanvasConfiguration.h"
+ #include "WebGPUConvertToBackingContext.h"
++#if !PLATFORM(WIN)
++#include "NativeImage.h"
+ #include "WebGPUDeviceImpl.h"
+ #include "WebGPUTextureDescriptor.h"
+ #include "WebGPUTextureImpl.h"
+ #include <WebGPU/WebGPUExt.h>
+-
+-#if PLATFORM(COCOA)
+ #include <wtf/MachSendRight.h>
+ #endif
+ 
+@@ -58,6 +58,43 @@
+     m_height = height;
+ }
+ 
++#if PLATFORM(WIN)
++
++bool PresentationContextImpl::configure(const CanvasConfiguration& canvasConfiguration)
++{
++    m_swapChain = nullptr;
++    m_currentTexture = nullptr;
++    m_format = canvasConfiguration.format;
++    return false;
++}
++
++void PresentationContextImpl::unconfigure()
++{
++    m_swapChain = nullptr;
++    m_currentTexture = nullptr;
++    m_format = TextureFormat::Bgra8unorm;
++    m_width = 0;
++    m_height = 0;
++}
++
++RefPtr<Texture> PresentationContextImpl::getCurrentTexture(uint32_t)
++{
++    return nullptr;
++}
++
++void PresentationContextImpl::present(uint32_t, bool)
++{
++    m_currentTexture = nullptr;
++}
++
++RefPtr<WebCore::NativeImage> PresentationContextImpl::getMetalTextureAsNativeImage(uint32_t, bool& isIOSurfaceSupportedFormat)
++{
++    isIOSurfaceSupportedFormat = false;
++    return nullptr;
++}
++
++#else
++
+ static WGPUToneMappingMode NODELETE convertToToneMappingMode(WebCore::WebGPU::CanvasToneMappingMode toneMappingMode)
+ {
+     switch (toneMappingMode) {
+@@ -175,6 +212,8 @@
+     return nullptr;
+ }
+ 
++#endif
++
+ } // namespace WebCore::WebGPU
+ 
+ #endif // HAVE(WEBGPU_IMPLEMENTATION)
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUPresentationContextImpl.h b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUPresentationContextImpl.h
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUPresentationContextImpl.h	2026-04-16 11:51:32.009600408 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUPresentationContextImpl.h	2026-04-16 17:34:35.656919836 +0000
+@@ -31,7 +31,9 @@
+ #include "WebGPUPresentationContext.h"
+ #include "WebGPUPtr.h"
+ #include "WebGPUTextureFormat.h"
++#if !PLATFORM(WIN)
+ #include <IOSurface/IOSurfaceRef.h>
++#endif
+ #include <WebGPU/WebGPU.h>
+ #include <wtf/TZoneMalloc.h>
+ 
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUQuerySetImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUQuerySetImpl.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUQuerySetImpl.cpp	2026-04-16 11:51:32.009600408 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUQuerySetImpl.cpp	2026-04-16 11:27:02.480964986 +0000
+@@ -24,6 +24,8 @@
+  */
+ 
+ #include "config.h"
++#include <wtf/Platform.h>
++#include "WebGPUDawnCompat.h"
+ #include "WebGPUQuerySetImpl.h"
+ 
+ #if HAVE(WEBGPU_IMPLEMENTATION)
+@@ -51,7 +53,15 @@
+ 
+ void QuerySetImpl::setLabelInternal(const String& label)
+ {
+-    wgpuQuerySetSetLabel(m_backing.get(), label.utf8().data());
++    #if PLATFORM(WIN)
++
++        DawnCompat::setLabel(m_backing.get(), label);
++
++    #else
++
++        wgpuQuerySetSetLabel(m_backing.get(), label.utf8().data());
++
++    #endif
+ }
+ 
+ } // namespace WebCore::WebGPU
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUQueueImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUQueueImpl.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUQueueImpl.cpp	2026-04-16 11:51:32.009600408 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUQueueImpl.cpp	2026-04-16 15:58:01.797517523 +0000
+@@ -24,6 +24,8 @@
+  */
+ 
+ #include "config.h"
++#include <wtf/Platform.h>
++#include "WebGPUDawnCompat.h"
+ #include "WebGPUQueueImpl.h"
+ 
+ #if HAVE(WEBGPU_IMPLEMENTATION)
+@@ -33,16 +35,28 @@
+ #include "WebGPUConvertToBackingContext.h"
+ #include "WebGPUTextureImpl.h"
+ #include <WebGPU/WebGPUExt.h>
++#if !PLATFORM(WIN)
+ #include <wtf/BlockPtr.h>
++#endif
+ #include <wtf/TZoneMallocInlines.h>
++#if PLATFORM(WIN)
++#include <memory>
++#endif
+ 
+ namespace WebCore::WebGPU {
+ 
+ WTF_MAKE_TZONE_ALLOCATED_IMPL(QueueImpl);
+ 
+-QueueImpl::QueueImpl(WebGPUPtr<WGPUQueue>&& queue, ConvertToBackingContext& convertToBackingContext)
++QueueImpl::QueueImpl(WebGPUPtr<WGPUQueue>&& queue, ConvertToBackingContext& convertToBackingContext
++#if PLATFORM(WIN)
++    , WGPUInstance dawnInstance
++#endif
++    )
+     : m_backing(WTF::move(queue))
+     , m_convertToBackingContext(convertToBackingContext)
++#if PLATFORM(WIN)
++    , m_dawnInstance(dawnInstance)
++#endif
+ {
+ }
+ 
+@@ -57,19 +71,47 @@
+     wgpuQueueSubmit(m_backing.get(), backingCommandBuffers.size(), backingCommandBuffers.span().data());
+ }
+ 
++#if !PLATFORM(WIN)
+ static void onSubmittedWorkDoneCallback(WGPUQueueWorkDoneStatus status, void* userdata)
+ {
+     auto block = reinterpret_cast<void(^)(WGPUQueueWorkDoneStatus)>(userdata);
+     block(status);
+     Block_release(block); // Block_release is matched with Block_copy below in QueueImpl::submit().
+ }
++#endif
++
++#if PLATFORM(WIN)
++struct DawnQueueWorkDoneUserdata {
++    CompletionHandler<void()> callback;
++    WGPUInstance instance { nullptr };
++};
++
++static void dawnQueueWorkDoneCallback(WGPUQueueWorkDoneStatus status, WGPUStringView, void* userdata1, void*)
++{
++    std::unique_ptr<DawnQueueWorkDoneUserdata> data(static_cast<DawnQueueWorkDoneUserdata*>(userdata1));
++    if (!data)
++        return;
++    if (status == WGPUQueueWorkDoneStatus_Success)
++        data->callback();
++}
++#endif
+ 
+ void QueueImpl::onSubmittedWorkDone(CompletionHandler<void()>&& callback)
+ {
++#if PLATFORM(WIN)
++    auto* userdata = new DawnQueueWorkDoneUserdata { WTF::move(callback), m_dawnInstance };
++    WGPUQueueWorkDoneCallbackInfo callbackInfo { };
++    callbackInfo.mode = WGPUCallbackMode_AllowProcessEvents;
++    callbackInfo.callback = dawnQueueWorkDoneCallback;
++    callbackInfo.userdata1 = userdata;
++    auto future = wgpuQueueOnSubmittedWorkDone(m_backing.get(), callbackInfo);
++    DawnCompat::waitForFuture(m_dawnInstance, future);
++#else
+     auto blockPtr = makeBlockPtr([callback = WTF::move(callback)](WGPUQueueWorkDoneStatus) mutable {
+         callback();
+     });
+     wgpuQueueOnSubmittedWorkDone(m_backing.get(), &onSubmittedWorkDoneCallback, Block_copy(blockPtr.get())); // Block_copy is matched with Block_release above in onSubmittedWorkDoneCallback().
++#endif
+ }
+ 
+ void QueueImpl::writeBuffer(
+@@ -98,7 +140,12 @@
+     Size64 dataOffset,
+     std::optional<Size64> size)
+ {
++#if PLATFORM(WIN)
++    auto data = source.subspan(dataOffset, size.value_or(source.size() - dataOffset));
++    wgpuQueueWriteBuffer(m_backing.get(), protect(m_convertToBackingContext)->convertToBacking(buffer), bufferOffset, data.data(), data.size());
++#else
+     wgpuQueueWriteBuffer(m_backing.get(), protect(m_convertToBackingContext)->convertToBacking(buffer), bufferOffset, source.subspan(dataOffset, size.value_or(source.size() - dataOffset)));
++#endif
+ }
+ 
+ void QueueImpl::writeTexture(
+@@ -109,6 +156,22 @@
+ {
+     Ref convertToBackingContext = m_convertToBackingContext;
+ 
++#if PLATFORM(WIN)
++    WGPUTexelCopyTextureInfo backingDestination { };
++    backingDestination.texture = convertToBackingContext->convertToBacking(protect(destination.texture).get());
++    backingDestination.mipLevel = destination.mipLevel;
++    backingDestination.origin = destination.origin ? convertToBackingContext->convertToBacking(*destination.origin) : WGPUOrigin3D { 0, 0, 0 };
++    backingDestination.aspect = convertToBackingContext->convertToBacking(destination.aspect);
++
++    WGPUTexelCopyBufferLayout backingDataLayout { };
++    backingDataLayout.offset = dataLayout.offset;
++    backingDataLayout.bytesPerRow = dataLayout.bytesPerRow.value_or(WGPU_COPY_STRIDE_UNDEFINED);
++    backingDataLayout.rowsPerImage = dataLayout.rowsPerImage.value_or(WGPU_COPY_STRIDE_UNDEFINED);
++
++    WGPUExtent3D backingSize = convertToBackingContext->convertToBacking(size);
++
++    wgpuQueueWriteTexture(m_backing.get(), &backingDestination, source.data(), source.size(), &backingDataLayout, &backingSize);
++#else
+     WGPUImageCopyTexture backingDestination {
+         .texture = convertToBackingContext->convertToBacking(protect(destination.texture).get()),
+         .mipLevel = destination.mipLevel,
+@@ -125,6 +188,7 @@
+     WGPUExtent3D backingSize = convertToBackingContext->convertToBacking(size);
+ 
+     wgpuQueueWriteTexture(m_backing.get(), &backingDestination, source, &backingDataLayout, &backingSize);
++#endif
+ }
+ 
+ void QueueImpl::copyExternalImageToTexture(
+@@ -139,7 +203,15 @@
+ 
+ void QueueImpl::setLabelInternal(const String& label)
+ {
+-    wgpuQueueSetLabel(m_backing.get(), label.utf8().data());
++    #if PLATFORM(WIN)
++
++        DawnCompat::setLabel(m_backing.get(), label);
++
++    #else
++
++        wgpuQueueSetLabel(m_backing.get(), label.utf8().data());
++
++    #endif
+ }
+ 
+ RefPtr<WebCore::NativeImage> QueueImpl::getNativeImage(WebCore::VideoFrame&)
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUQueueImpl.h b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUQueueImpl.h
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUQueueImpl.h	2026-04-16 11:51:32.009600408 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUQueueImpl.h	2026-04-16 11:27:02.481063997 +0000
+@@ -31,6 +31,7 @@
+ #include "WebGPUQueue.h"
+ #include <WebGPU/WebGPU.h>
+ #include <wtf/Deque.h>
++#include <wtf/Platform.h>
+ #include <wtf/TZoneMalloc.h>
+ 
+ namespace WebCore::WebGPU {
+@@ -40,9 +41,17 @@
+ class QueueImpl final : public Queue {
+     WTF_MAKE_TZONE_ALLOCATED(QueueImpl);
+ public:
+-    static Ref<QueueImpl> create(WebGPUPtr<WGPUQueue>&& queue, ConvertToBackingContext& convertToBackingContext)
++    static Ref<QueueImpl> create(WebGPUPtr<WGPUQueue>&& queue, ConvertToBackingContext& convertToBackingContext
++#if PLATFORM(WIN)
++        , WGPUInstance dawnInstance
++#endif
++        )
+     {
+-        return adoptRef(*new QueueImpl(WTF::move(queue), convertToBackingContext));
++        return adoptRef(*new QueueImpl(WTF::move(queue), convertToBackingContext
++#if PLATFORM(WIN)
++            , dawnInstance
++#endif
++            ));
+     }
+ 
+     virtual ~QueueImpl();
+@@ -50,7 +59,11 @@
+ private:
+     friend class DowncastConvertToBackingContext;
+ 
+-    QueueImpl(WebGPUPtr<WGPUQueue>&&, ConvertToBackingContext&);
++    QueueImpl(WebGPUPtr<WGPUQueue>&&, ConvertToBackingContext&
++#if PLATFORM(WIN)
++        , WGPUInstance dawnInstance
++#endif
++        );
+ 
+     QueueImpl(const QueueImpl&) = delete;
+     QueueImpl(QueueImpl&&) = delete;
+@@ -100,6 +113,9 @@
+ 
+     WebGPUPtr<WGPUQueue> m_backing;
+     const Ref<ConvertToBackingContext> m_convertToBackingContext;
++#if PLATFORM(WIN)
++    WGPUInstance m_dawnInstance { nullptr };
++#endif
+ };
+ 
+ } // namespace WebCore::WebGPU
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPURenderBundleEncoderImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPURenderBundleEncoderImpl.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPURenderBundleEncoderImpl.cpp	2026-04-16 11:51:32.009600408 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPURenderBundleEncoderImpl.cpp	2026-04-16 11:51:10.421822051 +0000
+@@ -24,6 +24,8 @@
+  */
+ 
+ #include "config.h"
++#include <wtf/Platform.h>
++#include "WebGPUDawnCompat.h"
+ #include "WebGPURenderBundleEncoderImpl.h"
+ 
+ #if HAVE(WEBGPU_IMPLEMENTATION)
+@@ -90,7 +92,6 @@
+ void RenderBundleEncoderImpl::setBindGroup(Index32 index, const BindGroup* bindGroup,
+     std::optional<Vector<BufferDynamicOffset>>&& dynamicOffsets)
+ {
+-    auto backingOffsets = valueOrDefault(dynamicOffsets);
+     wgpuRenderBundleEncoderSetBindGroupWithDynamicOffsets(m_backing.get(), index, bindGroup ? m_convertToBackingContext->convertToBacking(*bindGroup) : nullptr, WTF::move(dynamicOffsets));
+ }
+ 
+@@ -104,7 +105,15 @@
+ 
+ void RenderBundleEncoderImpl::pushDebugGroup(String&& groupLabel)
+ {
+-    wgpuRenderBundleEncoderPushDebugGroup(m_backing.get(), groupLabel.utf8().data());
++    #if PLATFORM(WIN)
++
++        DawnCompat::pushDebugGroup(m_backing.get(), groupLabel);
++
++    #else
++
++        wgpuRenderBundleEncoderPushDebugGroup(m_backing.get(), groupLabel.utf8().data());
++
++    #endif
+ }
+ 
+ void RenderBundleEncoderImpl::popDebugGroup()
+@@ -114,23 +123,46 @@
+ 
+ void RenderBundleEncoderImpl::insertDebugMarker(String&& markerLabel)
+ {
+-    wgpuRenderBundleEncoderInsertDebugMarker(m_backing.get(), markerLabel.utf8().data());
++    #if PLATFORM(WIN)
++
++        DawnCompat::insertDebugMarker(m_backing.get(), markerLabel);
++
++    #else
++
++        wgpuRenderBundleEncoderInsertDebugMarker(m_backing.get(), markerLabel.utf8().data());
++
++    #endif
+ }
+ 
+ RefPtr<RenderBundle> RenderBundleEncoderImpl::finish(const RenderBundleDescriptor& descriptor)
+ {
+     auto label = descriptor.label.utf8();
+ 
++#if PLATFORM(WIN)
++    WGPURenderBundleDescriptor backingDescriptor {
++        .nextInChain = nullptr,
++        .label = DawnCompat::toDawnStringView(label),
++    };
++#else
+     WGPURenderBundleDescriptor backingDescriptor {
+         .label = label.data(),
+     };
++#endif
+ 
+     return RenderBundleImpl::create(adoptWebGPU(wgpuRenderBundleEncoderFinish(m_backing.get(), &backingDescriptor)), m_convertToBackingContext);
+ }
+ 
+ void RenderBundleEncoderImpl::setLabelInternal(const String& label)
+ {
+-    wgpuRenderBundleEncoderSetLabel(m_backing.get(), label.utf8().data());
++    #if PLATFORM(WIN)
++
++        DawnCompat::setLabel(m_backing.get(), label);
++
++    #else
++
++        wgpuRenderBundleEncoderSetLabel(m_backing.get(), label.utf8().data());
++
++    #endif
+ }
+ 
+ } // namespace WebCore::WebGPU
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPURenderBundleImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPURenderBundleImpl.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPURenderBundleImpl.cpp	2026-04-16 11:51:32.009600408 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPURenderBundleImpl.cpp	2026-04-16 11:27:02.481170679 +0000
+@@ -24,6 +24,8 @@
+  */
+ 
+ #include "config.h"
++#include <wtf/Platform.h>
++#include "WebGPUDawnCompat.h"
+ #include "WebGPURenderBundleImpl.h"
+ 
+ #if HAVE(WEBGPU_IMPLEMENTATION)
+@@ -46,7 +48,15 @@
+ 
+ void RenderBundleImpl::setLabelInternal(const String& label)
+ {
+-    wgpuRenderBundleSetLabel(m_backing.get(), label.utf8().data());
++    #if PLATFORM(WIN)
++
++        DawnCompat::setLabel(m_backing.get(), label);
++
++    #else
++
++        wgpuRenderBundleSetLabel(m_backing.get(), label.utf8().data());
++
++    #endif
+ }
+ 
+ } // namespace WebCore::WebGPU
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPURenderPassEncoderImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPURenderPassEncoderImpl.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPURenderPassEncoderImpl.cpp	2026-04-16 11:51:32.010600213 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPURenderPassEncoderImpl.cpp	2026-04-16 11:51:10.420822246 +0000
+@@ -24,6 +24,8 @@
+  */
+ 
+ #include "config.h"
++#include <wtf/Platform.h>
++#include "WebGPUDawnCompat.h"
+ #include "WebGPURenderPassEncoderImpl.h"
+ 
+ #if HAVE(WEBGPU_IMPLEMENTATION)
+@@ -91,7 +93,7 @@
+ void RenderPassEncoderImpl::setBindGroup(Index32 index, const BindGroup* bindGroup,
+     std::optional<Vector<BufferDynamicOffset>>&& dynamicOffsets)
+ {
+-    wgpuRenderPassEncoderSetBindGroup(m_backing.get(), index, bindGroup ? m_convertToBackingContext->convertToBacking(*bindGroup) : nullptr, WTF::move(dynamicOffsets));
++    wgpuRenderPassEncoderSetBindGroupWithDynamicOffsets(m_backing.get(), index, bindGroup ? m_convertToBackingContext->convertToBacking(*bindGroup) : nullptr, WTF::move(dynamicOffsets));
+ }
+ 
+ void RenderPassEncoderImpl::setBindGroup(Index32, const BindGroup*, std::span<const uint32_t>, Size64, Size32)
+@@ -101,7 +103,15 @@
+ 
+ void RenderPassEncoderImpl::pushDebugGroup(String&& groupLabel)
+ {
+-    wgpuRenderPassEncoderPushDebugGroup(m_backing.get(), groupLabel.utf8().data());
++    #if PLATFORM(WIN)
++
++        DawnCompat::pushDebugGroup(m_backing.get(), groupLabel);
++
++    #else
++
++        wgpuRenderPassEncoderPushDebugGroup(m_backing.get(), groupLabel.utf8().data());
++
++    #endif
+ }
+ 
+ void RenderPassEncoderImpl::popDebugGroup()
+@@ -111,7 +121,15 @@
+ 
+ void RenderPassEncoderImpl::insertDebugMarker(String&& markerLabel)
+ {
+-    wgpuRenderPassEncoderInsertDebugMarker(m_backing.get(), markerLabel.utf8().data());
++    #if PLATFORM(WIN)
++
++        DawnCompat::insertDebugMarker(m_backing.get(), markerLabel);
++
++    #else
++
++        wgpuRenderPassEncoderInsertDebugMarker(m_backing.get(), markerLabel.utf8().data());
++
++    #endif
+ }
+ 
+ void RenderPassEncoderImpl::setViewport(float x, float y,
+@@ -165,7 +183,15 @@
+ 
+ void RenderPassEncoderImpl::setLabelInternal(const String& label)
+ {
+-    wgpuRenderPassEncoderSetLabel(m_backing.get(), label.utf8().data());
++    #if PLATFORM(WIN)
++
++        DawnCompat::setLabel(m_backing.get(), label);
++
++    #else
++
++        wgpuRenderPassEncoderSetLabel(m_backing.get(), label.utf8().data());
++
++    #endif
+ }
+ 
+ } // namespace WebCore::WebGPU
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPURenderPipelineImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPURenderPipelineImpl.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPURenderPipelineImpl.cpp	2026-04-16 11:51:32.010600213 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPURenderPipelineImpl.cpp	2026-04-16 11:27:02.481274080 +0000
+@@ -24,6 +24,8 @@
+  */
+ 
+ #include "config.h"
++#include <wtf/Platform.h>
++#include "WebGPUDawnCompat.h"
+ #include "WebGPURenderPipelineImpl.h"
+ 
+ #if HAVE(WEBGPU_IMPLEMENTATION)
+@@ -53,7 +55,15 @@
+ 
+ void RenderPipelineImpl::setLabelInternal(const String& label)
+ {
+-    wgpuRenderPipelineSetLabel(m_backing.get(), label.utf8().data());
++    #if PLATFORM(WIN)
++
++        DawnCompat::setLabel(m_backing.get(), label);
++
++    #else
++
++        wgpuRenderPipelineSetLabel(m_backing.get(), label.utf8().data());
++
++    #endif
+ }
+ 
+ } // namespace WebCore::WebGPU
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUSamplerImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUSamplerImpl.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUSamplerImpl.cpp	2026-04-16 11:51:32.010600213 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUSamplerImpl.cpp	2026-04-16 11:27:02.481324391 +0000
+@@ -24,6 +24,8 @@
+  */
+ 
+ #include "config.h"
++#include <wtf/Platform.h>
++#include "WebGPUDawnCompat.h"
+ #include "WebGPUSamplerImpl.h"
+ 
+ #if HAVE(WEBGPU_IMPLEMENTATION)
+@@ -46,7 +48,15 @@
+ 
+ void SamplerImpl::setLabelInternal(const String& label)
+ {
+-    wgpuSamplerSetLabel(m_backing.get(), label.utf8().data());
++    #if PLATFORM(WIN)
++
++        DawnCompat::setLabel(m_backing.get(), label);
++
++    #else
++
++        wgpuSamplerSetLabel(m_backing.get(), label.utf8().data());
++
++    #endif
+ }
+ 
+ } // namespace WebCore::WebGPU
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUShaderModuleImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUShaderModuleImpl.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUShaderModuleImpl.cpp	2026-04-16 11:51:32.010600213 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUShaderModuleImpl.cpp	2026-04-16 12:32:10.104685076 +0000
+@@ -24,6 +24,8 @@
+  */
+ 
+ #include "config.h"
++#include <wtf/Platform.h>
++#include "WebGPUDawnCompat.h"
+ #include "WebGPUShaderModuleImpl.h"
+ 
+ #if HAVE(WEBGPU_IMPLEMENTATION)
+@@ -34,16 +36,28 @@
+ #include "WebGPUConvertToBackingContext.h"
+ #include <WebGPU/WebGPUExt.h>
+ 
++#if !PLATFORM(WIN)
+ #include <wtf/BlockPtr.h>
++#endif
+ #include <wtf/TZoneMallocInlines.h>
++#if PLATFORM(WIN)
++#include <memory>
++#endif
+ 
+ namespace WebCore::WebGPU {
+ 
+ WTF_MAKE_TZONE_ALLOCATED_IMPL(ShaderModuleImpl);
+ 
+-ShaderModuleImpl::ShaderModuleImpl(WebGPUPtr<WGPUShaderModule>&& shaderModule, ConvertToBackingContext& convertToBackingContext)
++ShaderModuleImpl::ShaderModuleImpl(WebGPUPtr<WGPUShaderModule>&& shaderModule, ConvertToBackingContext& convertToBackingContext
++#if PLATFORM(WIN)
++    , WGPUInstance dawnInstance
++#endif
++    )
+     : m_backing(WTF::move(shaderModule))
+     , m_convertToBackingContext(convertToBackingContext)
++#if PLATFORM(WIN)
++    , m_dawnInstance(dawnInstance)
++#endif
+ {
+ }
+ 
+@@ -63,15 +77,54 @@
+     }
+ }
+ 
++#if !PLATFORM(WIN)
+ static void compilationInfoCallback(WGPUCompilationInfoRequestStatus status, const WGPUCompilationInfo* compilationInfo, void* userdata)
+ {
+     auto block = reinterpret_cast<void(^)(WGPUCompilationInfoRequestStatus, const WGPUCompilationInfo*)>(userdata);
+     block(status, compilationInfo);
+     Block_release(block); // Block_release is matched with Block_copy below in AdapterImpl::requestDevice().
+ }
++#endif
++
++#if PLATFORM(WIN)
++struct DawnCompilationInfoUserdata {
++    CompletionHandler<void(Ref<CompilationInfo>&&)> callback;
++    WGPUInstance instance { nullptr };
++};
++
++static void dawnCompilationInfoCallback(WGPUCompilationInfoRequestStatus status, const WGPUCompilationInfo* compilationInfo, void* userdata1, void*)
++{
++    std::unique_ptr<DawnCompilationInfoUserdata> data(static_cast<DawnCompilationInfoUserdata*>(userdata1));
++    if (!data)
++        return;
++    Vector<Ref<CompilationMessage>> messages;
++    if (status != WGPUCompilationInfoRequestStatus_Success || !compilationInfo || !compilationInfo->messageCount) {
++        data->callback(CompilationInfo::create(WTF::move(messages)));
++        return;
++    }
++
++    for (size_t i = 0; i < compilationInfo->messageCount; ++i) {
++        const auto& message = compilationInfo->messages[i];
++        messages.append(CompilationMessage::create(DawnCompat::stringFromDawn(message.message), convertFromBacking(message.type), message.lineNum, message.linePos + 1, message.offset, message.length));
++    }
++
++    data->callback(CompilationInfo::create(WTF::move(messages)));
++}
++#endif
+ 
+ void ShaderModuleImpl::compilationInfo(CompletionHandler<void(Ref<CompilationInfo>&&)>&& callback)
+ {
++#if PLATFORM(WIN)
++    auto* userdata = new DawnCompilationInfoUserdata;
++    userdata->callback = WTF::move(callback);
++    userdata->instance = m_dawnInstance;
++    WGPUCompilationInfoCallbackInfo callbackInfo { };
++    callbackInfo.mode = WGPUCallbackMode_AllowProcessEvents;
++    callbackInfo.callback = dawnCompilationInfoCallback;
++    callbackInfo.userdata1 = userdata;
++    auto future = wgpuShaderModuleGetCompilationInfo(m_backing.get(), callbackInfo);
++    DawnCompat::waitForFuture(m_dawnInstance, future);
++#else
+     auto blockPtr = makeBlockPtr([callback = WTF::move(callback)](WGPUCompilationInfoRequestStatus, const WGPUCompilationInfo* compilationInfo) mutable {
+         Vector<Ref<CompilationMessage>> messages;
+         if (!compilationInfo || !compilationInfo->messageCount) {
+@@ -86,11 +139,20 @@
+     });
+ 
+     wgpuShaderModuleGetCompilationInfo(m_backing.get(), &compilationInfoCallback, Block_copy(blockPtr.get()));
++#endif
+ }
+ 
+ void ShaderModuleImpl::setLabelInternal(const String& label)
+ {
+-    wgpuShaderModuleSetLabel(m_backing.get(), label.utf8().data());
++    #if PLATFORM(WIN)
++
++        DawnCompat::setLabel(m_backing.get(), label);
++
++    #else
++
++        wgpuShaderModuleSetLabel(m_backing.get(), label.utf8().data());
++
++    #endif
+ }
+ 
+ } // namespace WebCore::WebGPU
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUShaderModuleImpl.h b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUShaderModuleImpl.h
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUShaderModuleImpl.h	2026-04-16 11:51:32.010600213 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUShaderModuleImpl.h	2026-04-16 11:27:02.481428253 +0000
+@@ -30,6 +30,7 @@
+ #include "WebGPUPtr.h"
+ #include "WebGPUShaderModule.h"
+ #include <WebGPU/WebGPU.h>
++#include <wtf/Platform.h>
+ #include <wtf/TZoneMalloc.h>
+ 
+ namespace WebCore::WebGPU {
+@@ -39,9 +40,17 @@
+ class ShaderModuleImpl final : public ShaderModule {
+     WTF_MAKE_TZONE_ALLOCATED(ShaderModuleImpl);
+ public:
+-    static Ref<ShaderModuleImpl> create(WebGPUPtr<WGPUShaderModule>&& shaderModule, ConvertToBackingContext& convertToBackingContext)
++    static Ref<ShaderModuleImpl> create(WebGPUPtr<WGPUShaderModule>&& shaderModule, ConvertToBackingContext& convertToBackingContext
++#if PLATFORM(WIN)
++        , WGPUInstance dawnInstance
++#endif
++        )
+     {
+-        return adoptRef(*new ShaderModuleImpl(WTF::move(shaderModule), convertToBackingContext));
++        return adoptRef(*new ShaderModuleImpl(WTF::move(shaderModule), convertToBackingContext
++#if PLATFORM(WIN)
++            , dawnInstance
++#endif
++            ));
+     }
+ 
+     virtual ~ShaderModuleImpl();
+@@ -49,7 +58,11 @@
+ private:
+     friend class DowncastConvertToBackingContext;
+ 
+-    ShaderModuleImpl(WebGPUPtr<WGPUShaderModule>&&, ConvertToBackingContext&);
++    ShaderModuleImpl(WebGPUPtr<WGPUShaderModule>&&, ConvertToBackingContext&
++#if PLATFORM(WIN)
++        , WGPUInstance dawnInstance
++#endif
++        );
+ 
+     ShaderModuleImpl(const ShaderModuleImpl&) = delete;
+     ShaderModuleImpl(ShaderModuleImpl&&) = delete;
+@@ -65,6 +78,9 @@
+ 
+     WebGPUPtr<WGPUShaderModule> m_backing;
+     const Ref<ConvertToBackingContext> m_convertToBackingContext;
++#if PLATFORM(WIN)
++    WGPUInstance m_dawnInstance { nullptr };
++#endif
+ };
+ 
+ } // namespace WebCore::WebGPU
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUTextureImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUTextureImpl.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUTextureImpl.cpp	2026-04-16 11:51:32.010600213 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUTextureImpl.cpp	2026-04-16 12:32:10.105684880 +0000
+@@ -24,6 +24,8 @@
+  */
+ 
+ #include "config.h"
++#include <wtf/Platform.h>
++#include "WebGPUDawnCompat.h"
+ #include "WebGPUTextureImpl.h"
+ 
+ #if HAVE(WEBGPU_IMPLEMENTATION)
+@@ -56,7 +58,12 @@
+     Ref convertToBackingContext = m_convertToBackingContext;
+ 
+     WGPUTextureViewDescriptor backingDescriptor {
++#if PLATFORM(WIN)
++        .nextInChain = nullptr,
++        .label = DawnCompat::toDawnStringView(label),
++#else
+         .label = label.data(),
++#endif
+         .format = descriptor && descriptor->format ? convertToBackingContext->convertToBacking(*descriptor->format) : WGPUTextureFormat_Undefined,
+         .dimension = descriptor && descriptor->dimension ? convertToBackingContext->convertToBacking(*descriptor->dimension) : WGPUTextureViewDimension_Undefined,
+         .baseMipLevel = descriptor ? descriptor->baseMipLevel : 0,
+@@ -77,12 +84,22 @@
+ 
+ void TextureImpl::undestroy()
+ {
++#if !PLATFORM(WIN)
+     wgpuTextureUndestroy(m_backing.get());
++#endif
+ }
+ 
+ void TextureImpl::setLabelInternal(const String& label)
+ {
+-    wgpuTextureSetLabel(m_backing.get(), label.utf8().data());
++    #if PLATFORM(WIN)
++
++        DawnCompat::setLabel(m_backing.get(), label);
++
++    #else
++
++        wgpuTextureSetLabel(m_backing.get(), label.utf8().data());
++
++    #endif
+ }
+ 
+ } // namespace WebCore::WebGPU
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUTextureViewImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUTextureViewImpl.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUTextureViewImpl.cpp	2026-04-16 11:51:32.010600213 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUTextureViewImpl.cpp	2026-04-16 11:27:02.481555625 +0000
+@@ -24,6 +24,8 @@
+  */
+ 
+ #include "config.h"
++#include <wtf/Platform.h>
++#include "WebGPUDawnCompat.h"
+ #include "WebGPUTextureViewImpl.h"
+ 
+ #if HAVE(WEBGPU_IMPLEMENTATION)
+@@ -46,7 +48,15 @@
+ 
+ void TextureViewImpl::setLabelInternal(const String& label)
+ {
+-    wgpuTextureViewSetLabel(m_backing.get(), label.utf8().data());
++    #if PLATFORM(WIN)
++
++        DawnCompat::setLabel(m_backing.get(), label);
++
++    #else
++
++        wgpuTextureViewSetLabel(m_backing.get(), label.utf8().data());
++
++    #endif
+ }
+ 
+ } // namespace WebCore::WebGPU
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUXRBindingImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUXRBindingImpl.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUXRBindingImpl.cpp	2026-04-16 11:51:32.011600018 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUXRBindingImpl.cpp	2026-04-16 17:38:59.423312987 +0000
+@@ -26,7 +26,7 @@
+ #include "config.h"
+ #include "WebGPUXRBindingImpl.h"
+ 
+-#if HAVE(WEBGPU_IMPLEMENTATION)
++#if HAVE(WEBGPU_IMPLEMENTATION) && !PLATFORM(WIN)
+ 
+ #include "WebGPUConvertToBackingContext.h"
+ #include "WebGPUDevice.h"
+@@ -75,4 +75,4 @@
+ 
+ } // namespace WebCore::WebGPU
+ 
+-#endif // HAVE(WEBGPU_IMPLEMENTATION)
++#endif // HAVE(WEBGPU_IMPLEMENTATION) && !PLATFORM(WIN)
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUXRBindingImpl.h b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUXRBindingImpl.h
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUXRBindingImpl.h	2026-04-16 11:51:32.011600018 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUXRBindingImpl.h	2026-04-16 17:38:59.423312987 +0000
+@@ -25,7 +25,7 @@
+ 
+ #pragma once
+ 
+-#if HAVE(WEBGPU_IMPLEMENTATION)
++#if HAVE(WEBGPU_IMPLEMENTATION) && !PLATFORM(WIN)
+ 
+ #include "WebGPUPtr.h"
+ #include "WebGPUXRBinding.h"
+@@ -85,4 +85,4 @@
+     static bool isType(const WebCore::WebGPU::XRBinding& xrBinding) { return xrBinding.isXRBindingImpl(); }
+ SPECIALIZE_TYPE_TRAITS_END()
+ 
+-#endif // HAVE(WEBGPU_IMPLEMENTATION)
++#endif // HAVE(WEBGPU_IMPLEMENTATION) && !PLATFORM(WIN)
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUXRProjectionLayerImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUXRProjectionLayerImpl.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUXRProjectionLayerImpl.cpp	2026-04-16 11:51:32.011600018 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUXRProjectionLayerImpl.cpp	2026-04-16 17:38:59.423312987 +0000
+@@ -26,7 +26,7 @@
+ #include "config.h"
+ #include "WebGPUXRProjectionLayerImpl.h"
+ 
+-#if HAVE(WEBGPU_IMPLEMENTATION)
++#if HAVE(WEBGPU_IMPLEMENTATION) && !PLATFORM(WIN)
+ 
+ #include "PlatformXR.h"
+ #include "WebGPUConvertToBackingContext.h"
+@@ -121,4 +121,4 @@
+ 
+ } // namespace WebCore::WebGPU
+ 
+-#endif // HAVE(WEBGPU_IMPLEMENTATION)
++#endif // HAVE(WEBGPU_IMPLEMENTATION) && !PLATFORM(WIN)
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUXRProjectionLayerImpl.h b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUXRProjectionLayerImpl.h
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUXRProjectionLayerImpl.h	2026-04-16 11:51:32.011600018 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUXRProjectionLayerImpl.h	2026-04-16 17:38:59.423312987 +0000
+@@ -25,7 +25,7 @@
+ 
+ #pragma once
+ 
+-#if HAVE(WEBGPU_IMPLEMENTATION)
++#if HAVE(WEBGPU_IMPLEMENTATION) && !PLATFORM(WIN)
+ 
+ #include "WebGPUPtr.h"
+ #include "WebGPUXRProjectionLayer.h"
+@@ -91,4 +91,4 @@
+     static bool isType(const WebCore::WebGPU::XRProjectionLayer& xrProjectionLayer) { return xrProjectionLayer.isXRProjectionLayerImpl(); }
+ SPECIALIZE_TYPE_TRAITS_END()
+ 
+-#endif // HAVE(WEBGPU_IMPLEMENTATION)
++#endif // HAVE(WEBGPU_IMPLEMENTATION) && !PLATFORM(WIN)
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUXRSubImageImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUXRSubImageImpl.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUXRSubImageImpl.cpp	2026-04-16 11:51:32.011600018 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUXRSubImageImpl.cpp	2026-04-16 17:38:59.424312792 +0000
+@@ -26,7 +26,7 @@
+ #include "config.h"
+ #include "WebGPUXRSubImageImpl.h"
+ 
+-#if HAVE(WEBGPU_IMPLEMENTATION)
++#if HAVE(WEBGPU_IMPLEMENTATION) && !PLATFORM(WIN)
+ 
+ #include "WebGPUConvertToBackingContext.h"
+ #include "WebGPUDevice.h"
+@@ -279,4 +279,4 @@
+ 
+ } // namespace WebCore::WebGPU
+ 
+-#endif // HAVE(WEBGPU_IMPLEMENTATION)
++#endif // HAVE(WEBGPU_IMPLEMENTATION) && !PLATFORM(WIN)
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUXRSubImageImpl.h b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUXRSubImageImpl.h
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUXRSubImageImpl.h	2026-04-16 11:51:32.011600018 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUXRSubImageImpl.h	2026-04-16 17:38:59.423312987 +0000
+@@ -25,7 +25,7 @@
+ 
+ #pragma once
+ 
+-#if HAVE(WEBGPU_IMPLEMENTATION)
++#if HAVE(WEBGPU_IMPLEMENTATION) && !PLATFORM(WIN)
+ 
+ #include "WebGPUPtr.h"
+ #include "WebGPUXRSubImage.h"
+@@ -72,4 +72,4 @@
+     static bool isType(const WebCore::WebGPU::XRSubImage& xrSubImage) { return xrSubImage.isXRSubImageImpl(); }
+ SPECIALIZE_TYPE_TRAITS_END()
+ 
+-#endif // HAVE(WEBGPU_IMPLEMENTATION)
++#endif // HAVE(WEBGPU_IMPLEMENTATION) && !PLATFORM(WIN)
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUXRViewImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUXRViewImpl.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUXRViewImpl.cpp	2026-04-16 11:51:32.011600018 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUXRViewImpl.cpp	2026-04-16 17:38:59.424312792 +0000
+@@ -26,7 +26,7 @@
+ #include "config.h"
+ #include "WebGPUXRViewImpl.h"
+ 
+-#if HAVE(WEBGPU_IMPLEMENTATION)
++#if HAVE(WEBGPU_IMPLEMENTATION) && !PLATFORM(WIN)
+ 
+ #include "WebGPUConvertToBackingContext.h"
+ #include "WebGPUDevice.h"
+@@ -45,4 +45,4 @@
+ 
+ } // namespace WebCore::WebGPU
+ 
+-#endif // HAVE(WEBGPU_IMPLEMENTATION)
++#endif // HAVE(WEBGPU_IMPLEMENTATION) && !PLATFORM(WIN)
+diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUXRViewImpl.h b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUXRViewImpl.h
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUXRViewImpl.h	2026-04-16 11:51:32.011600018 +0000
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUXRViewImpl.h	2026-04-16 17:38:59.424312792 +0000
+@@ -25,7 +25,7 @@
+ 
+ #pragma once
+ 
+-#if HAVE(WEBGPU_IMPLEMENTATION)
++#if HAVE(WEBGPU_IMPLEMENTATION) && !PLATFORM(WIN)
+ 
+ #include "WebGPUPtr.h"
+ #include "WebGPUXRView.h"
+@@ -80,4 +80,4 @@
+     static bool isType(const WebCore::WebGPU::XRView& xrView) { return xrView.isXRViewImpl(); }
+ SPECIALIZE_TYPE_TRAITS_END()
+ 
+-#endif // HAVE(WEBGPU_IMPLEMENTATION)
++#endif // HAVE(WEBGPU_IMPLEMENTATION) && !PLATFORM(WIN)
+diff -ruN '--exclude=.git' a/Source/WebCore/Sources.txt b/Source/WebCore/Sources.txt
+--- a/Source/WebCore/Sources.txt	2026-04-16 11:51:32.862634162 +0000
++++ b/Source/WebCore/Sources.txt	2026-04-16 11:27:02.481555625 +0000
+@@ -68,6 +68,7 @@
+ Modules/WebGPU/Implementation/WebGPUComputePipelineImpl.cpp
+ Modules/WebGPU/Implementation/WebGPUConvertToBackingContext.cpp
+ Modules/WebGPU/Implementation/WebGPUCreateImpl.cpp
++Modules/WebGPU/Implementation/WebGPUDawnCompat.cpp
+ Modules/WebGPU/Implementation/WebGPUDeviceImpl.cpp
+ Modules/WebGPU/Implementation/WebGPUDowncastConvertToBackingContext.cpp
+ Modules/WebGPU/Implementation/WebGPUExternalTextureImpl.cpp

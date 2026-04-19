@@ -1,0 +1,63 @@
+{
+  "artifactBucket": "s3://cory-build-artifacts-euc1-095713295645-20260407/ng-webkit/deps",
+  "platforms": {
+    "android": {
+      "source": "wpe-android bootstrap",
+      "installRoot": "/home/ubuntu/.local/state/webkitium/deps/android",
+      "items": [
+        {
+          "id": "wpewebkit-android-arm64",
+          "kind": "local-file",
+          "path": "/home/ubuntu/webkit/wpe-android/build/wpewebkit-android-arm64-2.51.91.tar.xz"
+        },
+        {
+          "id": "wpewebkit-android-arm64-runtime",
+          "kind": "local-file",
+          "path": "/home/ubuntu/webkit/wpe-android/build/wpewebkit-android-arm64-2.51.91-runtime.tar.xz"
+        }
+      ]
+    },
+    "windows": {
+      "source": "known-good Windows WebGPU/Dawn compat39 lane",
+      "installRoot": "C:\\Bootstrap\\ng-deps",
+      "items": [
+        {
+          "id": "windows-webgpu-dawn-compat39-baseline",
+          "kind": "s3-prefix",
+          "uri": "s3://cory-build-artifacts-euc1-095713295645-20260407/ng-webkit/windows/dawn-api-compat39/"
+        },
+        {
+          "id": "windows-webgpu-dawn-green-ami",
+          "kind": "aws-ami",
+          "region": "eu-west-1",
+          "amiId": "ami-0151481223e75e08f"
+        }
+      ]
+    },
+    "macos": {
+      "source": "native macOS WebKit bootstrap",
+      "installRoot": "/Users/ec2-user/ng-deps",
+      "items": [
+        {
+          "id": "macos-homebrew-core-build-tools",
+          "kind": "homebrew-packages",
+          "packages": ["cmake", "ninja", "pkg-config", "gperf", "ruby", "python@3.12", "git", "git-lfs"]
+        },
+        {
+          "id": "xcode-26.2-or-newer",
+          "kind": "manual-requirement",
+          "status": "missing",
+          "description": "WebKit build scripts require full Xcode 26.2 or later. Command Line Tools alone are not sufficient."
+        }
+      ]
+    },
+    "linux": {
+      "source": "placeholder",
+      "items": []
+    },
+    "ios": {
+      "source": "placeholder",
+      "items": []
+    }
+  }
+}

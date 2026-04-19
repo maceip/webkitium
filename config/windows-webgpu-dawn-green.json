@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "name": "windows-webgpu-dawn-green",
+  "description": "Known-green Windows WebGPU/Dawn build lane from dawn-api-compat39.",
+  "greenBuild": {
+    "buildId": "20260418T175536-34490",
+    "artifactPrefix": "s3://cory-build-artifacts-euc1-095713295645-20260407/ng-webkit/windows/20260418T175536-34490",
+    "amiId": "ami-0d8e9b991584f150d",
+    "amiName": "ng-webkit-windows-dawn-green-sccache-20260418T184644Z",
+    "snapshotId": "snap-02e685893944a72ba"
+  },
+  "source": {
+    "preset": "iangrunert-win-gigacage-skia-fixes",
+    "url": "https://github.com/iangrunert/WebKit.git",
+    "commit": "64f58084c78130b874d05dbcfb508147354095af"
+  },
+  "environment": {
+    "NG_WINDOWS_ENABLE_WEBGPU": "1",
+    "NG_WINDOWS_ENABLE_SCCACHE": "1",
+    "NG_WINDOWS_NINJA_JOBS": "8"
+  },
+  "cmakeAndBuild": {
+    "webgpu": true,
+    "experimentalFeatures": true,
+    "webxr": false,
+    "thinLto": true,
+    "linker": "lld-link",
+    "releaseDebugInfo": "embedded",
+    "msvcDebugInformationFormat": "Embedded"
+  },
+  "enabledChanges": [],
+  "rootPatchDirectory": "webkit/patches/windows",
+  "notes": [
+    "Future build bundles include patch-manifest.json with exact patch names and SHA256 hashes.",
+    "The current green build completed at -j8 on r7i.4xlarge with local sccache enabled and verified.",
+    "Sccache is verified through CMakeCache.txt, build.ninja, and sccache-report.json. The repeat lane forces CMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded for cacheable MSVC object debug info."
+  ]
+}

@@ -1,0 +1,15 @@
+# Config
+
+These files define **AWS regions**, **S3 prefixes**, **builder instance IDs**, and **dependency catalogs** for Webkitium automation.
+
+| File | Role |
+|------|------|
+| **`build-machines.json`** | Default regions / EC2 instance IDs for Android (SSM), Windows (SSM), macOS (SSM). Overridden by `.env`. |
+| **`platforms.json`** | Runner/API: platform status, artifact patterns, Windows WebGPU **presets** (`webgpu-dawn`, `webgpu-dawn-fast`). |
+| **`dependencies.json`** | Catalog for `catalog-deps.sh` / `ship-deps.sh`: local paths and S3 prefixes for bootstrap tarballs, AMIs, etc. Paths like `/home/ubuntu/.local/state/webkitium/deps/...` match **builder disk layout** when state uses the default XDG layout. |
+| **`changes.json`** | Enabled WebKit integration **lanes** (`changes/<id>/`). See note inside the file: **`windows-webgpu-service`** is **disabled** when that work lives under **`webkit/patches/windows/`**. |
+| **`windows-webgpu-dawn-green.json`** | Record of a known-green Windows WebGPU run (AMI, commit, `rootPatchDirectory`: **`webkit/patches/windows`**). |
+
+## Environment
+
+**`.env.example`** lists common overrides. Orchestrator and shell scripts load **`.env`** at the repo root when it exists.

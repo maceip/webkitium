@@ -1,0 +1,53 @@
+diff --git a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUCreateImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUCreateImpl.cpp
+index 8b8338dce4c3..c570a2f61d5d 100644
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUCreateImpl.cpp
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUCreateImpl.cpp
+@@ -55,6 +55,7 @@ RefPtr<GPU> create(ScheduleWorkFunction&& scheduleWorkFunction, const WebCore::P
+     });
+ 
+     WGPUInstanceDescriptor descriptor = {
++#if PLATFORM(COCOA)
+         .cocoaDescriptor = WGPUInstanceCocoaDescriptor {
+             .scheduleWorkBlock = scheduleWorkBlock.get(),
+ #if HAVE(TASK_IDENTITY_TOKEN)
+@@ -63,6 +64,7 @@ RefPtr<GPU> create(ScheduleWorkFunction&& scheduleWorkFunction, const WebCore::P
+             .webProcessResourceOwner = nullptr,
+ #endif
+         }
++#endif
+     };
+ 
+     if (!&wgpuCreateInstance)
+diff --git a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUImpl.cpp
+index 9bc98c418f24..d1135aedb82d 100644
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUImpl.cpp
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUImpl.cpp
+@@ -70,7 +70,11 @@ void GPUImpl::requestAdapter(const RequestAdapterOptions& options, CompletionHan
+ #else
+         .powerPreference = options.powerPreference ? convertToBackingContext->convertToBacking(*options.powerPreference) : static_cast<WGPUPowerPreference>(WGPUPowerPreference_Undefined),
+ #endif
++#if PLATFORM(WIN)
++        .backendType = WGPUBackendType_D3D12,
++#else
+         .backendType = WGPUBackendType_Metal,
++#endif
+         .forceFallbackAdapter = options.forceFallbackAdapter,
+         .xrCompatible = options.xrCompatible,
+     };
+diff --git a/Source/WebCore/PlatformWin.cmake b/Source/WebCore/PlatformWin.cmake
+index 72b2846f2c82..7db8237b8864 100644
+--- a/Source/WebCore/PlatformWin.cmake
++++ b/Source/WebCore/PlatformWin.cmake
+@@ -29,6 +29,12 @@ list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
+     "${WEBCORE_DIR}/platform/win"
+ )
+ 
++if (ENABLE_WEBGPU)
++    list(APPEND WebCore_LIBRARIES
++        Dawn::dawn
++    )
++endif ()
++
+ list(APPEND WebCore_SOURCES
+     accessibility/win/AXObjectCacheWin.cpp
+     accessibility/win/AccessibilityObjectWin.cpp

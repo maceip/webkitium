@@ -1,0 +1,78 @@
+{
+  "platforms": {
+    "android": {
+      "status": "active",
+      "sourceEnv": "NG_ANDROID_SOURCE",
+      "defaultSource": "/home/ubuntu/webkit/wpe-android",
+      "artifactPatterns": ["*.apk", "*.aar", "*.tar.xz"]
+    },
+    "windows": {
+      "status": "active",
+      "mode": "aws-ssm",
+      "instanceEnv": "NG_WINDOWS_INSTANCE_ID",
+      "artifactEnv": "NG_WINDOWS_ARTIFACT_S3",
+      "artifactPatterns": ["*.zip", "*.tar.gz", "*.7z", "*.exe", "*.msi", "*.log", "*.json", "*.html"],
+      "presets": {
+        "webgpu-dawn": {
+          "description": "Windows WebGPU/Dawn build on the iangrunert Gigacage/Skia fixes branch.",
+          "env": {
+            "NG_WINDOWS_SOURCE_PRESET": "iangrunert-win-gigacage-skia-fixes",
+            "NG_WINDOWS_ENABLE_WEBGPU": "1",
+            "NG_WINDOWS_ENABLE_SCCACHE": "1"
+          },
+          "validationArtifacts": [
+            "validation-report.json",
+            "validation-recovered.json",
+            "manifest-pre.json",
+            "manifest-post.json",
+            "build-progress.json"
+          ],
+          "acceptance": [
+            "CMakeCache contains ENABLE_WEBGPU:BOOL=ON",
+            "webgpu_dawn.dll is packaged next to MiniBrowser.exe",
+            "webgpu_dawn.dll loads with LOAD_WITH_ALTERED_SEARCH_PATH",
+            "packaged abseil_dll.dll matches Dawn's Abseil inline namespace",
+            "validation-report.json runtime smoke shows adapter, device, and queue",
+            "BUILD_DONE.txt is written only after S3 sync succeeds",
+            "sccache-report.json proves CMakeCache, build.ninja, Embedded MSVC debug info, and nonzero compile activity"
+          ]
+        },
+        "webgpu-dawn-fast": {
+          "description": "Warm Windows WebGPU/Dawn retry lane: reuse checkout, WebKitBuild, and local sccache.",
+          "env": {
+            "NG_WINDOWS_SOURCE_PRESET": "iangrunert-win-gigacage-skia-fixes",
+            "NG_WINDOWS_ENABLE_WEBGPU": "1",
+            "NG_WINDOWS_ENABLE_SCCACHE": "1",
+            "NG_WINDOWS_FAST_RETRY": "1",
+            "NG_WINDOWS_NINJA_JOBS": "8"
+          },
+          "validationArtifacts": [
+            "validation-report.json",
+            "validation-recovered.json",
+            "manifest-pre.json",
+            "manifest-post.json",
+            "build-progress.json",
+            "sccache-report.json"
+          ],
+          "acceptance": [
+            "Reuses C:/W/ng-webkit-fast unless NG_WINDOWS_CLEAN_SOURCE overrides it",
+            "Preserves WebKitBuild for incremental Ninja retries",
+            "Keeps sccache mandatory and verified"
+          ]
+        }
+      }
+    },
+    "linux": { "status": "empty" },
+    "ios": { "status": "empty" },
+    "macos": {
+      "status": "active",
+      "mode": "aws-ssm",
+      "region": "eu-central-1",
+      "hostId": "h-0fe6b0782f40a6c69",
+      "instanceId": "i-092d7452a5deac519",
+      "instanceType": "mac2-m2.metal",
+      "sourceEnv": "NG_MACOS_SOURCE",
+      "artifactPatterns": ["*.zip", "*.tar", "*.tar.gz", "*.dmg", "*.log"]
+    }
+  }
+}

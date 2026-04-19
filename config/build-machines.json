@@ -1,0 +1,30 @@
+{
+  "machines": {
+    "android": {
+      "type": "local-or-ssm",
+      "root": "/home/ubuntu",
+      "dependencyRoot": "/home/ubuntu/.local/state/webkitium/deps/android",
+      "regionEnv": "NG_ANDROID_REGION",
+      "defaultRegion": "eu-central-1",
+      "instanceIdEnv": "NG_ANDROID_INSTANCE_ID",
+      "defaultInstanceId": "i-08a3afbbac86a0002",
+      "notes": "Default is remote SSM to defaultInstanceId. Set NG_ANDROID_LOCAL=1 to run Gradle on the orchestrator host only. Override instance with NG_ANDROID_INSTANCE_ID or NG_ANDROID_DEFAULT_INSTANCE_ID."
+    },
+    "windows": {
+      "type": "aws-ssm",
+      "regionEnv": "AWS_REGION",
+      "defaultRegion": "eu-west-1",
+      "instanceIdEnv": "NG_WINDOWS_INSTANCE_ID",
+      "defaultInstanceId": "i-05ab9a8ed6d325b3d",
+      "dependencyRoot": "C:\\Bootstrap\\ng-deps"
+    },
+    "macos": {
+      "type": "aws-ssm",
+      "regionEnv": "NG_MACOS_REGION",
+      "defaultRegion": "eu-central-1",
+      "instanceIdEnv": "NG_MACOS_INSTANCE_ID",
+      "defaultInstanceId": "i-092d7452a5deac519",
+      "dependencyRoot": "/Users/ec2-user/ng-deps"
+    }
+  }
+}

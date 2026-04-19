@@ -1,0 +1,13 @@
+diff --git a/Source/WTF/WTF.xcodeproj/project.pbxproj b/Source/WTF/WTF.xcodeproj/project.pbxproj
+index 4c3ce8c00000..7bb5c9d00000 100644
+--- a/Source/WTF/WTF.xcodeproj/project.pbxproj
++++ b/Source/WTF/WTF.xcodeproj/project.pbxproj
+@@ -1012,7 +1012,7 @@
+ 				"$(DERIVED_FILE_DIR)/$(CURRENT_ARCH)/$(INPUT_FILE_BASE)Server.h",
+ 				"$(DERIVED_FILE_DIR)/$(CURRENT_ARCH)/$(INPUT_FILE_BASE)Server.c",
+ 			);
+-			script = "mig -arch ${CURRENT_ARCH} -header ${DERIVED_SOURCES_DIR}/${CURRENT_ARCH}/${INPUT_FILE_BASE}.h -user ${DERIVED_SOURCES_DIR}/${CURRENT_ARCH}/${INPUT_FILE_BASE}User.c -sheader ${DERIVED_SOURCES_DIR}/${CURRENT_ARCH}/${INPUT_FILE_BASE}Server.h -server ${DERIVED_SOURCES_DIR}/${CURRENT_ARCH}/${INPUT_FILE_BASE}Server.c -DMACH_EXC_SERVER_TASKIDTOKEN_STATE ${INPUT_FILE_PATH}\n\necho \"#pragma clang diagnostic ignored \\\"-Wunsafe-buffer-usage\\\"\\n$(cat ${DERIVED_SOURCES_DIR}/${CURRENT_ARCH}/${INPUT_FILE_BASE}Server.c)\" > ${DERIVED_SOURCES_DIR}/${CURRENT_ARCH}/${INPUT_FILE_BASE}Server.c\n";
++			script = "env -u IPHONEOS_DEPLOYMENT_TARGET -u TVOS_DEPLOYMENT_TARGET -u WATCHOS_DEPLOYMENT_TARGET -u XROS_DEPLOYMENT_TARGET -u DRIVERKIT_DEPLOYMENT_TARGET /usr/bin/mig -arch ${CURRENT_ARCH} -header ${DERIVED_SOURCES_DIR}/${CURRENT_ARCH}/${INPUT_FILE_BASE}.h -user ${DERIVED_SOURCES_DIR}/${CURRENT_ARCH}/${INPUT_FILE_BASE}User.c -sheader ${DERIVED_SOURCES_DIR}/${CURRENT_ARCH}/${INPUT_FILE_BASE}Server.h -server ${DERIVED_SOURCES_DIR}/${CURRENT_ARCH}/${INPUT_FILE_BASE}Server.c -DMACH_EXC_SERVER_TASKIDTOKEN_STATE ${INPUT_FILE_PATH}\n\necho \"#pragma clang diagnostic ignored \\\"-Wunsafe-buffer-usage\\\"\\n$(cat ${DERIVED_SOURCES_DIR}/${CURRENT_ARCH}/${INPUT_FILE_BASE}Server.c)\" > ${DERIVED_SOURCES_DIR}/${CURRENT_ARCH}/${INPUT_FILE_BASE}Server.c\n";
+ 		};
+ 		DD3C8E7627C84C9400322F62 /* PBXBuildRule */ = {
+ 			isa = PBXBuildRule;
