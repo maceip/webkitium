@@ -63,7 +63,7 @@ fi
 
 # Baseline Win port (finish compile first). Set NG_WINDOWS_ENABLE_WEBGPU=1 for WebGPU/Dawn CMake flags.
 # Override fully with NG_WINDOWS_BUILD_INNER if needed.
-_WIN_BASE="perl Tools\\Scripts\\build-webkit --release --win --makeargs=-j${NINJA_JOBS} -DCMAKE_C_COMPILER=C:/Progra~1/LLVM/bin/clang-cl.exe -DCMAKE_CXX_COMPILER=C:/Progra~1/LLVM/bin/clang-cl.exe -DCMAKE_LINKER=C:/Progra~1/LLVM/bin/lld-link.exe -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld -DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld -DCMAKE_MODULE_LINKER_FLAGS=-fuse-ld=lld -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded -DCMAKE_C_FLAGS=\"-D_CRT_SECURE_NO_WARNINGS -flto=thin\" -DCMAKE_CXX_FLAGS=\"-D_CRT_SECURE_NO_WARNINGS -flto=thin\""
+_WIN_BASE="perl Tools\\Scripts\\build-webkit --release --win --makeargs=-j${NINJA_JOBS} -DCMAKE_C_COMPILER=C:/Progra~1/LLVM/bin/clang-cl.exe -DCMAKE_CXX_COMPILER=C:/Progra~1/LLVM/bin/clang-cl.exe -DCMAKE_RC_COMPILER=C:/Progra~1/LLVM/bin/llvm-rc.exe -DCMAKE_LINKER=C:/Progra~1/LLVM/bin/lld-link.exe -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld -DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld -DCMAKE_MODULE_LINKER_FLAGS=-fuse-ld=lld -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded -DCMAKE_C_FLAGS=\"-D_CRT_SECURE_NO_WARNINGS -flto=thin\" -DCMAKE_CXX_FLAGS=\"-D_CRT_SECURE_NO_WARNINGS -flto=thin\""
 if [[ "$ENABLE_SCCACHE" == "1" ]]; then
   _WIN_BASE+=" -DCMAKE_C_COMPILER_LAUNCHER=$SCCACHE_EXE -DCMAKE_CXX_COMPILER_LAUNCHER=$SCCACHE_EXE"
 fi
@@ -170,18 +170,30 @@ stage_root_patches() {
   local bucket="$1"
   local source_prefix="webkit/patches/$bucket"
   local target_dir="$STAGE/patches/$bucket"
+  local patch_filter="${NG_WINDOWS_ROOT_PATCH_FILTER:-}"
   mkdir -p "$target_dir"
 
   if [[ "$NG_WINDOWS_PATCH_SOURCE" == "committed" ]]; then
     git -C "$NG_ROOT" ls-tree -r --name-only HEAD -- "$source_prefix" | while IFS= read -r patch; do
       case "$patch" in
         *.patch|*.diff)
+          if [[ -n "$patch_filter" && "$(basename "$patch")" != $patch_filter ]]; then
+            continue
+          fi
           git -C "$NG_ROOT" show "HEAD:$patch" > "$target_dir/$(basename "$patch")"
           ;;
       esac
     done
   else
-    cp -a "$NG_ROOT/$source_prefix/." "$target_dir/" 2>/dev/null || true
+    if [[ -n "$patch_filter" ]]; then
+      find "$NG_ROOT/$source_prefix" -maxdepth 1 -type f \( -name '*.patch' -o -name '*.diff' \) 2>/dev/null | sort | while IFS= read -r patch; do
+        if [[ "$(basename "$patch")" == $patch_filter ]]; then
+          cp "$patch" "$target_dir/"
+        fi
+      done
+    else
+      cp -a "$NG_ROOT/$source_prefix/." "$target_dir/" 2>/dev/null || true
+    fi
   fi
 }
 
