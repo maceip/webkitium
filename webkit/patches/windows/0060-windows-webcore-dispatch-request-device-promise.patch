@@ -1,0 +1,47 @@
+diff --git a/Source/WebCore/Modules/WebGPU/GPUAdapter.cpp b/Source/WebCore/Modules/WebGPU/GPUAdapter.cpp
+index b4ff4a6..97cb9b82 100644
+--- a/Source/WebCore/Modules/WebGPU/GPUAdapter.cpp
++++ b/Source/WebCore/Modules/WebGPU/GPUAdapter.cpp
+@@ -36,6 +36,7 @@
+ #include <wtf/SortedArrayMap.h>
+ #if PLATFORM(WIN)
+ #include <fstream>
++#include <wtf/RunLoop.h>
+ #endif
+ 
+ namespace WebCore {
+@@ -153,19 +154,26 @@ void GPUAdapter::requestDevice(ScriptExecutionContext& scriptExecutionContext, c
+             logWindowsRequestDeviceBoundary("reject: backing returned null device");
+ #endif
+             promise.reject(Exception(ExceptionCode::OperationError));
+         } else {
+ #if PLATFORM(WIN)
+             logWindowsRequestDeviceBoundary("resolve: backing returned non-null device");
++            Ref<WebGPU::Device> resolvedDevice = device.releaseNonNull();
++            RunLoop::currentSingleton().dispatch([protectedThis = WTF::move(protectedThis), deviceDescriptor, promise = WTF::move(promise), scriptExecutionContextRef = WTF::move(scriptExecutionContextRef), resolvedDevice = WTF::move(resolvedDevice)] mutable {
++                auto queueLabel = deviceDescriptor ? deviceDescriptor->defaultQueue.label : ""_s;
++                Ref<GPUDevice> gpuDevice = GPUDevice::create(scriptExecutionContextRef.ptr(), WTF::move(resolvedDevice), WTF::move(queueLabel), GPUAdapterInfo::create(protectedThis->name()));
++                gpuDevice->suspendIfNeeded();
++                logWindowsRequestDeviceBoundary("resolve: created GPUDevice wrapper");
++                promise.resolve(WTF::move(gpuDevice));
++                logWindowsRequestDeviceBoundary("resolve: promise resolved");
++            });
++#else
++            auto queueLabel = deviceDescriptor ? deviceDescriptor->defaultQueue.label : ""_s;
++            Ref<GPUDevice> gpuDevice = GPUDevice::create(scriptExecutionContextRef.ptr(), device.releaseNonNull(), WTF::move(queueLabel), GPUAdapterInfo::create(protectedThis->name()));
++            gpuDevice->suspendIfNeeded();
++            promise.resolve(WTF::move(gpuDevice));
+ #endif
+-            auto queueLabel = deviceDescriptor ? deviceDescriptor->defaultQueue.label : ""_s;
+-            Ref<GPUDevice> gpuDevice = GPUDevice::create(scriptExecutionContextRef.ptr(), device.releaseNonNull(), WTF::move(queueLabel), GPUAdapterInfo::create(protectedThis->name()));
+-            gpuDevice->suspendIfNeeded();
+ #if PLATFORM(WIN)
+-            logWindowsRequestDeviceBoundary("resolve: created GPUDevice wrapper");
+-#endif
+-            promise.resolve(WTF::move(gpuDevice));
+-#if PLATFORM(WIN)
+-            logWindowsRequestDeviceBoundary("resolve: promise resolved");
++            return;
+ #endif
+         }
+     });
