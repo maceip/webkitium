@@ -1,7 +1,7 @@
 diff --git a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
 --- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
 +++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
-@@ -248,27 +248,19 @@ void AdapterImpl::requestDevice(const DeviceDescriptor& descriptor, CompletionHa
+@@ -248,23 +248,20 @@ void AdapterImpl::requestDevice(const DeviceDescriptor& descriptor, CompletionHa
      WGPUDeviceDescriptor deviceDescriptor { };
      deviceDescriptor.label = DawnCompat::toDawnStringView(utf8Label);
      deviceDescriptor.defaultQueue.label = DawnCompat::toDawnStringView(CString("default"_s));
