@@ -588,6 +588,7 @@ $testHtml = @"
 <body><h1>Webkitium validation probe</h1><pre id="out">running...</pre>
 <script>
 (async () => {
+  const startedAt = Date.now();
   function toArray(value) {
     try { return Array.from(value || []); } catch (e) { return []; }
   }
@@ -615,6 +616,33 @@ $testHtml = @"
 
   function errorString(e) {
     return String(e && (e.stack || e.message) || e);
+  }
+
+  function timeoutError(label, ms) {
+    const error = new Error(label + ' timed out after ' + ms + 'ms');
+    error.name = 'TimeoutError';
+    return error;
+  }
+
+  async function withTimeout(label, ms, promise) {
+    let timer;
+    try {
+      return await Promise.race([
+        promise,
+        new Promise((_, reject) => {
+          timer = setTimeout(() => reject(timeoutError(label, ms)), ms);
+        })
+      ]);
+    } finally {
+      if (timer)
+        clearTimeout(timer);
+    }
+  }
+
+  function mark(report, stage) {
+    report.stage = stage;
+    report.timings.push({ stage, ms: Date.now() - startedAt });
+    document.getElementById('out').textContent = JSON.stringify(report, null, 2);
   }
 
   async function computeSmoke(device) {
@@ -662,7 +690,7 @@ $testHtml = @"
     pass.end();
     encoder.copyBufferToBuffer(outputBuffer, 0, readbackBuffer, 0, input.byteLength);
     device.queue.submit([encoder.finish()]);
-    await readbackBuffer.mapAsync(GPUMapMode.READ);
+    await withTimeout('readbackBuffer.mapAsync', 10000, readbackBuffer.mapAsync(GPUMapMode.READ));
     const values = Array.from(new Uint32Array(readbackBuffer.getMappedRange().slice(0)));
     readbackBuffer.unmap();
     return {
@@ -686,38 +714,53 @@ $testHtml = @"
     compute: null,
     computeError: null,
     queueAvailable: false,
-    smokePassed: false
+    smokePassed: false,
+    stage: 'start',
+    timings: []
   };
+  mark(report, 'start');
   if (navigator.gpu) {
     try {
-      const a = await navigator.gpu.requestAdapter();
+      mark(report, 'requestAdapter:start');
+      const a = await withTimeout('navigator.gpu.requestAdapter', 8000, navigator.gpu.requestAdapter());
+      mark(report, a ? 'requestAdapter:ok' : 'requestAdapter:null');
       if (a) {
         const info = (a.info || (a.requestAdapterInfo ? await a.requestAdapterInfo() : {}));
         report.adapter = { vendor: info.vendor, architecture: info.architecture, device: info.device, description: info.description };
         report.adapterFeatures = toArray(a.features);
         report.adapterLimits = pickLimits(a.limits);
         try {
-          const device = await a.requestDevice();
+          mark(report, 'requestDevice:start');
+          const device = await withTimeout('adapter.requestDevice', 8000, a.requestDevice());
+          mark(report, 'requestDevice:ok');
           report.device = {
             features: toArray(device.features),
             limits: pickLimits(device.limits)
           };
           report.queueAvailable = !!device.queue;
           try {
-            report.compute = await computeSmoke(device);
+            mark(report, 'compute:start');
+            report.compute = await withTimeout('computeSmoke', 14000, computeSmoke(device));
+            mark(report, report.compute && report.compute.passed ? 'compute:ok' : 'compute:failed');
           } catch (e) {
             report.computeError = errorString(e);
+            mark(report, 'compute:error');
           }
           report.smokePassed = !!device.queue && !!(report.compute && report.compute.passed);
           if (device.destroy) device.destroy();
         } catch (e) {
           report.deviceError = errorString(e);
+          mark(report, 'requestDevice:error');
         }
       } else {
         report.adapterError = 'requestAdapter returned null';
       }
-    } catch (e) { report.adapterError = errorString(e); }
+    } catch (e) {
+      report.adapterError = errorString(e);
+      mark(report, 'requestAdapter:error');
+    }
   }
+  mark(report, 'final');
   document.getElementById('out').textContent = JSON.stringify(report, null, 2);
   try {
     await fetch('http://localhost:$probePort/report', {
