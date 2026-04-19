@@ -10,6 +10,7 @@ diff --git a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUCreateImpl.cpp b
 +        WGPUInstanceFeatureName_TimedWaitAny,
 +    };
 +    WGPUInstanceDescriptor descriptor {
++        .nextInChain = nullptr,
 +        .requiredFeatureCount = 1,
 +        .requiredFeatures = requiredFeatures,
 +    };
