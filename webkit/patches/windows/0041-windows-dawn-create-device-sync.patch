@@ -1,0 +1,37 @@
+diff --git a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
+@@ -248,27 +248,19 @@ void AdapterImpl::requestDevice(const DeviceDescriptor& descriptor, CompletionHa
+     WGPUDeviceDescriptor deviceDescriptor { };
+     deviceDescriptor.label = DawnCompat::toDawnStringView(utf8Label);
+     deviceDescriptor.defaultQueue.label = DawnCompat::toDawnStringView(CString("default"_s));
+ 
+-    auto* userdata = new DawnRequestDeviceUserdata {
+-        WTF::move(callback),
+-        m_convertToBackingContext.copyRef(),
+-        m_dawnInstance,
+-    };
+-
+-    WGPURequestDeviceCallbackInfo callbackInfo { };
+-    callbackInfo.mode = WGPUCallbackMode_AllowProcessEvents;
+-    callbackInfo.callback = dawnRequestDeviceCallback;
+-    callbackInfo.userdata1 = userdata;
+-
+-    auto future = wgpuAdapterRequestDevice(m_backing.get(), &deviceDescriptor, callbackInfo);
+-    DawnCompat::waitForFuture(m_dawnInstance, future);
++    auto device = wgpuAdapterCreateDevice(m_backing.get(), &deviceDescriptor);
++    if (!device) {
++        callback(nullptr);
++        return;
++    }
++
++    auto features = DawnCompat::supportedFeaturesFromDevice(device);
++    auto limits = DawnCompat::supportedLimitsFromDevice(device);
++    auto backing = adoptWebGPU(device);
++    callback(DeviceImpl::create(WTF::move(backing), WTF::move(features), WTF::move(limits), m_convertToBackingContext.copyRef(), m_dawnInstance));
+ #else
+     auto label = descriptor.label.utf8();
+ 
+     auto features = descriptor.requiredFeatures.map([&convertToBackingContext = m_convertToBackingContext.get()](auto featureName) {
+         return convertToBackingContext.convertToBacking(featureName);
+     });
