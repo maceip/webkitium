@@ -69,7 +69,7 @@ jobs:
           lfs: false
 
       - name: Pre-flight — runner health
-        shell: pwsh
+        shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
           $freeC = [math]::Round((Get-PSDrive C).Free / 1GB, 1)
@@ -91,7 +91,7 @@ jobs:
           Write-Host 'Pre-flight OK'
 
       - name: Stage patches, build-config.json, and driver
-        shell: pwsh
+        shell: powershell
         env:
           SKIP_REPO_PATCHES: ${{ inputs.skip_repo_patches }}
           ENABLE_WEBGPU: ${{ inputs.enable_webgpu }}
@@ -188,14 +188,14 @@ jobs:
           Get-ChildItem $stage -Recurse | ForEach-Object { Write-Host "  $($_.FullName)" }
 
       - name: Build
-        shell: pwsh
+        shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
           & "$env:GITHUB_WORKSPACE\.stage\remote-build.ps1"
 
       - name: Collect artifacts
         if: always()
-        shell: pwsh
+        shell: powershell
         run: |
           $ErrorActionPreference = 'Continue'
           $dst = Join-Path $env:GITHUB_WORKSPACE 'artifacts-out'
@@ -224,7 +224,7 @@ jobs:
 
       - name: Cleanup stage
         if: always()
-        shell: pwsh
+        shell: powershell
         run: |
           $ErrorActionPreference = 'Continue'
           $stage = Join-Path $env:GITHUB_WORKSPACE '.stage'
