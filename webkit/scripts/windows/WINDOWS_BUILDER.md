@@ -1,6 +1,6 @@
 # Windows builder — compliance, caching, reporting
 
-> **Migration notice (2026-04-20).** The SSM + `ssm-worker.ps1` + `orchestrator/` dispatcher described in sections 4–6 is being **retired**. New builds run through the GitHub Actions self-hosted runner defined in **`.github/workflows/windows.yml`**; one-time runner setup is in **`webkit/scripts/windows/RUNNER_SETUP.md`**. Trigger with `scripts/build-windows.sh` or `gh workflow run windows.yml`. The `setup-deps.ps1` compliance path (section 1) and the `remote-build.ps1` compile driver still apply — only the dispatcher changed.
+> **Migration notice (2026-04-20).** The SSM + `ssm-worker.ps1` + `orchestrator/` dispatcher described in sections 4–6 is being **retired**. New builds run through the GitHub Actions self-hosted runner defined in **`.github/workflows/windows.yml`**; one-time runner setup is in **`webkit/scripts/windows/RUNNER_SETUP.md`**. Trigger with `scripts/build.sh -p windows` (macOS/Linux), `scripts\build.ps1 -Platform windows` (Windows), or `gh workflow run windows.yml`. The `setup-deps.ps1` compliance path (section 1) and the `remote-build.ps1` compile driver still apply — only the dispatcher changed.
 
 **Purpose:** One place for **how** a Windows EC2 (or VM) used for Webkitium gets **into spec**, how builds **run**, and how **success/failure** is reported. **No narrative history**—only what you do **now**.
 
