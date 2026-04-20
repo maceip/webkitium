@@ -4159,3 +4159,22 @@ index b943fd6b802d..6ea5e8f5a4bb 100755
          for line in f.readlines():
              include_path = line[10:-2]  # Extract header from `#include "HEADER"\n`
              for d in search_directories:
+diff --git a/Source/WebKit/GPUProcess/graphics/wc/RemoteWCLayerTreeHost.messages.in b/Source/WebKit/GPUProcess/graphics/wc/RemoteWCLayerTreeHost.messages.in
+index a804151f202b..4f4b59dc2699 100644
+--- a/Source/WebKit/GPUProcess/graphics/wc/RemoteWCLayerTreeHost.messages.in
++++ b/Source/WebKit/GPUProcess/graphics/wc/RemoteWCLayerTreeHost.messages.in
+@@ -20,7 +20,7 @@
+ # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ 
+-#if USE(GRAPHICS_LAYER_WC)
++#if USE(GRAPHICS_LAYER_WC) && ENABLE(GPU_PROCESS)
+ 
+ [
+     ExceptionForDispatchedFrom,
+@@ -31,4 +31,4 @@ messages -> RemoteWCLayerTreeHost {
+     Update(struct WebKit::WCUpdateInfo updateInfo) -> (std::optional<WebKit::UpdateInfo> updateInfo)
+ }
+ 
+-#endif // USE(GRAPHICS_LAYER_WC)
++#endif // USE(GRAPHICS_LAYER_WC) && ENABLE(GPU_PROCESS)
