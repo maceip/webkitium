@@ -654,15 +654,51 @@ function readJsonFile(path) {
   return JSON.parse(readFileSync(path, 'utf8'));
 }
 
-function lastPrefixedJson(text, prefix) {
-  const lines = text.split(/\r?\n/).filter((line) => line.startsWith(prefix));
-  if (!lines.length) return null;
-  const raw = lines[lines.length - 1].slice(prefix.length).trim();
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
+function parseFirstJsonObject(text) {
+  const start = text.indexOf('{');
+  if (start < 0) return null;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i += 1) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (ch === '\\') {
+        escaped = true;
+      } else if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+    } else if (ch === '{') {
+      depth += 1;
+    } else if (ch === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        return JSON.parse(text.slice(start, i + 1));
+      }
+    }
   }
+  return null;
+}
+
+function lastPrefixedJson(text, prefix) {
+  const matches = text.split(/\r?\n/)
+    .map((line) => {
+      const index = line.indexOf(prefix);
+      if (index < 0) return null;
+      try {
+        return parseFirstJsonObject(line.slice(index + prefix.length));
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
+  return matches.length ? matches[matches.length - 1] : null;
 }
 
 async function runCaptured(command, args, options = {}) {
@@ -814,13 +850,13 @@ function inferExternalBuildStatusFromLog(id, platform) {
   const cache = lastPrefixedJson(text, 'WORKER_CACHE_JSON ');
   const artifactValidity = lastPrefixedJson(text, 'WORKER_ARTIFACT_VALIDITY_JSON ');
 
-  const cancelled = /BUILD_CANCELLED\.txt|^CANCELLED\b|cancelled by orchestrator/im.test(text) || remote?.status === 'cancelled';
-  const failed = /remote build FAILED|BUILD_FAILED\.txt|Timed out waiting for BUILD_DONE|ninja: build stopped: subcommand failed|marker poll unexpected|bootstrap SSM failure/i.test(
+  const cancelled = /^CANCELLED\b|first=CANCELLED\b|cancelled by orchestrator/im.test(text) || remote?.status === 'cancelled';
+  const failed = /remote build FAILED|Remote build failed|^FAIL\b|first=FAIL\b|Timed out waiting for BUILD_DONE|ninja: build stopped: subcommand failed|marker poll unexpected|bootstrap SSM failure/i.test(
     text
   ) || remote?.status === 'failed';
   const ok =
-    /marker poll OK|remote build completed|checkpoint\.sh.*completed|windows remote build completed|macos remote build completed|android remote build completed/i.test(text) ||
-    /BUILD_DONE\.txt/i.test(text) || remote?.status === 'succeeded';
+    /marker poll OK|remote build completed|Remote build finished successfully|checkpoint\.sh.*completed|windows remote build completed|macos remote build completed|android remote build completed/i.test(text) ||
+    /^DONE\b|first=DONE\b/im.test(text) || remote?.status === 'succeeded';
 
   if (cancelled) return { status: 'cancelled', detail: 'remote worker acknowledged cancellation', logPath, remote, progress, cache, artifactValidity };
   if (failed && ok) return { status: 'failed', detail: 'log contains both success and failure markers; treating as failed', logPath };

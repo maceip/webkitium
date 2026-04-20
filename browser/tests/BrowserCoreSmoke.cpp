@@ -29,6 +29,15 @@ public:
         assertion.signature = { 10, 11, 12 };
         return ng::Result<ng::WebAuthnAssertion>::ok(std::move(assertion));
     }
+
+    ng::Result<ng::WebAuthnAttestation> makeCredential(const ng::WebAuthnCreateRequest& request) final
+    {
+        ng::WebAuthnAttestation attestation;
+        attestation.credentialId = request.userId.empty() ? ng::ByteVector { 9, 8, 7 } : request.userId;
+        attestation.clientDataJSON = { 7, 8, 9 };
+        attestation.attestationObject = { 10, 11, 12 };
+        return ng::Result<ng::WebAuthnAttestation>::ok(std::move(attestation));
+    }
 };
 
 void exerciseTabs()
@@ -71,6 +80,31 @@ void exerciseExtensions()
     assert(response.value().payload == "ok");
 }
 
+void exerciseWebAuthnCrossOriginHeuristic()
+{
+    ng::FrameContext nestedCrossSite;
+    nestedCrossSite.origin = { "https", "evil.example", 0 };
+    nestedCrossSite.topLevelOrigin = { "https", "example.com", 0 };
+    nestedCrossSite.isTopLevel = false;
+    nestedCrossSite.hasTransientUserActivation = true;
+    assert(nestedCrossSite.includeCrossOriginClientDataMember());
+
+    ng::FrameContext nestedSameSite;
+    nestedSameSite.origin = { "https", "example.com", 0 };
+    nestedSameSite.topLevelOrigin = { "https", "example.com", 0 };
+    nestedSameSite.isTopLevel = false;
+    nestedSameSite.hasTransientUserActivation = true;
+    assert(!nestedSameSite.includeCrossOriginClientDataMember());
+
+    ng::FrameContext sandboxed;
+    sandboxed.origin = { "https", "example.com", 0 };
+    sandboxed.topLevelOrigin = { "https", "example.com", 0 };
+    sandboxed.isTopLevel = false;
+    sandboxed.sameOriginWithAncestors = false;
+    sandboxed.hasTransientUserActivation = true;
+    assert(sandboxed.includeCrossOriginClientDataMember());
+}
+
 void exerciseWebAuthn()
 {
     TestWebAuthnProvider provider;
@@ -84,6 +118,19 @@ void exerciseWebAuthn()
     auto assertion = controller.get(request);
     assert(assertion);
     assert(!assertion.value().signature.empty());
+
+    ng::WebAuthnCreateRequest create;
+    create.frame = trustworthyFrame();
+    create.relyingPartyId = "example.com";
+    create.relyingPartyName = "Example";
+    create.challenge = ng::ByteVector(32, 3);
+    create.userId = { 1, 2, 3, 4 };
+    create.userName = "user@example.com";
+    create.userDisplayName = "Example User";
+
+    auto attestation = controller.make(std::move(create));
+    assert(attestation);
+    assert(!attestation.value().attestationObject.empty());
 }
 
 void exerciseSync()
@@ -112,6 +159,7 @@ int main()
 {
     exerciseTabs();
     exerciseExtensions();
+    exerciseWebAuthnCrossOriginHeuristic();
     exerciseWebAuthn();
     exerciseSync();
     return 0;

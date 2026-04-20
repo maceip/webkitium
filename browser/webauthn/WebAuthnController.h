@@ -25,6 +25,12 @@ enum class AuthenticatorAttachment {
     CrossPlatform,
 };
 
+enum class AttestationConveyancePreference {
+    None,
+    Indirect,
+    Direct,
+};
+
 struct PublicKeyCredentialDescriptor {
     std::string type;
     ByteVector id;
@@ -49,10 +55,34 @@ struct WebAuthnAssertion {
     ByteVector userHandle;
 };
 
+struct WebAuthnCreateRequest {
+    FrameContext frame;
+    std::string relyingPartyId;
+    std::string relyingPartyName;
+    ByteVector challenge;
+    ByteVector userId;
+    std::string userName;
+    std::string userDisplayName;
+    std::vector<int32_t> pubKeyCredAlgorithms;
+    std::vector<PublicKeyCredentialDescriptor> excludeCredentials;
+    UserVerificationRequirement userVerification { UserVerificationRequirement::Preferred };
+    AuthenticatorAttachment attachment { AuthenticatorAttachment::Any };
+    bool residentKey { false };
+    AttestationConveyancePreference attestation { AttestationConveyancePreference::None };
+    std::chrono::milliseconds timeout { 60000 };
+};
+
+struct WebAuthnAttestation {
+    ByteVector credentialId;
+    ByteVector clientDataJSON;
+    ByteVector attestationObject;
+};
+
 class PlatformWebAuthnProvider {
 public:
     virtual ~PlatformWebAuthnProvider() = default;
     virtual Result<WebAuthnAssertion> getAssertion(const WebAuthnGetRequest&) = 0;
+    virtual Result<WebAuthnAttestation> makeCredential(const WebAuthnCreateRequest&) = 0;
 };
 
 class WebAuthnController {
@@ -60,9 +90,11 @@ public:
     explicit WebAuthnController(PlatformWebAuthnProvider&);
 
     Result<WebAuthnAssertion> get(const WebAuthnGetRequest&);
+    Result<WebAuthnAttestation> make(WebAuthnCreateRequest);
 
 private:
     Result<void> validateGetRequest(const WebAuthnGetRequest&) const;
+    Result<void> validateCreateRequest(const WebAuthnCreateRequest&) const;
 
     PlatformWebAuthnProvider& m_provider;
 };
