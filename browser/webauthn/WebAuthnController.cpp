@@ -42,6 +42,8 @@ Result<void> WebAuthnController::validateGetRequest(const WebAuthnGetRequest& re
         return Result<void>::fail({ ErrorCode::InvalidArgument, "timeout must be positive" });
     if (!request.frame.hasTransientUserActivation)
         return Result<void>::fail({ ErrorCode::PermissionDenied, "WebAuthn request requires user activation" });
+    if (request.extensions.largeBlob && request.extensions.largeBlob->read && !request.extensions.largeBlob->write.empty())
+        return Result<void>::fail({ ErrorCode::InvalidArgument, "largeBlob read and write are mutually exclusive" });
 
     return Result<void>::ok();
 }
@@ -67,4 +69,3 @@ Result<void> WebAuthnController::validateCreateRequest(const WebAuthnCreateReque
 }
 
 } // namespace ng
-

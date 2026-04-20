@@ -6,6 +6,7 @@
 #include <chrono>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -31,10 +32,30 @@ enum class AttestationConveyancePreference {
     Direct,
 };
 
+enum class LargeBlobSupport {
+    None,
+    Preferred,
+    Required,
+};
+
 struct PublicKeyCredentialDescriptor {
     std::string type;
     ByteVector id;
     std::vector<std::string> transports;
+};
+
+struct WebAuthnLargeBlobAuthenticationInput {
+    bool read { false };
+    ByteVector write;
+};
+
+struct WebAuthnGetExtensions {
+    std::optional<WebAuthnLargeBlobAuthenticationInput> largeBlob;
+};
+
+struct WebAuthnCreateExtensions {
+    LargeBlobSupport largeBlobSupport { LargeBlobSupport::None };
+    bool credentialProperties { false };
 };
 
 struct WebAuthnGetRequest {
@@ -44,6 +65,7 @@ struct WebAuthnGetRequest {
     std::vector<PublicKeyCredentialDescriptor> allowCredentials;
     UserVerificationRequirement userVerification { UserVerificationRequirement::Preferred };
     AuthenticatorAttachment attachment { AuthenticatorAttachment::Any };
+    WebAuthnGetExtensions extensions;
     std::chrono::milliseconds timeout { 60000 };
 };
 
@@ -69,6 +91,7 @@ struct WebAuthnCreateRequest {
     AuthenticatorAttachment attachment { AuthenticatorAttachment::Any };
     bool residentKey { false };
     AttestationConveyancePreference attestation { AttestationConveyancePreference::None };
+    WebAuthnCreateExtensions extensions;
     std::chrono::milliseconds timeout { 60000 };
 };
 
@@ -100,4 +123,3 @@ private:
 };
 
 } // namespace ng
-

@@ -42,6 +42,30 @@ void exerciseGetRequestJson()
     requireContains(json, "\"userVerification\":\"required\"");
 }
 
+void exerciseGetRequestJsonWithLargeBlobRead()
+{
+    ng::WebAuthnGetRequest request;
+    request.frame = trustworthyFrame();
+    request.relyingPartyId = "example.com";
+    request.challenge = { 1, 2, 3, 4 };
+    request.extensions.largeBlob = ng::WebAuthnLargeBlobAuthenticationInput { true, { } };
+
+    const std::string json = ng::android_webauthn::buildPublicKeyCredentialRequestOptionsJson(request);
+    requireContains(json, "\"extensions\":{\"largeBlob\":{\"read\":true}}");
+}
+
+void exerciseGetRequestJsonWithLargeBlobWrite()
+{
+    ng::WebAuthnGetRequest request;
+    request.frame = trustworthyFrame();
+    request.relyingPartyId = "example.com";
+    request.challenge = { 1, 2, 3, 4 };
+    request.extensions.largeBlob = ng::WebAuthnLargeBlobAuthenticationInput { false, { 0xfb, 0xff, 0x00, 0x10 } };
+
+    const std::string json = ng::android_webauthn::buildPublicKeyCredentialRequestOptionsJson(request);
+    requireContains(json, "\"extensions\":{\"largeBlob\":{\"write\":\"-_8AEA\"}}");
+}
+
 void exerciseCreateRequestJson()
 {
     ng::WebAuthnCreateRequest request;
@@ -57,6 +81,8 @@ void exerciseCreateRequestJson()
     request.attachment = ng::AuthenticatorAttachment::Platform;
     request.residentKey = true;
     request.attestation = ng::AttestationConveyancePreference::Direct;
+    request.extensions.largeBlobSupport = ng::LargeBlobSupport::Required;
+    request.extensions.credentialProperties = true;
 
     const std::string json = ng::android_webauthn::buildPublicKeyCredentialCreationOptionsJson(request);
     requireContains(json, "\"challenge\":\"CAkKCw\"");
@@ -67,6 +93,23 @@ void exerciseCreateRequestJson()
     requireContains(json, "\"authenticatorAttachment\":\"platform\"");
     requireContains(json, "\"residentKey\":\"required\"");
     requireContains(json, "\"attestation\":\"direct\"");
+    requireContains(json, "\"extensions\":{\"largeBlob\":{\"support\":\"required\"},\"credProps\":true}");
+}
+
+void exerciseJsonEscaping()
+{
+    ng::WebAuthnCreateRequest request;
+    request.frame = trustworthyFrame();
+    request.relyingPartyId = "example.com";
+    request.relyingPartyName = "Example\nRP";
+    request.challenge = { 8, 9, 10, 11 };
+    request.userName = "user@example.com";
+    request.userDisplayName = std::string("Control") + static_cast<char>(0x01) + "User";
+    request.pubKeyCredAlgorithms = { -7 };
+
+    const std::string json = ng::android_webauthn::buildPublicKeyCredentialCreationOptionsJson(request);
+    requireContains(json, "\"name\":\"Example\\nRP\"");
+    requireContains(json, "\"displayName\":\"Control\\u0001User\"");
 }
 
 } // namespace
@@ -75,6 +118,9 @@ int main()
 {
     exerciseAndroidOrigin();
     exerciseGetRequestJson();
+    exerciseGetRequestJsonWithLargeBlobRead();
+    exerciseGetRequestJsonWithLargeBlobWrite();
     exerciseCreateRequestJson();
+    exerciseJsonEscaping();
     return 0;
 }

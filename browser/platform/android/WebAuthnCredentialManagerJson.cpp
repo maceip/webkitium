@@ -129,6 +129,19 @@ const char* residentKeyToJson(bool requireResident)
     return requireResident ? "required" : "preferred";
 }
 
+const char* largeBlobSupportToJson(LargeBlobSupport support)
+{
+    switch (support) {
+    case LargeBlobSupport::None:
+        return "";
+    case LargeBlobSupport::Preferred:
+        return "preferred";
+    case LargeBlobSupport::Required:
+        return "required";
+    }
+    return "";
+}
+
 void appendStringArray(std::ostringstream& json, const std::vector<std::string>& values)
 {
     json << '[';
@@ -138,6 +151,45 @@ void appendStringArray(std::ostringstream& json, const std::vector<std::string>&
         json << '"' << jsonEscape(values[i]) << '"';
     }
     json << ']';
+}
+
+void appendGetExtensions(std::ostringstream& json, const WebAuthnGetExtensions& extensions)
+{
+    if (!extensions.largeBlob)
+        return;
+
+    json << ",\"extensions\":{\"largeBlob\":{";
+    bool wroteMember = false;
+    if (extensions.largeBlob->read) {
+        json << "\"read\":true";
+        wroteMember = true;
+    }
+    if (!extensions.largeBlob->write.empty()) {
+        if (wroteMember)
+            json << ',';
+        json << "\"write\":\"" << base64UrlEncode(extensions.largeBlob->write) << "\"";
+    }
+    json << "}}";
+}
+
+void appendCreateExtensions(std::ostringstream& json, const WebAuthnCreateExtensions& extensions)
+{
+    const char* largeBlobSupport = largeBlobSupportToJson(extensions.largeBlobSupport);
+    if (!largeBlobSupport[0] && !extensions.credentialProperties)
+        return;
+
+    json << ",\"extensions\":{";
+    bool wroteExtension = false;
+    if (largeBlobSupport[0]) {
+        json << "\"largeBlob\":{\"support\":\"" << largeBlobSupport << "\"}";
+        wroteExtension = true;
+    }
+    if (extensions.credentialProperties) {
+        if (wroteExtension)
+            json << ',';
+        json << "\"credProps\":true";
+    }
+    json << '}';
 }
 
 void appendCredentialDescriptor(std::ostringstream& json, const PublicKeyCredentialDescriptor& credential)
@@ -185,6 +237,7 @@ std::string buildPublicKeyCredentialRequestOptionsJson(const WebAuthnGetRequest&
     detail::appendCredentialDescriptorList(json, request.allowCredentials);
 
     json << ",\"userVerification\":\"" << detail::userVerificationToJson(request.userVerification) << "\"";
+    detail::appendGetExtensions(json, request.extensions);
     json << '}';
     return json.str();
 }
@@ -226,6 +279,7 @@ std::string buildPublicKeyCredentialCreationOptionsJson(const WebAuthnCreateRequ
     json << '}';
 
     json << ",\"attestation\":\"" << detail::attestationToJson(request.attestation) << "\"";
+    detail::appendCreateExtensions(json, request.extensions);
     json << '}';
     return json.str();
 }

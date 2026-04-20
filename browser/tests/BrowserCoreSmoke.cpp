@@ -131,6 +131,15 @@ void exerciseWebAuthn()
     auto attestation = controller.make(std::move(create));
     assert(attestation);
     assert(!attestation.value().attestationObject.empty());
+
+    ng::WebAuthnGetRequest invalidLargeBlob;
+    invalidLargeBlob.frame = trustworthyFrame();
+    invalidLargeBlob.relyingPartyId = "example.com";
+    invalidLargeBlob.challenge = ng::ByteVector(32, 4);
+    invalidLargeBlob.extensions.largeBlob = ng::WebAuthnLargeBlobAuthenticationInput { true, { 1, 2, 3 } };
+    auto invalidAssertion = controller.get(invalidLargeBlob);
+    assert(!invalidAssertion);
+    assert(invalidAssertion.error().code == ng::ErrorCode::InvalidArgument);
 }
 
 void exerciseSync()
