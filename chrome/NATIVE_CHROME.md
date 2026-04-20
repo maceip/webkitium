@@ -28,12 +28,13 @@ The first artifact in this directory is a buildable native baseline per platform
 
 ### macOS
 
-Use SwiftUI as the primary UI layer with AppKit escape hatches where macOS behavior requires it. Apple's BrowserEngineKit sample is the baseline architecture fallback because it demonstrates a browser app shape with SwiftUI UI, tabs, and process-separated browser-engine plumbing. It is not automatically the macOS product shell; use it directly only if the downloaded sample's license and platform targets fit this repository.
+Use SwiftUI where it fits and AppKit where mature macOS browser chrome requires it. DuckDuckGo's Apple browsers repo is the strongest practical Apple reference found so far: real iOS and macOS browsers, Apache-2.0, active releases, a shared package layout, and mature macOS tab/address/window code. Apple's BrowserEngineKit sample remains the official architecture fallback for alternative browser engine process structure.
 
 Tabs baseline: SwiftUI `TabView` owns the native tab presentation for now. The browser command surface can later replace the placeholder tab state without changing the macOS-native presentation.
 
 Current reference:
 
+- DuckDuckGo Apple browsers: [duckduckgo/apple-browsers](https://github.com/duckduckgo/apple-browsers)
 - Apple Developer sample: [Developing a browser app that uses an alternative browser engine](https://developer.apple.com/documentation/BrowserEngineKit/developing-a-browser-app-that-uses-an-alternative-browser-engine)
 - Apple WebKit for SwiftUI: [WebKit for SwiftUI](https://developer.apple.com/documentation/webkit/webkit-for-swiftui)
 - Open-source reference candidate: [nuance-dev/Web](https://github.com/nuance-dev/Web)
@@ -41,7 +42,7 @@ Current reference:
 Initial macOS slice:
 
 1. Compile the SwiftUI package under `chrome/macos`.
-2. Decide whether Apple's sample material or an open-source SwiftUI browser shell is the better starting point.
+2. Study DuckDuckGo's `macOS/DuckDuckGo/MainWindow`, `NavigationBar`, `Tab`, and `TabBar` areas for native browser chrome structure.
 3. Replace the placeholder `WKWebView` surface with our engine surface.
 4. Bind tab, URL, loading, and security state once browser core exposes a native-friendly boundary.
 5. Keep BrowserEngineKit/XPC process separation as architecture reference for future engine process work.
