@@ -30,6 +30,8 @@ The first artifact in this directory is a buildable native baseline per platform
 
 Use SwiftUI as the primary UI layer with AppKit escape hatches where macOS behavior requires it. Apple's BrowserEngineKit sample is the baseline architecture fallback because it demonstrates a browser app shape with SwiftUI UI, tabs, and process-separated browser-engine plumbing. It is not automatically the macOS product shell; use it directly only if the downloaded sample's license and platform targets fit this repository.
 
+Tabs baseline: SwiftUI `TabView` owns the native tab presentation for now. The browser command surface can later replace the placeholder tab state without changing the macOS-native presentation.
+
 Current reference:
 
 - Apple Developer sample: [Developing a browser app that uses an alternative browser engine](https://developer.apple.com/documentation/BrowserEngineKit/developing-a-browser-app-that-uses-an-alternative-browser-engine)
@@ -48,6 +50,8 @@ Initial macOS slice:
 
 Use Kotlin, Jetpack Compose, Material 3, edge-to-edge layout, and predictive back. For embedded web content in Compose, Android's current guidance is still `AndroidView` around `WebView`; there is no first-party WebView composable. Third-party Compose WebView libraries are useful references but should not own browser behavior.
 
+Tabs baseline: Navigation 3 plus Material 3 Adaptive `SupportingPaneSceneStrategy`. On phones, tabs are a destination/overview. On foldables and larger screens, tabs can remain visible beside the page as a supporting pane.
+
 Current reference:
 
 - Android embedded web guidance: [In-app browsing using Embedded Web](https://developer.android.com/develop/ui/views/layout/webapps/in-app-browsing-embedded-web)
@@ -65,6 +69,8 @@ Initial Android slice:
 ### Windows
 
 Use Windows App SDK with WinUI 3, native `TabView`, native titlebar integration, and WebView2 samples as references. The strongest off-the-shelf browser sample is Microsoft's WebView2Browser, but it is Win32/C++ with web-rendered controls; use it for browser behavior and WebView2 API coverage, not as the final WinUI chrome.
+
+Tabs baseline: WinUI `TabView` with closeable, reorderable native tab items.
 
 Current reference:
 

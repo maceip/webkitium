@@ -9,7 +9,9 @@ cd chrome/android
 gradle :app:assembleDebug
 ```
 
-Android does not currently provide a first-party WebView Composable. The initial shell should use Compose for browser chrome and host the engine surface through `AndroidView`, then route back gestures through tab history, tab close, and app exit in that order.
+Android does not currently provide a first-party WebView Composable. The initial shell uses Compose for browser chrome and hosts the engine surface through `AndroidView`.
+
+Tabs are modeled as an adaptive supporting pane using Navigation 3 and Material 3 Adaptive. On compact screens, the tab overview is a destination. On foldables and larger screens, it can sit beside the page as a supporting pane, matching the Android nav3 supporting-pane recipe.
 
 Reference:
 

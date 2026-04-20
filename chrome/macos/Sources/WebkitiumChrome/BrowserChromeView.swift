@@ -8,24 +8,23 @@ struct BrowserTab: Identifiable, Hashable {
 }
 
 struct BrowserChromeView: View {
-    @State private var tabs = [
-        BrowserTab(title: "Start", url: URL(string: "https://example.com")!)
-    ]
-    @State private var selectedTab: BrowserTab.ID?
+    @State private var tabs: [BrowserTab]
+    @State private var selectedTab: BrowserTab.ID
     @State private var addressText = "https://example.com"
+
+    init() {
+        let startTab = BrowserTab(title: "Start", url: URL(string: "https://example.com")!)
+        _tabs = State(initialValue: [startTab])
+        _selectedTab = State(initialValue: startTab.id)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             toolbar
             Divider()
-            tabStrip
-            Divider()
-            selectedPage
+            nativeTabs
         }
         .frame(minWidth: 900, minHeight: 640)
-        .onAppear {
-            selectedTab = tabs.first?.id
-        }
         .onReceive(NotificationCenter.default.publisher(for: .newTabRequested)) { _ in
             addTab()
         }
@@ -46,36 +45,29 @@ struct BrowserChromeView: View {
             Button("New Tab") {
                 addTab()
             }
+
+            Button("Close Tab") {
+                closeSelectedTab()
+            }
+            .disabled(tabs.count == 1)
         }
         .padding(10)
     }
 
-    private var tabStrip: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                ForEach(tabs) { tab in
-                    Button {
-                        selectedTab = tab.id
-                        addressText = tab.url.absoluteString
-                    } label: {
+    private var nativeTabs: some View {
+        TabView(selection: $selectedTab) {
+            ForEach(tabs) { tab in
+                WebPageView(url: tab.url)
+                    .tabItem {
                         Text(tab.title)
-                            .lineLimit(1)
-                            .frame(width: 160, alignment: .leading)
                     }
-                    .buttonStyle(.bordered)
-                }
+                    .tag(tab.id)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
         }
-    }
-
-    @ViewBuilder
-    private var selectedPage: some View {
-        if let tab = tabs.first(where: { $0.id == selectedTab }) {
-            WebPageView(url: tab.url)
-        } else {
-            ContentUnavailableView("No Tab", systemImage: "globe")
+        .onChange(of: selectedTab) { _, id in
+            if let tab = tabs.first(where: { $0.id == id }) {
+                addressText = tab.url.absoluteString
+            }
         }
     }
 
@@ -86,8 +78,19 @@ struct BrowserChromeView: View {
         addressText = tab.url.absoluteString
     }
 
+    private func closeSelectedTab() {
+        guard tabs.count > 1, let index = tabs.firstIndex(where: { $0.id == selectedTab }) else {
+            return
+        }
+
+        tabs.remove(at: index)
+        let fallbackIndex = min(index, tabs.count - 1)
+        selectedTab = tabs[fallbackIndex].id
+        addressText = tabs[fallbackIndex].url.absoluteString
+    }
+
     private func navigateSelectedTab() {
-        guard let selectedTab, let url = URL(string: addressText) else {
+        guard let url = URL(string: addressText) else {
             return
         }
 

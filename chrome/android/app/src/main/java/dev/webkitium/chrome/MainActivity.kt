@@ -4,9 +4,9 @@ import android.os.Bundle
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.PredictiveBackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,29 +15,47 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirective
+import androidx.compose.material3.adaptive.navigation.BackNavigationBehavior
+import androidx.compose.material3.adaptive.navigation3.SupportingPaneSceneStrategy
+import androidx.compose.material3.adaptive.navigation3.rememberSupportingPaneSceneStrategy
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.navigation3.runtime.NavKey
+import androidx.navigation3.runtime.entryProvider
+import androidx.navigation3.runtime.rememberNavBackStack
+import androidx.navigation3.ui.NavDisplay
 import java.util.UUID
-import kotlinx.coroutines.CancellationException
+import kotlinx.serialization.Serializable
 
 data class BrowserTab(
     val id: String = UUID.randomUUID().toString(),
     val title: String,
     val url: String,
 )
+
+@Serializable
+private data object BrowserPage : NavKey
+
+@Serializable
+private data object TabOverview : NavKey
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -50,7 +68,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3AdaptiveApi::class)
 @Composable
 fun BrowserChromeApp() {
     val tabs = remember {
@@ -58,17 +76,46 @@ fun BrowserChromeApp() {
     }
     var selectedTabId by remember { mutableStateOf(tabs.first().id) }
     var addressText by remember { mutableStateOf(tabs.first().url) }
+    val backStack = rememberNavBackStack(BrowserPage)
+    val windowAdaptiveInfo = currentWindowAdaptiveInfo()
+    val directive = remember(windowAdaptiveInfo) {
+        calculatePaneScaffoldDirective(windowAdaptiveInfo)
+            .copy(horizontalPartitionSpacerSize = 0.dp, verticalPartitionSpacerSize = 0.dp)
+    }
+    val supportingPaneStrategy = rememberSupportingPaneSceneStrategy<NavKey>(
+        backNavigationBehavior = BackNavigationBehavior.PopUntilCurrentDestinationChange,
+        directive = directive,
+    )
 
-    PredictiveBackHandler(enabled = tabs.size > 1) { progress ->
-        try {
-            progress.collect { }
-            val selectedIndex = tabs.indexOfFirst { it.id == selectedTabId }
-            if (selectedIndex >= 0) {
-                tabs.removeAt(selectedIndex)
-                selectedTabId = tabs.last().id
-                addressText = tabs.last().url
-            }
-        } catch (_: CancellationException) {
+    fun showTabs() {
+        if (!backStack.contains(TabOverview)) {
+            backStack.add(TabOverview)
+        }
+    }
+
+    fun addTab() {
+        val tab = BrowserTab(title = "New Tab", url = "https://example.com")
+        tabs.add(tab)
+        selectedTabId = tab.id
+        addressText = tab.url
+        showTabs()
+    }
+
+    fun selectTab(tab: BrowserTab) {
+        selectedTabId = tab.id
+        addressText = tab.url
+    }
+
+    fun closeTab(tab: BrowserTab) {
+        if (tabs.size == 1) {
+            return
+        }
+
+        val index = tabs.indexOf(tab)
+        tabs.remove(tab)
+        if (selectedTabId == tab.id) {
+            val fallback = tabs.getOrNull(index.coerceAtMost(tabs.lastIndex)) ?: tabs.last()
+            selectTab(fallback)
         }
     }
 
@@ -102,40 +149,98 @@ fun BrowserChromeApp() {
                         .weight(1f),
                     label = { Text("Search or enter website name") },
                 )
-                Button(onClick = {
-                    val tab = BrowserTab(title = "New Tab", url = "https://example.com")
-                    tabs.add(tab)
-                    selectedTabId = tab.id
-                    addressText = tab.url
-                }) {
+                Button(onClick = ::showTabs) {
+                    Text("Tabs")
+                }
+                Button(onClick = ::addTab) {
                     Text("New Tab")
                 }
             }
 
-            Row(
-                modifier = Modifier
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 8.dp)
-            ) {
-                tabs.forEach { tab ->
-                    Button(
-                        modifier = Modifier.padding(end = 6.dp),
-                        onClick = {
-                            selectedTabId = tab.id
-                            addressText = tab.url
-                        }
+            NavDisplay(
+                backStack = backStack,
+                onBack = { backStack.removeLastOrNull() },
+                sceneStrategies = listOf(supportingPaneStrategy),
+                entryProvider = entryProvider {
+                    entry<BrowserPage>(
+                        metadata = SupportingPaneSceneStrategy.mainPane()
                     ) {
-                        Text(tab.title)
+                        val selectedTab = tabs.first { it.id == selectedTabId }
+                        AndroidWebPage(
+                            url = selectedTab.url,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    entry<TabOverview>(
+                        metadata = SupportingPaneSceneStrategy.supportingPane()
+                    ) {
+                        TabOverviewPane(
+                            tabs = tabs,
+                            selectedTabId = selectedTabId,
+                            onSelectTab = ::selectTab,
+                            onNewTab = ::addTab,
+                            onCloseTab = ::closeTab,
+                        )
+                    }
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun TabOverviewPane(
+    tabs: List<BrowserTab>,
+    selectedTabId: String,
+    onSelectTab: (BrowserTab) -> Unit,
+    onNewTab: () -> Unit,
+    onCloseTab: (BrowserTab) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text("Tabs", style = MaterialTheme.typography.titleMedium)
+            Button(onClick = onNewTab) {
+                Text("New Tab")
+            }
+        }
+
+        Row(
+            modifier = Modifier
+                .horizontalScroll(rememberScrollState())
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            tabs.forEach { tab ->
+                Column(
+                    modifier = Modifier.padding(vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Button(onClick = { onSelectTab(tab) }) {
+                        Text(if (tab.id == selectedTabId) "${tab.title} *" else tab.title)
+                    }
+                    Button(
+                        enabled = tabs.size > 1,
+                        onClick = { onCloseTab(tab) },
+                    ) {
+                        Text("Close")
                     }
                 }
             }
-
-            val selectedTab = tabs.first { it.id == selectedTabId }
-            AndroidWebPage(
-                url = selectedTab.url,
-                modifier = Modifier.fillMaxSize()
-            )
         }
+
+        HorizontalDivider()
+        Text(
+            "On foldables and large screens this pane can stay beside the page. On compact screens it behaves like a tab overview destination.",
+            style = MaterialTheme.typography.bodyMedium,
+        )
     }
 }
 

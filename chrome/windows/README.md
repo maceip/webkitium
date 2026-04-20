@@ -11,6 +11,8 @@ dotnet build
 
 The best Microsoft browser sample is WebView2Browser. It is not the desired final shell because it is Win32/C++ and uses web-rendered controls, but it is valuable for tab behavior, history, address handling, security state, and multi-WebView patterns. The product shell should be WinUI 3.
 
+Tabs are currently WinUI `TabViewItem`s with close and reorder enabled.
+
 Reference:
 
 - https://learn.microsoft.com/en-us/microsoft-edge/webview2/samples/webview2-winui3-sample

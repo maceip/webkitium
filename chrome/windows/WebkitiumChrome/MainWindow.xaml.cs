@@ -22,11 +22,22 @@ public sealed partial class MainWindow : Window
         AddTab("New Tab", "https://example.com");
     }
 
+    private void Tabs_TabCloseRequested(TabView sender, TabViewTabCloseRequestedEventArgs args)
+    {
+        if (sender.TabItems.Count <= 1)
+        {
+            return;
+        }
+
+        sender.TabItems.Remove(args.Tab);
+    }
+
     private void AddTab(string title, string url)
     {
         var tab = new TabViewItem
         {
             Header = title,
+            IsClosable = true,
             Content = new TextBlock
             {
                 Text = url,

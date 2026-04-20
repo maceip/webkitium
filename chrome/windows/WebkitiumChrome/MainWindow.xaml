@@ -17,6 +17,7 @@
             x:Name="Tabs"
             Grid.Row="1"
             AddTabButtonClick="Tabs_AddTabButtonClick"
+            TabCloseRequested="Tabs_TabCloseRequested"
             CanDragTabs="True"
             CanReorderTabs="True" />
     </Grid>
