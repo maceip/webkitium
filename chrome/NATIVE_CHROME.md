@@ -74,6 +74,7 @@ Tabs baseline: WinUI `TabView` with closeable, reorderable native tab items.
 
 Current reference:
 
+- Horizon WinUI browser reference: [horizon-developers/browser](https://github.com/horizon-developers/browser)
 - Microsoft WinUI 3 WebView2 sample: [WinUI 3 sample app](https://learn.microsoft.com/en-us/microsoft-edge/webview2/samples/webview2-winui3-sample)
 - Microsoft browser sample: [WebView2Browser](https://github.com/MicrosoftEdge/WebView2Browser)
 - Microsoft samples repo: [WebView2Samples](https://github.com/MicrosoftEdge/WebView2Samples)
@@ -82,9 +83,10 @@ Initial Windows slice:
 
 1. Compile the WinUI 3 project under `chrome/windows`.
 2. Use WinUI `TabView`, `CommandBar`, native menus, and system backdrop/titlebar APIs.
-3. Port useful browser behavior from WebView2Browser into the native WinUI shell.
-4. Keep WebView2 only as a sample/control reference unless the engine surface needs a Windows-specific bridge.
-5. Bind Windows WebAuthn/passkey UI to the existing platform provider boundary.
+3. Study Horizon's WinUI browser chrome and tab model, but do not copy GPL-3.0 code unless licensing is intentionally accepted.
+4. Port useful browser behavior from WebView2Browser into the native WinUI shell.
+5. Keep WebView2 only as a sample/control reference unless the engine surface needs a Windows-specific bridge.
+6. Bind Windows WebAuthn/passkey UI to the existing platform provider boundary.
 
 ### Linux
 
