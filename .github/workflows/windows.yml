@@ -1,0 +1,236 @@
+name: Windows build
+
+# Dispatcher for the Webkitium Windows WebKit build. Replaces the legacy
+# SSM + ssm-worker.ps1 + orchestrator path: the self-hosted runner installed
+# on the existing EC2 builder pulls jobs and runs remote-build.ps1 directly.
+#
+# Concurrency rules keep agent debug loops fast without wedging the runner:
+# every push/dispatch on a given ref cancels the previous in-progress run for
+# that ref, so a stream of iterative pushes resolves to one latest build
+# rather than a queue that never drains. Different refs don't cancel each
+# other; they serialize at the runner level.
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_repo_patches:
+        description: Skip webkit/patches (upstream-only build)
+        type: boolean
+        default: false
+      enable_webgpu:
+        description: Enable WebGPU (--webgpu + experimental features)
+        type: boolean
+        default: false
+      reuse_checkout:
+        description: Reuse existing WebKit checkout on runner (fast retry)
+        type: boolean
+        default: false
+  push:
+    branches:
+      - master
+      - 'codex/**'
+      - 'debug/**'
+      - 'feature/**'
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+  pull_request:
+    branches: [master]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+
+concurrency:
+  group: windows-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: WebKit Windows (Release)
+    runs-on: [self-hosted, windows, webkitium]
+    timeout-minutes: 360
+
+    env:
+      NG_WEBKIT_URL: https://github.com/WebKit/WebKit.git
+      NG_WEBKIT_COMMIT: 52dbebe20b922cab89928085f9dcfa8082a813e4
+      NG_MIN_FREE_GIB: '50'
+      NG_NINJA_JOBS: '4'
+      NG_WINDOWS_ENABLE_SCCACHE: '1'
+      NG_WINDOWS_WORKDIR: C:/Bootstrap/webkitium-${{ github.run_id }}-${{ github.run_attempt }}
+      NG_WINDOWS_CLEAN_SOURCE: C:/W/gha${{ github.run_id }}
+      NG_CONTROL_LANE: windows/gha
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          submodules: false
+          lfs: false
+
+      - name: Pre-flight — runner health
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $freeC = [math]::Round((Get-PSDrive C).Free / 1GB, 1)
+          Write-Host "C: free = $freeC GiB (min $env:NG_MIN_FREE_GIB)"
+          if ($freeC -lt [int]$env:NG_MIN_FREE_GIB) {
+            throw "C: only has $freeC GiB free, need $env:NG_MIN_FREE_GIB. Clean C:\W\ and C:\Bootstrap\webkitium-* before retry."
+          }
+          foreach ($tool in @(
+            'C:/Bootstrap/toolbin/sccache.exe',
+            'C:/Program Files/LLVM/bin/clang-cl.exe',
+            'C:/Program Files/CMake/bin/cmake.exe',
+            'C:/Program Files/Git/cmd/git.exe',
+            'C:/Strawberry/perl/bin/perl.exe'
+          )) {
+            if (-not (Test-Path $tool)) {
+              throw "Missing required tool: $tool — rerun webkit/scripts/windows/setup-deps.ps1 on this builder."
+            }
+          }
+          Write-Host 'Pre-flight OK'
+
+      - name: Stage patches, build-config.json, and driver
+        shell: pwsh
+        env:
+          SKIP_REPO_PATCHES: ${{ inputs.skip_repo_patches }}
+          ENABLE_WEBGPU: ${{ inputs.enable_webgpu }}
+          REUSE_CHECKOUT: ${{ inputs.reuse_checkout }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $stage = Join-Path $env:GITHUB_WORKSPACE '.stage'
+          if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
+          New-Item -ItemType Directory -Force -Path $stage, "$stage\patches\common", "$stage\patches\windows" | Out-Null
+
+          if ($env:SKIP_REPO_PATCHES -ne 'true') {
+            foreach ($bucket in 'common','windows') {
+              $src = Join-Path $env:GITHUB_WORKSPACE "webkit\patches\$bucket"
+              $dst = Join-Path $stage "patches\$bucket"
+              if (Test-Path $src) {
+                Get-ChildItem $src -File -Include *.patch,*.diff -ErrorAction SilentlyContinue |
+                  Copy-Item -Destination $dst
+              }
+            }
+          }
+
+          Copy-Item (Join-Path $env:GITHUB_WORKSPACE 'webkit\scripts\windows\remote-build.ps1') $stage
+
+          $sccacheExe = 'C:/Bootstrap/toolbin/sccache.exe'
+          $jobs = [int]$env:NG_NINJA_JOBS
+
+          $cmakeArgs = @(
+            '-DCMAKE_C_COMPILER=C:/Progra~1/LLVM/bin/clang-cl.exe'
+            '-DCMAKE_CXX_COMPILER=C:/Progra~1/LLVM/bin/clang-cl.exe'
+            '-DCMAKE_RC_COMPILER=C:/Progra~1/LLVM/bin/llvm-rc.exe'
+            '-DCMAKE_LINKER=C:/Progra~1/LLVM/bin/lld-link.exe'
+            '-DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld'
+            '-DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld'
+            '-DCMAKE_MODULE_LINKER_FLAGS=-fuse-ld=lld'
+            '-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON'
+            '-DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded'
+            "-DCMAKE_C_COMPILER_LAUNCHER=$sccacheExe"
+            "-DCMAKE_CXX_COMPILER_LAUNCHER=$sccacheExe"
+            '-DCMAKE_C_FLAGS=-D_CRT_SECURE_NO_WARNINGS'
+            '-DCMAKE_CXX_FLAGS=-D_CRT_SECURE_NO_WARNINGS'
+          ) -join ' '
+
+          $buildInner = "perl Tools\Scripts\build-webkit --release --win --no-use-ccache --makeargs=-j$jobs --cmakeargs=`"$cmakeArgs`""
+          if ($env:ENABLE_WEBGPU -eq 'true') {
+            $buildInner += ' --webgpu -DENABLE_EXPERIMENTAL_FEATURES=ON -DENABLE_WEBXR=OFF'
+          } else {
+            $buildInner += ' --no-experimental-features'
+          }
+
+          $pathPrepend = @(
+            'C:/Bootstrap/toolbin'
+            'C:/Program Files/Git/cmd'
+            'C:/Ruby34-x64/bin'
+            'C:/Python314'
+            'C:/Python314/Scripts'
+            'C:/Program Files/LLVM/bin'
+            'C:/Program Files/CMake/bin'
+            'C:/BuildTools/Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja'
+            'C:/Strawberry/perl/bin'
+          ) -join ';'
+
+          $reuse = $env:REUSE_CHECKOUT -eq 'true'
+
+          $cfg = [ordered]@{
+            buildId          = "gha-${{ github.run_id }}-${{ github.run_attempt }}"
+            phase            = 0
+            workdir          = $env:NG_WINDOWS_WORKDIR
+            minFreeGiB       = [int]$env:NG_MIN_FREE_GIB
+            webkitGitUrl     = $env:NG_WEBKIT_URL
+            webkitCommit     = $env:NG_WEBKIT_COMMIT
+            useCleanCheckout = $true
+            cleanSourceRoot  = $env:NG_WINDOWS_CLEAN_SOURCE
+            legacySourceRoot = 'C:/Work/WebKit'
+            outputDir        = "$($env:NG_WINDOWS_CLEAN_SOURCE)/WebKitBuild/Release"
+            vsDevCmdPath     = 'C:/BuildTools/Common7/Tools/VsDevCmd.bat'
+            pathPrepend      = $pathPrepend
+            vcpkgRoot        = 'C:/vcpkg'
+            buildCommandLine = $buildInner
+            bootstrap        = 'C:/Bootstrap'
+            enableSccache    = $true
+            sccacheExe       = $sccacheExe
+            sccacheDir       = 'C:/Bootstrap/sccache'
+            toolbin          = 'C:/Bootstrap/toolbin'
+            control          = @{ profileHash = ''; lane = $env:NG_CONTROL_LANE }
+            reuseCheckout    = $reuse
+            preserveBuildDir = $reuse
+            fastRetry        = $reuse
+            cleanSccache     = $false
+            sparseCheckoutPaths = @('Source','Tools','WebKitLibraries','Configurations','Websites','PerformanceTests','ManualTests','JSTests','WebDriverTests')
+          }
+          $cfg | ConvertTo-Json -Depth 6 | Set-Content -Path (Join-Path $stage 'build-config.json') -Encoding UTF8
+
+          Write-Host "Staged at $stage"
+          Get-ChildItem $stage -Recurse | ForEach-Object { Write-Host "  $($_.FullName)" }
+
+      - name: Build
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & "$env:GITHUB_WORKSPACE\.stage\remote-build.ps1"
+
+      - name: Collect artifacts
+        if: always()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $dst = Join-Path $env:GITHUB_WORKSPACE 'artifacts-out'
+          New-Item -ItemType Directory -Force -Path $dst | Out-Null
+
+          $bin = "$($env:NG_WINDOWS_CLEAN_SOURCE)/WebKitBuild/Release/bin"
+          if (Test-Path $bin) { Copy-Item -Recurse $bin (Join-Path $dst 'bin') }
+
+          $stageArtifacts = Join-Path $env:GITHUB_WORKSPACE '.stage\artifacts'
+          if (Test-Path $stageArtifacts) { Copy-Item -Recurse $stageArtifacts (Join-Path $dst 'stage-artifacts') }
+
+          $diag = Join-Path $env:NG_WINDOWS_WORKDIR 'diagnostics.log'
+          if (Test-Path $diag) { Copy-Item $diag (Join-Path $dst 'diagnostics.log') }
+
+          & 'C:/Bootstrap/toolbin/sccache.exe' --show-stats 2>&1 |
+            Tee-Object -FilePath (Join-Path $dst 'sccache-stats.txt')
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-webkit-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts-out/**
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Cleanup stage
+        if: always()
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $stage = Join-Path $env:GITHUB_WORKSPACE '.stage'
+          if (Test-Path $stage) { Remove-Item -Recurse -Force $stage -ErrorAction SilentlyContinue }
+          if (-not $env:REUSE_CHECKOUT -or $env:REUSE_CHECKOUT -ne 'true') {
+            if (Test-Path $env:NG_WINDOWS_WORKDIR) {
+              Remove-Item -Recurse -Force $env:NG_WINDOWS_WORKDIR -ErrorAction SilentlyContinue
+            }
+          }

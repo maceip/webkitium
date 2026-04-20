@@ -1,8 +1,10 @@
 # Windows builder — compliance, caching, reporting
 
+> **Migration notice (2026-04-20).** The SSM + `ssm-worker.ps1` + `orchestrator/` dispatcher described in sections 4–6 is being **retired**. New builds run through the GitHub Actions self-hosted runner defined in **`.github/workflows/windows.yml`**; one-time runner setup is in **`webkit/scripts/windows/RUNNER_SETUP.md`**. Trigger with `scripts/build-windows.sh` or `gh workflow run windows.yml`. The `setup-deps.ps1` compliance path (section 1) and the `remote-build.ps1` compile driver still apply — only the dispatcher changed.
+
 **Purpose:** One place for **how** a Windows EC2 (or VM) used for Webkitium gets **into spec**, how builds **run**, and how **success/failure** is reported. **No narrative history**—only what you do **now**.
 
-**Dashboard / API:** Start and watch builds through **`orchestrator/src/server.js`** (`GET /`, `POST /builds`) — see **`RUNNER.md`** (under `docs/policy/`).
+**Dashboard / API (legacy):** Start and watch builds through **`orchestrator/src/server.js`** (`GET /`, `POST /builds`) — see **`RUNNER.md`** (under `docs/policy/`). Prefer the GHA path above; this path will be removed after the GHA runner is green.
 
 ---
 
@@ -71,7 +73,9 @@ curl -X POST http://localhost:8787/builds \
 
 Or **`./webkit/scripts/common/run-windows-webgpu-dawn.sh <id>`** — wrapper that sets WebGPU preset + **`NG_WINDOWS_ENABLE_SCCACHE=1`**, then **`run-build.sh windows`**.
 
-**MiniBrowser gradient relaunch (short-path `C:/W/`, 2026-04-19):** use preset **`minibrowser-gradient-retry`** (see **`config/platforms.json`**) or the same keys via **`platformEnv`**. That keeps **`NG_WINDOWS_ENABLE_SCCACHE=1`**, **`NG_WINDOWS_REUSE_CHECKOUT=1`**, **`NG_WINDOWS_PRESERVE_BUILD_DIR=0`**, and pins **`NG_WINDOWS_CLEAN_SOURCE`** to the builder tree (sccache variant by default; override to **`C:/W/minibrowser-gradient-cmakeargs-20260419`** for the other run). **`build.sh`** already folds the required **`build-webkit --cmakeargs`**: **`clang-cl`** under **`C:/Progra~1/LLVM/bin/`** and **`CMAKE_*_COMPILER_LAUNCHER`** as **`C:/Bootstrap/toolbin/sccache.exe`** when sccache is on.
+**MiniBrowser gradient relaunch (short-path `C:/W/`, 2026-04-19):** use preset **`minibrowser-gradient-retry`** (see **`config/platforms.json`**) or the same keys via **`platformEnv`**. That keeps **`NG_WINDOWS_ENABLE_SCCACHE=1`**, **`NG_WINDOWS_REUSE_CHECKOUT=1`**, **`NG_WINDOWS_PRESERVE_BUILD_DIR=0`**, pins **`NG_WINDOWS_CLEAN_SOURCE`** to the builder tree (sccache variant by default; override to **`C:/W/minibrowser-gradient-cmakeargs-20260419`** for the other run), and bundles **`0022` + `0034` + `0091`–`0094`** via **`NG_WINDOWS_ROOT_PATCH_FILTER`** (gradient patch plus Windows compile-command rewrite and format-attribute hygiene patches). **`build.sh`** already folds the required **`build-webkit --cmakeargs`**: **`clang-cl`** under **`C:/Progra~1/LLVM/bin/`** and **`CMAKE_*_COMPILER_LAUNCHER`** as **`C:/Bootstrap/toolbin/sccache.exe`** when sccache is on. Runbook: **`docs/policy/MINIBROWSER_GRADIENT_BUILD_RUNBOOK.md`**.
+
+**Upstream-only (no repo patches):** set **`NG_WINDOWS_SKIP_REPO_PATCHES=1`** in **`platformEnv.windows`** (or export before **`build.sh`**). The SSM bundle still ships **`remote-build.ps1`**, but **`patches/common`** and **`patches/windows`** are empty so **`remote-build.ps1`** applies nothing—compile is the pinned WebKit tree as cloned.
 
 ---
 

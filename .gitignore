@@ -5,3 +5,7 @@ node_modules/
 *.log
 tools/noVNC/
 browser/build-linux/
+
+# GHA self-hosted runner workspace artifacts (see .github/workflows/windows.yml)
+.stage/
+artifacts-out/
