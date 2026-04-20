@@ -75,6 +75,9 @@ struct WebAuthnAssertion {
     ByteVector clientDataJSON;
     ByteVector signature;
     ByteVector userHandle;
+    ByteVector largeBlob;
+    bool largeBlobWritten { false };
+    ByteVector largeBlobKey;
 };
 
 struct WebAuthnCreateRequest {
@@ -99,6 +102,7 @@ struct WebAuthnAttestation {
     ByteVector credentialId;
     ByteVector clientDataJSON;
     ByteVector attestationObject;
+    ByteVector largeBlobKey;
 };
 
 class PlatformWebAuthnProvider {

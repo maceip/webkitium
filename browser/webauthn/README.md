@@ -10,7 +10,8 @@ Platform providers own native authenticator calls only:
 - Android: Credential Manager via `platform/android/AndroidWebAuthnProvider`
 - macOS: `platform/macos/MacOSWebAuthnProvider` (AuthenticationServices platform passkeys; call off the main thread)
 - iOS: AuthenticationServices (not wired in this tree yet)
-- Linux: libfido2 or a future platform credential provider
+- Linux: `platform/linux/LinuxWebAuthnProvider` (libfido2 security-key/CTAP
+  provider) or a future D-Bus portal provider
 
 The controller is deliberately narrow. UI may gather consent and present account
 choices, but request policy stays in the portable controller.

@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 project(ng_browser_core LANGUAGES CXX)
 
 find_package(Protobuf REQUIRED)
+find_package(PkgConfig QUIET)
 
 set(CHROMIUM_SYNC_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/third_party/chromium_sync_loopback")
 
@@ -78,6 +79,15 @@ if(ANDROID)
     )
 endif()
 
+set(NG_LINUX_WEBAUTHN OFF)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND PkgConfig_FOUND)
+    pkg_check_modules(LIBFIDO2 QUIET IMPORTED_TARGET libfido2)
+    if(LIBFIDO2_FOUND)
+        set(NG_LINUX_WEBAUTHN ON)
+        list(APPEND NG_BROWSER_CORE_SOURCES platform/linux/LinuxWebAuthnProvider.cpp)
+    endif()
+endif()
+
 set(NG_MACOS_WEBAUTHN OFF)
 if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     string(TOLOWER "${CMAKE_OSX_SYSROOT}" _ng_osx_sysroot)
@@ -100,6 +110,10 @@ target_include_directories(ng_browser_core PUBLIC
 
 target_link_libraries(ng_browser_core PUBLIC ng_chromium_sync_proto)
 
+if(NG_LINUX_WEBAUTHN)
+    target_link_libraries(ng_browser_core PRIVATE PkgConfig::LIBFIDO2)
+endif()
+
 if(NG_MACOS_WEBAUTHN)
     target_link_libraries(ng_browser_core PRIVATE
         "-framework AuthenticationServices"
@@ -119,6 +133,14 @@ if(WIN32)
     )
     target_link_libraries(ng_windows_webauthn_capabilities_test PRIVATE ng_browser_core)
     add_test(NAME ng_windows_webauthn_capabilities_test COMMAND ng_windows_webauthn_capabilities_test)
+endif()
+
+if(NG_LINUX_WEBAUTHN)
+    add_executable(ng_linux_webauthn_capabilities_test
+        tests/LinuxWebAuthnCapabilitiesTest.cpp
+    )
+    target_link_libraries(ng_linux_webauthn_capabilities_test PRIVATE ng_browser_core)
+    add_test(NAME ng_linux_webauthn_capabilities_test COMMAND ng_linux_webauthn_capabilities_test)
 endif()
 
 if (MSVC)
