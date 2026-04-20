@@ -2,11 +2,11 @@
 
 This directory is the landing zone for replacing MiniBrowser with platform-native browser chrome.
 
-The implementation rule is: native UI, shared browser behavior. Each shell can follow the platform's current best practices, but it must bind to the same core tab model, command model, security model, and prompt model so the product feels continuous.
+The implementation rule is: native UI first. Continuity is a product contract, not a shared UI framework. Each shell should use the platform's normal app stack and keep tab, address, security, and prompt behavior aligned with the other platforms.
 
 ## Shared Contract
 
-The browser core owns:
+The browser core eventually owns:
 
 - tab identity, lifecycle, restoration, and session persistence
 - navigation commands and normalized location/search handling
@@ -15,14 +15,14 @@ The browser core owns:
 - WebAuthn/passkey requests and platform authenticator dispatch
 - downloads, find-in-page, devtools, and page action command IDs
 
-The platform chrome owns:
+Each native chrome owns:
 
 - native window, tab strip, toolbar, menus, and shortcuts
 - native text input, focus, accessibility, drag/drop, and animations
 - native permission, credential, download, file, share, and settings presentation
 - platform-specific edge cases such as predictive back, titlebar integration, system colors, and multi-window behavior
 
-The first cross-platform artifact should be a small chrome adapter boundary, not a UI framework abstraction. A native shell should receive immutable snapshots and issue command IDs back to browser core.
+The first artifact in this directory is a buildable native baseline per platform. A browser-core adapter can come later, once the native shells have real shape.
 
 ## Platform Direction
 
@@ -38,11 +38,11 @@ Current reference:
 
 Initial macOS slice:
 
-1. Create an Xcode workspace under `chrome/macos`.
-2. Import or mirror only the chrome-layer structure from Apple's sample after license and platform review.
-3. Replace the sample content view with our engine surface.
-4. Bind tab, URL, loading, and security snapshots from browser core.
-5. Keep BrowserEngineKit/XPC process separation as the architecture reference for future engine process work.
+1. Compile the SwiftUI package under `chrome/macos`.
+2. Decide whether Apple's sample material or an open-source SwiftUI browser shell is the better starting point.
+3. Replace the placeholder `WKWebView` surface with our engine surface.
+4. Bind tab, URL, loading, and security state once browser core exposes a native-friendly boundary.
+5. Keep BrowserEngineKit/XPC process separation as architecture reference for future engine process work.
 
 ### Android
 
@@ -56,10 +56,10 @@ Current reference:
 
 Initial Android slice:
 
-1. Create a Compose app under `chrome/android`.
-2. Build tab strip, address field, page state, and overflow actions in Material 3.
+1. Compile the Compose app under `chrome/android`.
+2. Replace the placeholder `WebView` with our engine surface when available.
 3. Wire predictive back to tab history first, then tab close, then app exit.
-4. Host the engine view through `AndroidView` until a dedicated engine Composable exists.
+4. Keep browser chrome in Compose and host engine content through `AndroidView` until a dedicated engine Composable exists.
 5. Reuse the Android WebAuthn provider already added in browser core for passkeys and largeBlob requests.
 
 ### Windows
@@ -74,15 +74,15 @@ Current reference:
 
 Initial Windows slice:
 
-1. Create a Windows App SDK project under `chrome/windows`.
+1. Compile the WinUI 3 project under `chrome/windows`.
 2. Use WinUI `TabView`, `CommandBar`, native menus, and system backdrop/titlebar APIs.
-3. Port useful browser behavior from WebView2Browser into the shared adapter model.
-4. Keep WebView2 only as the host/control reference unless the engine surface needs a Windows-specific bridge.
+3. Port useful browser behavior from WebView2Browser into the native WinUI shell.
+4. Keep WebView2 only as a sample/control reference unless the engine surface needs a Windows-specific bridge.
 5. Bind Windows WebAuthn/passkey UI to the existing platform provider boundary.
 
 ### Linux
 
-Linux remains a native shell target, but not the priority of this chrome pass. If it becomes product scope, start with GTK4/libadwaita for GNOME-grade behavior and keep the same core adapter contract.
+Linux remains a native shell target, but not the priority of this chrome pass. If it becomes product scope, start with GTK4/libadwaita for GNOME-grade behavior and keep continuity with the platform product contract.
 
 Current reference:
 
@@ -100,8 +100,8 @@ Current reference:
 
 ## Next Build Steps
 
-1. Add the shared chrome adapter header/API in browser core.
+1. Get the native baselines compiling in their own toolchains.
 2. Stand up macOS first, using Apple's browser sample material as the official fallback if no better maintained SwiftUI shell fits.
-3. Stand up Android Compose with the same adapter contract and predictive back behavior.
+3. Stand up Android Compose with predictive back behavior.
 4. Stand up Windows WinUI 3 with `TabView` and use WebView2Browser as the behavioral reference.
-5. Add smoke tests for the shared adapter model before investing in visual chrome tests.
+5. Add platform-native smoke tests once the placeholders are connected to browser core.

@@ -2,6 +2,13 @@
 
 Target stack: Kotlin, Jetpack Compose, Material 3, edge-to-edge UI, adaptive layouts, and predictive back.
 
+Compile baseline:
+
+```sh
+cd chrome/android
+gradle :app:assembleDebug
+```
+
 Android does not currently provide a first-party WebView Composable. The initial shell should use Compose for browser chrome and host the engine surface through `AndroidView`, then route back gestures through tab history, tab close, and app exit in that order.
 
 Reference:
