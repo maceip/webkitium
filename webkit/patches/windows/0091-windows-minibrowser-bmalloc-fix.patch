@@ -1,0 +1,22 @@
+diff --git a/Source/bmalloc/bmalloc/Logging.cpp b/Source/bmalloc/bmalloc/Logging.cpp
+index d6fe46e..842710b 100644
+--- a/Source/bmalloc/bmalloc/Logging.cpp
++++ b/Source/bmalloc/bmalloc/Logging.cpp
+@@ -36,10 +36,17 @@ namespace bmalloc {
+ #if !BUSE(OS_LOG)
+ void reportAssertionFailureWithMessage(const char* file, int line, const char* function, const char* format, ...)
+ {
++#if defined(__clang__)
++#pragma clang diagnostic push
++#pragma clang diagnostic ignored "-Wmissing-format-attribute"
++#endif
+     va_list args;
+     va_start(args, format);
+     vfprintf(stderr, format, args);
+     va_end(args);
++#if defined(__clang__)
++#pragma clang diagnostic pop
++#endif
+     fprintf(stderr, "%s(%d) : %s\n", file, line, function);
+ }
+ #endif

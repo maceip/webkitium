@@ -1,0 +1,25 @@
+diff --git a/Source/WTF/wtf/StringPrintStream.cpp b/Source/WTF/wtf/StringPrintStream.cpp
+index 1234567890abcdef1234567890abcdef12345678..abcdef1234567890abcdef1234567890abcdef12 100644
+--- a/Source/WTF/wtf/StringPrintStream.cpp
++++ b/Source/WTF/wtf/StringPrintStream.cpp
+@@ -50,6 +50,10 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+ 
+ void StringPrintStream::vprintf(const char* format, va_list passedArgList)
+ {
++#if defined(__clang__)
++#pragma clang diagnostic push
++#pragma clang diagnostic ignored "-Wmissing-format-attribute"
++#endif
+     ASSERT_WITH_SECURITY_IMPLICATION(m_length < m_buffer.size());
+     ASSERT(!m_buffer[m_length]);
+ 
+@@ -66,6 +70,9 @@ void StringPrintStream::vprintf(const char* format, va_list passedArgList)
+         if (m_length + numberOfBytesThatWouldHaveBeenWritten <= m_buffer.size()) {
+             m_length += static_cast<size_t>(numberOfBytesNotIncludingTerminatorThatWouldHaveBeenWritten);
+             ASSERT(!m_buffer[m_length]);
++#if defined(__clang__)
++#pragma clang diagnostic pop
++#endif
+             return; // This means that vsnprintf() succeeded.
+         }
+ 

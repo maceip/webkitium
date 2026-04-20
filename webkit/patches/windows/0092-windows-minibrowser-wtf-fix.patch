@@ -1,0 +1,21 @@
+diff --git a/Source/WTF/wtf/FilePrintStream.cpp b/Source/WTF/wtf/FilePrintStream.cpp
+index 1234567890abcdef1234567890abcdef12345678..abcdef1234567890abcdef1234567890abcdef12 100644
+--- a/Source/WTF/wtf/FilePrintStream.cpp
++++ b/Source/WTF/wtf/FilePrintStream.cpp
+@@ -52,9 +52,16 @@ std::unique_ptr<FilePrintStream> FilePrintStream::open(const char* filename, con
+ 
+ void FilePrintStream::vprintf(const char* format, va_list argList)
+ {
++#if defined(__clang__)
++#pragma clang diagnostic push
++#pragma clang diagnostic ignored "-Wmissing-format-attribute"
++#endif
+ WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
+     vfprintf(m_file, format, argList);
+ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
++#if defined(__clang__)
++#pragma clang diagnostic pop
++#endif
+ }
+ 
+ void FilePrintStream::flush()

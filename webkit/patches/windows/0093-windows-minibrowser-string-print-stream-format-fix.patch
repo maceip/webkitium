@@ -1,0 +1,19 @@
+diff --git a/Source/WTF/wtf/StringPrintStream.cpp b/Source/WTF/wtf/StringPrintStream.cpp
+index 8ad43be20e27..34c741a77492 100644
+--- a/Source/WTF/wtf/StringPrintStream.cpp
++++ b/Source/WTF/wtf/StringPrintStream.cpp
+@@ -57,7 +57,14 @@ void StringPrintStream::vprintf(const char* format, va_list passedArgList)
+         va_copy(argList, passedArgList);
+ 
+         auto remaining = m_buffer.subspan(m_length);
++#if defined(__clang__)
++#pragma clang diagnostic push
++#pragma clang diagnostic ignored "-Wmissing-format-attribute"
++#endif
+         int numberOfBytesNotIncludingTerminatorThatWouldHaveBeenWritten = vsnprintf(remaining.data(), remaining.size(), format, argList);
++#if defined(__clang__)
++#pragma clang diagnostic pop
++#endif
+ 
+         va_end(argList);
+ 

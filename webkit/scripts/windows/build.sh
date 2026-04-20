@@ -174,6 +174,31 @@ for change_index, change in enumerate(changes):
             else:
                 shutil.copy2(root / patch, target)
 PY
+# Basename included when filter empty. Otherwise NG_WINDOWS_ROOT_PATCH_FILTER is a
+# comma-separated list; each entry is matched with bash glob rules (quote-free RHS),
+# e.g. exact "0034-....patch" or broader "*-minibrowser-*.patch".
+ng_windows_patch_matches_filter() {
+  local base="$1"
+  local filt="$2"
+  if [[ -z "$filt" ]]; then
+    return 0
+  fi
+  local IFS=,
+  local -a patterns
+  # shellcheck disable=SC2206
+  patterns=($filt)
+  local p
+  for p in "${patterns[@]}"; do
+    p="${p#"${p%%[![:space:]]*}"}"
+    p="${p%"${p##*[![:space:]]}"}"
+    [[ -z "$p" ]] && continue
+    if [[ "$base" == $p ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 stage_root_patches() {
   local bucket="$1"
   local source_prefix="webkit/patches/$bucket"
@@ -185,7 +210,7 @@ stage_root_patches() {
     git -C "$NG_ROOT" ls-tree -r --name-only HEAD -- "$source_prefix" | while IFS= read -r patch; do
       case "$patch" in
         *.patch|*.diff)
-          if [[ -n "$patch_filter" && "$(basename "$patch")" != $patch_filter ]]; then
+          if ! ng_windows_patch_matches_filter "$(basename "$patch")" "$patch_filter"; then
             continue
           fi
           git -C "$NG_ROOT" show "HEAD:$patch" > "$target_dir/$(basename "$patch")"
@@ -195,7 +220,7 @@ stage_root_patches() {
   else
     if [[ -n "$patch_filter" ]]; then
       find "$NG_ROOT/$source_prefix" -maxdepth 1 -type f \( -name '*.patch' -o -name '*.diff' \) 2>/dev/null | sort | while IFS= read -r patch; do
-        if [[ "$(basename "$patch")" == $patch_filter ]]; then
+        if ng_windows_patch_matches_filter "$(basename "$patch")" "$patch_filter"; then
           cp "$patch" "$target_dir/"
         fi
       done

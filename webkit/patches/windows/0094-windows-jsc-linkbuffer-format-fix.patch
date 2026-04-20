@@ -1,0 +1,34 @@
+diff --git a/Source/JavaScriptCore/assembler/LinkBuffer.cpp b/Source/JavaScriptCore/assembler/LinkBuffer.cpp
+index 63fdfb782e81..c8b940a4fc06 100644
+--- a/Source/JavaScriptCore/assembler/LinkBuffer.cpp
++++ b/Source/JavaScriptCore/assembler/LinkBuffer.cpp
+@@ -149,7 +149,14 @@
+     if (m_isThunk) {
+         va_list preflightArgs;
+         va_copy(preflightArgs, argList);
++#if defined(__clang__)
++#pragma clang diagnostic push
++#pragma clang diagnostic ignored "-Wmissing-format-attribute"
++#endif
+         size_t stringLength = vsnprintf(nullptr, 0, format, preflightArgs);
++#if defined(__clang__)
++#pragma clang diagnostic pop
++#endif
+         va_end(preflightArgs);
+ 
+         constexpr auto prefix = "thunk: "_s;
+@@ -157,7 +164,14 @@
+         size_t length = stringLength + prefix.length() + 1;
+         CString label = CString::newUninitialized(length, buffer);
+         memcpySpan(buffer, prefix.span8());
++#if defined(__clang__)
++#pragma clang diagnostic push
++#pragma clang diagnostic ignored "-Wmissing-format-attribute"
++#endif
+         vsnprintf(buffer.subspan(prefix.length()).data(), stringLength + 1, format, argList);
++#if defined(__clang__)
++#pragma clang diagnostic pop
++#endif
+         out.printf("%s", buffer.data());
+ 
+         registerLabel(result.code().untaggedPtr(), WTF::move(label));

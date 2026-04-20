@@ -66,7 +66,8 @@
             "NG_WINDOWS_ENABLE_SCCACHE": "1",
             "NG_WINDOWS_REUSE_CHECKOUT": "1",
             "NG_WINDOWS_PRESERVE_BUILD_DIR": "0",
-            "NG_WINDOWS_CLEAN_SOURCE": "C:/W/minibrowser-gradient-sccache-20260419"
+            "NG_WINDOWS_CLEAN_SOURCE": "C:/W/minibrowser-gradient-sccache-20260419",
+            "NG_WINDOWS_ROOT_PATCH_FILTER": "0034-windows-minibrowser-webkitium-toolbar-gradient.patch,0091-windows-minibrowser-bmalloc-fix.patch,0092-windows-minibrowser-wtf-fix.patch"
           },
           "acceptance": [
             "build.sh supplies clang-cl + CMAKE_C_COMPILER_LAUNCHER/CMAKE_CXX_COMPILER_LAUNCHER pointing at C:/Bootstrap/toolbin/sccache.exe",
