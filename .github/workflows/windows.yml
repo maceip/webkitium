@@ -68,7 +68,7 @@ jobs:
           submodules: false
           lfs: false
 
-      - name: Pre-flight — runner health
+      - name: Pre-flight - runner health
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
@@ -85,7 +85,7 @@ jobs:
             'C:/Strawberry/perl/bin/perl.exe'
           )) {
             if (-not (Test-Path $tool)) {
-              throw "Missing required tool: $tool — rerun webkit/scripts/windows/setup-deps.ps1 on this builder."
+              throw "Missing required tool: $tool - rerun webkit/scripts/windows/setup-deps.ps1 on this builder."
             }
           }
           Write-Host 'Pre-flight OK'
