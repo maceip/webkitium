@@ -94,6 +94,7 @@ acquire_lock() {
 
 cleanup_stale_state() {
   local root
+  rm -rf "$LOCK_DIR" 2>/dev/null || true
   for root in /c/Bootstrap/gh-ci /c/W; do
     [[ -d "$root" ]] || continue
     find "$root" -mindepth 1 -maxdepth 1 -type d \
@@ -348,8 +349,8 @@ PY
   tar -C "$bin_dir" -czf "$ARTIFACT_ROOT/webkitium-windows-$BUILD_ID.tar.gz" .
 }
 
-acquire_lock
 cleanup_stale_state
+acquire_lock
 export REPO_ROOT
 repair_dependencies_if_needed
 stage_patches
