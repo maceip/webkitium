@@ -162,7 +162,17 @@ repair_dependencies_if_needed() {
 
   tar -xf "$archive" -C "$extract"
 
-  triplet="$(find "$extract" -type d -name 'x64-windows-webkit' | head -n1)"
+  triplet="$(python - "$extract" <<'PY'
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+for path in root.rglob("x64-windows-webkit"):
+    if path.is_dir():
+        print(path)
+        break
+PY
+)"
   [[ -n "$triplet" ]] || {
     echo "Baseline archive did not contain x64-windows-webkit" >&2
     exit 2
