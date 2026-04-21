@@ -136,6 +136,7 @@ repair_dependencies_if_needed() {
   local archive="$WORK_ROOT/release-vcpkg_installed.tar"
   local extract="$WORK_ROOT/vcpkg-extract"
   local dawn_headers_archive="$WORK_ROOT/dawn-headers.tar.gz"
+  local dawn_headers_extract="$WORK_ROOT/dawn-headers"
   local target_root
   local triplet
   if verify_dependencies; then
@@ -222,7 +223,26 @@ PY
         -H "X-GitHub-Api-Version: 2022-11-28" \
         "$DAWN_HEADERS_ASSET_API" \
         -o "$dawn_headers_archive"
-      tar -xf "$dawn_headers_archive" -C "$target_root/x64-windows-webkit"
+      rm -rf "$dawn_headers_extract"
+      mkdir -p "$dawn_headers_extract"
+      tar -xf "$dawn_headers_archive" -C "$dawn_headers_extract"
+      python - "$dawn_headers_extract" "$target_root/x64-windows-webkit" <<'PY'
+import shutil
+import sys
+from pathlib import Path
+
+src = Path(sys.argv[1])
+dst = Path(sys.argv[2])
+for path in src.rglob("*"):
+    rel = path.relative_to(src)
+    target = dst / rel
+    if path.is_dir():
+        target.mkdir(parents=True, exist_ok=True)
+        continue
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if not target.exists():
+        shutil.copy2(path, target)
+PY
     fi
   fi
 
