@@ -429,6 +429,8 @@ setlocal
 call "$VS_DEV_CMD_WIN" -arch=x64 -host_arch=x64
 if errorlevel 1 exit /b %errorlevel%
 set "PATH=$PATH_PREPEND_WIN;%PATH%"
+if not exist "$JOB_VCPKG_ROOT_WIN\\downloads" mkdir "$JOB_VCPKG_ROOT_WIN\\downloads"
+if not exist "$JOB_VCPKG_ROOT_WIN\\bincache" mkdir "$JOB_VCPKG_ROOT_WIN\\bincache"
 set "VCPKG_ROOT=$JOB_VCPKG_ROOT_WIN"
 set "VCPKG_DOWNLOADS=$JOB_VCPKG_ROOT_WIN/downloads"
 set "VCPKG_DEFAULT_BINARY_CACHE=$JOB_VCPKG_ROOT_WIN/bincache"
