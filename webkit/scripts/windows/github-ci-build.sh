@@ -44,6 +44,8 @@ SCCACHE_REPORT="$ARTIFACT_ROOT/sccache-report.txt"
 AWS_EXE_WIN="C:/Program Files/Amazon/AWSCLIV2/aws.exe"
 AWS_EXE="$(cygpath -u "$AWS_EXE_WIN")"
 BASELINE_RELEASE_ASSET_API="https://api.github.com/repos/maceip/webkitium/releases/assets/401365605"
+DAWN_HEADERS_ASSET_API="https://api.github.com/repos/maceip/webkitium/releases/assets/401371866"
+DAWN_DLL_ASSET_API="https://api.github.com/repos/maceip/webkitium/releases/assets/401371865"
 BASELINE_S3="s3://cory-build-artifacts-euc1-095713295645-20260407/webkit/windows-build29-20260413"
 BASELINE_REGION="eu-central-1"
 
@@ -133,6 +135,7 @@ verify_dependencies() {
 repair_dependencies_if_needed() {
   local archive="$WORK_ROOT/release-vcpkg_installed.tar"
   local extract="$WORK_ROOT/vcpkg-extract"
+  local dawn_headers_archive="$WORK_ROOT/dawn-headers.tar.gz"
   local target_root
   local triplet
   if verify_dependencies; then
@@ -199,6 +202,29 @@ for path in src.rglob("*"):
     if not target.exists():
         shutil.copy2(path, target)
 PY
+
+  if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+    mkdir -p "$target_root/x64-windows-webkit/bin" "$target_root/x64-windows-webkit/include"
+    if [[ ! -f "$target_root/x64-windows-webkit/bin/webgpu_dawn.dll" ]]; then
+      echo "Fetching supplemental webgpu_dawn.dll"
+      curl -L --fail \
+        -H "Authorization: Bearer $GITHUB_TOKEN" \
+        -H "Accept: application/octet-stream" \
+        -H "X-GitHub-Api-Version: 2022-11-28" \
+        "$DAWN_DLL_ASSET_API" \
+        -o "$target_root/x64-windows-webkit/bin/webgpu_dawn.dll"
+    fi
+    if [[ ! -f "$target_root/x64-windows-webkit/include/dawn/webgpu.h" ]]; then
+      echo "Fetching supplemental Dawn headers"
+      curl -L --fail \
+        -H "Authorization: Bearer $GITHUB_TOKEN" \
+        -H "Accept: application/octet-stream" \
+        -H "X-GitHub-Api-Version: 2022-11-28" \
+        "$DAWN_HEADERS_ASSET_API" \
+        -o "$dawn_headers_archive"
+      tar -xf "$dawn_headers_archive" -C "$target_root/x64-windows-webkit"
+    fi
+  fi
 
   verify_dependencies || {
     echo "Windows dependency repair did not restore the required Dawn payload" >&2
