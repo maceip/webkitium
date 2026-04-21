@@ -23,6 +23,8 @@ jobs:
 
       - name: Prepare Source
         shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
@@ -33,7 +35,10 @@ jobs:
           mkdir -p "$SRC"
 
           curl -L --fail \
-            https://github.com/maceip/webkitium/releases/download/windows-baseline-v1/webkit-source-1f41867848acbe98dd9a7680365eecc2945de48d.tar.gz \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/octet-stream" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/maceip/webkitium/releases/assets/401651875 \
             -o "$ARCHIVE"
           tar -xzf "$ARCHIVE" --strip-components=1 -C "$SRC"
 
