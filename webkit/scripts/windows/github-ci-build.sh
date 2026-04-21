@@ -326,9 +326,14 @@ prepare_sccache() {
 }
 
 clone_source() {
+  local git_home="$WORK_ROOT/git-home"
   rm -rf "$SOURCE_ROOT"
+  mkdir -p "$git_home/.config"
+  export HOME="$git_home"
+  export XDG_CONFIG_HOME="$git_home/.config"
   git config --global core.longpaths true
   git clone --filter=blob:none --no-checkout "$WEBKIT_URL" "$SOURCE_ROOT"
+  git -C "$SOURCE_ROOT" config core.longpaths true
   git -C "$SOURCE_ROOT" sparse-checkout init --cone
   git -C "$SOURCE_ROOT" sparse-checkout set \
     Source Tools WebKitLibraries Configurations Websites PerformanceTests ManualTests JSTests WebDriverTests
