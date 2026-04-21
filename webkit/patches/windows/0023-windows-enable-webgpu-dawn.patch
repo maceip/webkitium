@@ -1,11 +1,11 @@
 diff --git a/Source/cmake/FindDawn.cmake b/Source/cmake/FindDawn.cmake
-index 1a24a45f7d8..124f32d864a 100644
+index 1a24a45f7d8..a88b96979f4 100644
 --- a/Source/cmake/FindDawn.cmake
 +++ b/Source/cmake/FindDawn.cmake
 @@ -73,10 +73,24 @@ find_path(Dawn_INCLUDE_DIR
      NAMES dawn/dawn_proc.h
  )
-
+ 
 +# vcpkg Dawn (20260219+) uses dawn_proc_table.h, not dawn_proc.h
 +if (NOT Dawn_INCLUDE_DIR)
 +    find_path(Dawn_INCLUDE_DIR
@@ -16,7 +16,7 @@ index 1a24a45f7d8..124f32d864a 100644
  find_library(Dawn_LIBRARY
      NAMES ${Dawn_NAMES} dawn_proc
  )
-
+ 
 +# vcpkg Dawn names the library webgpu_dawn
 +if (NOT Dawn_LIBRARY)
 +    find_library(Dawn_LIBRARY
@@ -28,18 +28,18 @@ index 1a24a45f7d8..124f32d864a 100644
  if (WebGPU_INCLUDE_DIR AND Dawn_INCLUDE_DIR AND Dawn_LIBRARY)
      set(_Dawn_REQUIRED_LIBS_FOUND ON)
 diff --git a/Source/cmake/OptionsWin.cmake b/Source/cmake/OptionsWin.cmake
-index 7ea8e8c62e7..e0c8407e556 100644
+index da6c3b5fd49..be254c9e980 100644
 --- a/Source/cmake/OptionsWin.cmake
 +++ b/Source/cmake/OptionsWin.cmake
-@@ -107,6 +107,7 @@ WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_REMOTE_INSPECTOR PRIVATE ${ENABLE_EXPERI
+@@ -105,6 +105,7 @@ WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_REMOTE_INSPECTOR PRIVATE ${ENABLE_EXPERI
  WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_RESOURCE_USAGE PRIVATE ${ENABLE_EXPERIMENTAL_FEATURES})
  WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_VARIATION_FONTS PRIVATE ${ENABLE_EXPERIMENTAL_FEATURES})
  WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_WEBDRIVER PRIVATE ${ENABLE_EXPERIMENTAL_FEATURES})
 +WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_WEBGPU PRIVATE ${ENABLE_EXPERIMENTAL_FEATURES})
-
+ 
  # No support planned
  WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_FTPDIR PRIVATE OFF)
-@@ -182,6 +183,11 @@ if (USE_WOFF2)
+@@ -180,6 +181,11 @@ if (USE_WOFF2)
      find_package(Brotli REQUIRED COMPONENTS dec)
  endif ()
  
@@ -52,10 +52,10 @@ index 7ea8e8c62e7..e0c8407e556 100644
  set(WTF_LIBRARY_TYPE OBJECT)
  set(JavaScriptCore_LIBRARY_TYPE SHARED)
 diff --git a/Tools/Scripts/webkitdirs.pm b/Tools/Scripts/webkitdirs.pm
-index 34aa7b374fa9..45a2b2de9d17 100644
+index 409e102d5f7..44ad7a4f237 100755
 --- a/Tools/Scripts/webkitdirs.pm
 +++ b/Tools/Scripts/webkitdirs.pm
-@@ -3069,6 +3069,7 @@ sub vcpkgArgsFromFeatures(\@;$)
+@@ -3148,6 +3148,7 @@ sub vcpkgArgsFromFeatures(\@;$)
      my $jpegxl = 1;
      my $lcms = 1;
      my $skia = 1;
@@ -63,7 +63,7 @@ index 34aa7b374fa9..45a2b2de9d17 100644
      my $woff2 = 1;
  
      if (isJSCOnly()) {
-@@ -3088,6 +3089,8 @@ sub vcpkgArgsFromFeatures(\@;$)
+@@ -3167,6 +3168,8 @@ sub vcpkgArgsFromFeatures(\@;$)
                      $lcms = $featureValue;
                  } elsif ($featureName eq "USE_SKIA") {
                      $skia = $featureValue;
@@ -72,7 +72,7 @@ index 34aa7b374fa9..45a2b2de9d17 100644
                  } elsif ($featureName eq "USE_WOFF2") {
                      $woff2 = $featureValue;
                  }
-@@ -3099,6 +3102,7 @@ sub vcpkgArgsFromFeatures(\@;$)
+@@ -3179,6 +3182,7 @@ sub vcpkgArgsFromFeatures(\@;$)
      push @args, "jpeg-xl" if $jpegxl;
      push @args, "lcms" if $lcms;
      push @args, $skia ? "skia" : "cairo";
@@ -81,10 +81,10 @@ index 34aa7b374fa9..45a2b2de9d17 100644
  
      return "-DVCPKG_MANIFEST_FEATURES=\"" . join(";", @args) . "\"";
 diff --git a/Tools/Scripts/webkitperl/FeatureList.pm b/Tools/Scripts/webkitperl/FeatureList.pm
-index 2ce3fec9ecef..075c53d3f33b 100644
+index 815055b886e..2cdd50532f7 100644
 --- a/Tools/Scripts/webkitperl/FeatureList.pm
 +++ b/Tools/Scripts/webkitperl/FeatureList.pm
-@@ -159,6 +159,7 @@ my (
+@@ -157,6 +157,7 @@ my (
      $webdriverTouchInteractionsSupport,
      $webdriverWheelInteractionsSupport,
      $webglSupport,
@@ -103,10 +103,10 @@ index 2ce3fec9ecef..075c53d3f33b 100644
        define => "ENABLE_WEBGPU_SWIFT", value => \$webGpuSwift },
  
 diff --git a/vcpkg.json b/vcpkg.json
-index 7b3f1e327f7c..652f455ec62a 100644
+index 7ac866119b8..59001efceec 100644
 --- a/vcpkg.json
 +++ b/vcpkg.json
-@@ -72,6 +72,12 @@
+@@ -90,6 +90,12 @@
          "zlib"
        ]
      },
