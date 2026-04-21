@@ -101,11 +101,28 @@ cleanup_stale_state() {
   rm -rf "$LOCK_DIR" 2>/dev/null || true
   for root in /c/Bootstrap/gh-ci /c/W; do
     [[ -d "$root" ]] || continue
-    find "$root" -mindepth 1 -maxdepth 1 -type d \
-      \( -name 'gh-*' -o -name '[0-9]*-[0-9]*' \) \
-      ! -path "$WORK_ROOT" \
-      ! -path "$LOCK_DIR" \
-      -exec rm -rf {} + 2>/dev/null || true
+    python - "$root" "$WORK_ROOT" "$LOCK_DIR" <<'PY'
+import re
+import shutil
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+work_root = Path(sys.argv[2])
+lock_dir = Path(sys.argv[3])
+patterns = (
+    re.compile(r"^gh-.*$"),
+    re.compile(r"^[0-9]+-[0-9]+$"),
+)
+
+for child in root.iterdir():
+    if not child.is_dir():
+        continue
+    if child == work_root or child == lock_dir:
+        continue
+    if any(pattern.match(child.name) for pattern in patterns):
+        shutil.rmtree(child, ignore_errors=True)
+PY
   done
 }
 
@@ -320,7 +337,23 @@ prepare_sccache() {
   cache_key="$(printf '%s\n' "$WEBKIT_URL" "$WEBKIT_COMMIT" "$ENABLE_WEBGPU" "$ENABLE_SCCACHE" "$NINJA_JOBS" "$patch_sha" "$compiler_version" | sha256sum | awk '{print $1}')"
 
   if [[ -f "$CACHE_ROOT/cache-key.txt" ]] && [[ "$(cat "$CACHE_ROOT/cache-key.txt")" != "$cache_key" ]]; then
-    find "$CACHE_ROOT" -mindepth 1 -maxdepth 1 ! -name 'cache-key.txt' -exec rm -rf {} +
+    python - "$CACHE_ROOT" <<'PY'
+import shutil
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+for child in root.iterdir():
+    if child.name == "cache-key.txt":
+        continue
+    if child.is_dir():
+        shutil.rmtree(child, ignore_errors=True)
+    else:
+        try:
+            child.unlink()
+        except FileNotFoundError:
+            pass
+PY
   fi
   printf '%s\n' "$cache_key" >"$CACHE_ROOT/cache-key.txt"
 }
