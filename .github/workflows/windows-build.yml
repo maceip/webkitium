@@ -54,6 +54,7 @@ jobs:
 
           set "SRC=C:\W\webkit-src"
           set "PATH=C:\Bootstrap\toolbin;C:\Program Files\Git\cmd;C:\Ruby34-x64\bin;C:\Python314;C:\Python314\Scripts;C:\Program Files\LLVM\bin;C:\Program Files\CMake\bin;C:\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja;C:\Strawberry\perl\bin;%PATH%"
+          set "VCPKG_ROOT=C:\vcpkg"
           set "SCCACHE_DIR=C:\Bootstrap\sccache-gh\windows-webgpu-dawn"
           if not exist "%SCCACHE_DIR%" mkdir "%SCCACHE_DIR%"
           set "SCCACHE_CACHE_SIZE=50G"
