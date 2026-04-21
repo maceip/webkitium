@@ -28,10 +28,14 @@ jobs:
 
           SRC_WIN='C:/W/webkit-src'
           SRC="$(cygpath -u "$SRC_WIN")"
+          ARCHIVE="$RUNNER_TEMP/webkit-source.tar.gz"
           rm -rf "$SRC"
+          mkdir -p "$SRC"
 
-          git clone --filter=blob:none https://github.com/WebKit/WebKit.git "$SRC"
-          git -C "$SRC" checkout --force 1f41867848acbe98dd9a7680365eecc2945de48d
+          curl -L --fail \
+            https://github.com/maceip/webkitium/releases/download/windows-baseline-v1/webkit-source-1f41867848acbe98dd9a7680365eecc2945de48d.tar.gz \
+            -o "$ARCHIVE"
+          tar -xzf "$ARCHIVE" --strip-components=1 -C "$SRC"
 
           for patch in webkit/patches/common/* webkit/patches/windows/*; do
             [[ -f "$patch" ]] || continue
