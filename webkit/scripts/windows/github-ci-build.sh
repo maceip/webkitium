@@ -42,7 +42,7 @@ CMAKE_SUMMARY="$ARTIFACT_ROOT/cmake-cache-summary.txt"
 SCCACHE_REPORT="$ARTIFACT_ROOT/sccache-report.txt"
 AWS_EXE_WIN="C:/Program Files/Amazon/AWSCLIV2/aws.exe"
 AWS_EXE="$(cygpath -u "$AWS_EXE_WIN")"
-BASELINE_S3="s3://cory-build-artifacts-euc1-095713295645-20260407/webkitium/windows/provision/baseline"
+BASELINE_S3="s3://cory-build-artifacts-euc1-095713295645-20260407/webkit/windows-build29-20260413"
 BASELINE_REGION="eu-central-1"
 
 VS_DEV_CMD_WIN="C:/BuildTools/Common7/Tools/VsDevCmd.bat"
