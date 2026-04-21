@@ -180,8 +180,25 @@ PY
 
   target_root="$(cygpath -u "$VCPKG_ROOT_WIN/installed")"
   mkdir -p "$target_root"
-  rm -rf "$target_root/x64-windows-webkit"
-  cp -R "$triplet" "$target_root/"
+  python - "$triplet" "$target_root/x64-windows-webkit" <<'PY'
+import shutil
+import sys
+from pathlib import Path
+
+src = Path(sys.argv[1])
+dst = Path(sys.argv[2])
+dst.mkdir(parents=True, exist_ok=True)
+
+for path in src.rglob("*"):
+    rel = path.relative_to(src)
+    target = dst / rel
+    if path.is_dir():
+        target.mkdir(parents=True, exist_ok=True)
+        continue
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if not target.exists():
+        shutil.copy2(path, target)
+PY
 
   verify_dependencies || {
     echo "Windows dependency repair did not restore the required Dawn payload" >&2
