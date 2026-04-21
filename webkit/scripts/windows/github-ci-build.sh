@@ -246,6 +246,16 @@ PY
     fi
   fi
 
+  if [[ ! -f "$target_root/x64-windows-webkit/include/dawn/webgpu.h" ]] && [[ -f "$target_root/x64-windows-webkit/include/webgpu/webgpu.h" ]]; then
+    echo "Synthesizing dawn/webgpu.h compatibility shim"
+    mkdir -p "$target_root/x64-windows-webkit/include/dawn"
+    cat >"$target_root/x64-windows-webkit/include/dawn/webgpu.h" <<'EOF'
+#pragma once
+
+#include <webgpu/webgpu.h>
+EOF
+  fi
+
   verify_dependencies || {
     echo "Windows dependency repair did not restore the required Dawn payload" >&2
     exit 2
