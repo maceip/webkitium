@@ -1,0 +1,36 @@
+name: windows-build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: webkitium-windows-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Windows WebKit Build
+    runs-on:
+      - self-hosted
+      - Windows
+      - X64
+      - webkitium
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: ./webkit/scripts/windows/github-ci-build.sh
+
+      - name: Upload Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .artifacts/windows-build
+          if-no-files-found: warn
