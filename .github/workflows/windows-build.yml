@@ -25,6 +25,8 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: ./webkit/scripts/windows/github-ci-build.sh
 
       - name: Upload Artifacts

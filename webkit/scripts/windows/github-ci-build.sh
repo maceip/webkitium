@@ -16,6 +16,7 @@ require_cmd python
 require_cmd cmd.exe
 require_cmd tar
 require_cmd cygpath
+require_cmd curl
 
 BUILD_ID="${GITHUB_RUN_ID:-manual}-${GITHUB_RUN_ATTEMPT:-1}"
 SHORT_ID="$(printf '%s' "$BUILD_ID" | md5sum | awk '{print substr($1,1,12)}')"
@@ -42,6 +43,7 @@ CMAKE_SUMMARY="$ARTIFACT_ROOT/cmake-cache-summary.txt"
 SCCACHE_REPORT="$ARTIFACT_ROOT/sccache-report.txt"
 AWS_EXE_WIN="C:/Program Files/Amazon/AWSCLIV2/aws.exe"
 AWS_EXE="$(cygpath -u "$AWS_EXE_WIN")"
+BASELINE_RELEASE_ASSET_API="https://api.github.com/repos/maceip/webkitium/releases/assets/401365605"
 BASELINE_S3="s3://cory-build-artifacts-euc1-095713295645-20260407/webkit/windows-build29-20260413"
 BASELINE_REGION="eu-central-1"
 
@@ -137,15 +139,27 @@ repair_dependencies_if_needed() {
     return 0
   fi
 
-  [[ -f "$AWS_EXE" ]] || {
-    echo "Missing AWS CLI at $AWS_EXE_WIN" >&2
-    exit 2
-  }
-
-  echo "Restoring Dawn baseline payload from $BASELINE_S3"
+  echo "Restoring Dawn baseline payload"
   rm -rf "$extract" "$archive"
   mkdir -p "$extract"
-  "$AWS_EXE" s3 cp "$BASELINE_S3/release-vcpkg_installed.tar" "$archive" --region "$BASELINE_REGION"
+
+  if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+    echo "Fetching baseline from GitHub release asset"
+    curl -L --fail \
+      -H "Authorization: Bearer $GITHUB_TOKEN" \
+      -H "Accept: application/octet-stream" \
+      -H "X-GitHub-Api-Version: 2022-11-28" \
+      "$BASELINE_RELEASE_ASSET_API" \
+      -o "$archive"
+  else
+    [[ -f "$AWS_EXE" ]] || {
+      echo "Missing AWS CLI at $AWS_EXE_WIN and no GITHUB_TOKEN provided" >&2
+      exit 2
+    }
+    echo "Falling back to S3 baseline payload from $BASELINE_S3"
+    "$AWS_EXE" s3 cp "$BASELINE_S3/release-vcpkg_installed.tar" "$archive" --region "$BASELINE_REGION"
+  fi
+
   tar -xf "$archive" -C "$extract"
 
   triplet="$(find "$extract" -type d -name 'x64-windows-webkit' | head -n1)"
