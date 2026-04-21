@@ -406,7 +406,7 @@ set "VCPKG_ROOT=$VCPKG_ROOT_WIN"
 set "SCCACHE_DIR=$CACHE_ROOT_WIN"
 set "SCCACHE_CACHE_SIZE=50G"
 set "SCCACHE_IDLE_TIMEOUT=0"
-"$SCCACHE_EXE_WIN" --start-server
+"$SCCACHE_EXE_WIN" --start-server >NUL 2>&1
 "$SCCACHE_EXE_WIN" --zero-stats > "$BUILD_LOG_WIN" 2>&1
 cd /d "$SOURCE_ROOT_WIN"
 $build_inner >> "$BUILD_LOG_WIN" 2>&1
