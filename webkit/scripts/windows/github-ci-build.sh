@@ -59,6 +59,7 @@ CMAKE_WIN="C:/Program Files/CMake/bin"
 NINJA_WIN="C:/BuildTools/Common7/IDE/CommonExtensions/Microsoft/CMake/Ninja"
 PERL_WIN="C:/Strawberry/perl/bin"
 VCPKG_ROOT_WIN="C:/vcpkg"
+JOB_VCPKG_ROOT_WIN="$WORK_ROOT_WIN/vcpkg-root"
 SCCACHE_EXE_WIN="$TOOLBIN_WIN/sccache.exe"
 PATH_PREPEND_WIN="$TOOLBIN_WIN;$GIT_WIN;$RUBY_WIN/bin;$PYTHON_WIN;$PYTHON_WIN/Scripts;$LLVM_WIN/bin;$CMAKE_WIN;$NINJA_WIN;$PERL_WIN"
 
@@ -147,6 +148,32 @@ verify_dependencies() {
     fi
   done
   [[ "$missing" -eq 0 ]]
+}
+
+prepare_job_vcpkg_root() {
+  local base_root job_root
+  base_root="$(cygpath -u "$VCPKG_ROOT_WIN")"
+  job_root="$(cygpath -u "$JOB_VCPKG_ROOT_WIN")"
+  rm -rf "$job_root"
+  mkdir -p "$job_root"
+  python - "$base_root" "$job_root" <<'PY'
+import shutil
+import sys
+from pathlib import Path
+
+src = Path(sys.argv[1])
+dst = Path(sys.argv[2])
+
+for name in ("vcpkg.exe", ".vcpkg-root"):
+    path = src / name
+    if path.exists():
+        shutil.copy2(path, dst / name)
+
+for name in ("scripts", "triplets", "ports", "versions"):
+    source_dir = src / name
+    if source_dir.is_dir():
+        shutil.copytree(source_dir, dst / name, dirs_exist_ok=True)
+PY
 }
 
 repair_dependencies_if_needed() {
@@ -386,7 +413,7 @@ apply_patches() {
 
 write_build_cmd() {
   local build_inner
-  build_inner='perl Tools\Scripts\build-webkit --release --win --makeargs=-j'"$NINJA_JOBS"' -DCMAKE_C_COMPILER=C:/Progra~1/LLVM/bin/clang-cl.exe -DCMAKE_CXX_COMPILER=C:/Progra~1/LLVM/bin/clang-cl.exe -DCMAKE_LINKER=C:/Progra~1/LLVM/bin/lld-link.exe -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld -DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld -DCMAKE_MODULE_LINKER_FLAGS=-fuse-ld=lld -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded -DCMAKE_C_FLAGS="-D_CRT_SECURE_NO_WARNINGS -flto=thin" -DCMAKE_CXX_FLAGS="-D_CRT_SECURE_NO_WARNINGS -flto=thin"'
+  build_inner='perl Tools\Scripts\build-webkit --release --win --makeargs=-j'"$NINJA_JOBS"' -DCMAKE_C_COMPILER=C:/Progra~1/LLVM/bin/clang-cl.exe -DCMAKE_CXX_COMPILER=C:/Progra~1/LLVM/bin/clang-cl.exe -DCMAKE_LINKER=C:/Progra~1/LLVM/bin/lld-link.exe -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld -DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld -DCMAKE_MODULE_LINKER_FLAGS=-fuse-ld=lld -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded -DCMAKE_C_FLAGS="-D_CRT_SECURE_NO_WARNINGS -flto=thin" -DCMAKE_CXX_FLAGS="-D_CRT_SECURE_NO_WARNINGS -flto=thin" -DVCPKG_INSTALLED_DIR='"$VCPKG_ROOT_WIN"'/installed'
   if [[ "$ENABLE_SCCACHE" == "1" ]]; then
     build_inner+=' -DCMAKE_C_COMPILER_LAUNCHER='"$SCCACHE_EXE_WIN"' -DCMAKE_CXX_COMPILER_LAUNCHER='"$SCCACHE_EXE_WIN"
   fi
@@ -402,7 +429,9 @@ setlocal
 call "$VS_DEV_CMD_WIN" -arch=x64 -host_arch=x64
 if errorlevel 1 exit /b %errorlevel%
 set "PATH=$PATH_PREPEND_WIN;%PATH%"
-set "VCPKG_ROOT=$VCPKG_ROOT_WIN"
+set "VCPKG_ROOT=$JOB_VCPKG_ROOT_WIN"
+set "VCPKG_DOWNLOADS=$JOB_VCPKG_ROOT_WIN/downloads"
+set "VCPKG_DEFAULT_BINARY_CACHE=$JOB_VCPKG_ROOT_WIN/bincache"
 set "SCCACHE_DIR=$CACHE_ROOT_WIN"
 set "SCCACHE_CACHE_SIZE=50G"
 set "SCCACHE_IDLE_TIMEOUT=0"
@@ -488,6 +517,7 @@ cleanup_stale_state
 acquire_lock
 export REPO_ROOT
 repair_dependencies_if_needed
+prepare_job_vcpkg_root
 stage_patches
 prepare_sccache
 clone_source
