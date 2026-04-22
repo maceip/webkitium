@@ -1,19 +1,54 @@
+diff --git a/Source/WebCore/Modules/WebNN/MLOperand.h b/Source/WebCore/Modules/WebNN/MLOperand.h
+index c9d0e1f2a3b..e1a2b3c4d5e 100644
+--- a/Source/WebCore/Modules/WebNN/MLOperand.h
++++ b/Source/WebCore/Modules/WebNN/MLOperand.h
+@@ -8,7 +8,8 @@
+ 
+ #include <wtf/RefCounted.h>
+ #include <wtf/Vector.h>
++#include <wtf/RefPtr.h>
+ #include <wtf/text/WTFString.h>
+ 
+ namespace WebCore {
+@@ -33,7 +34,15 @@
+     const String& name() const { return m_name; }
+     const String& dataType() const { return m_dataType; }
+     const Vector<unsigned>& shape() const { return m_dimensions; }
+ 
++    const String& operationType() const { return m_operationType; }
++    const Vector<RefPtr<MLOperand>>& inputOperands() const { return m_inputOperands; }
++    void setOperationType(const String& op) { m_operationType = op; }
++    void addInputOperand(RefPtr<MLOperand> operand) { m_inputOperands.append(WTFMove(operand)); }
++
++    const void* constantData() const { return m_constantData; }
++    size_t constantByteLength() const { return m_constantByteLength; }
++
+ private:
+     MLOperand(Kind, const String& name, const String& dataType,
+               Vector<unsigned>&&);
+@@ -42,6 +51,10 @@
+     String m_name;
+     String m_dataType;
+     Vector<unsigned> m_dimensions;
++    String m_operationType;
++    Vector<RefPtr<MLOperand>> m_inputOperands;
++    const void* m_constantData { nullptr };
++    size_t m_constantByteLength { 0 };
+ };
+ 
+ } // namespace WebCore
 diff --git a/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTContext.h b/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTContext.h
 new file mode 100644
 index 00000000000..a1b2c3d4e5f
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTContext.h
-@@ -0,0 +1,70 @@
+@@ -0,0 +1,84 @@
 +/*
-+ * WebNN context backed by LiteRT-LM.
++ * WebNN context backed by LiteRT (TFLite successor).
 + *
-+ * LiteRT-LM is the unified C++ inference backend for WebNN across all
-+ * platforms. It wraps LiteRT (TFLite successor) and provides:
-+ * - CPU inference via XNNPACK delegate
-+ * - GPU inference via platform GPU delegates (DirectX, Metal, OpenCL)
-+ * - LLM orchestration via Engine/Conversation API
-+ *
-+ * This single implementation serves Windows, macOS, Linux, Android, and iOS.
++ * The context owns a BuiltinOpResolver shared across all graphs, a GPU
++ * preference flag, and a FIFO work-queue thread that serialises
++ * dispatch() / readTensor() calls for timeline ordering.
 + */
 +
 +#pragma once
@@ -23,6 +58,19 @@ index 00000000000..a1b2c3d4e5f
 +#include "WebNNContextImpl.h"
 +#include "MLContextOptions.h"
 +#include <memory>
++#include <thread>
++#include <mutex>
++#include <condition_variable>
++#include <queue>
++#include <functional>
++
++namespace tflite {
++namespace ops {
++namespace builtin {
++class BuiltinOpResolver;
++}
++}
++}
 +
 +namespace WebCore {
 +namespace WebNN {
@@ -36,6 +84,11 @@ index 00000000000..a1b2c3d4e5f
 +    ~LiteRTContext() override;
 +
 +    MLDevicePreference devicePreference() const override { return m_device; }
++    bool useGPU() const { return m_useGPU; }
++    tflite::ops::builtin::BuiltinOpResolver* opResolver() const
++    {
++        return m_opResolver.get();
++    }
 +
 +    RefPtr<MLTensor> createTensor(MLTensorDescriptor&&) override;
 +    void writeTensor(MLTensor&, const void* data, size_t byteLength) override;
@@ -54,14 +107,20 @@ index 00000000000..a1b2c3d4e5f
 +    explicit LiteRTContext(MLDevicePreference);
 +    bool initialize();
 +
++    void workerThreadFunc();
++    void postWork(std::function<void()>&&);
++
 +    MLDevicePreference m_device { MLDevicePreference::CPU };
 +    bool m_initialized { false };
++    bool m_useGPU { false };
 +
-+    // LiteRT interpreter for op-level graph execution
-+    // std::unique_ptr<tflite::Interpreter> m_interpreter;
++    std::unique_ptr<tflite::ops::builtin::BuiltinOpResolver> m_opResolver;
 +
-+    // LiteRT-LM engine for model-level LLM inference
-+    // std::unique_ptr<litert::lm::Engine> m_engine;
++    std::thread m_workerThread;
++    std::mutex m_queueMutex;
++    std::condition_variable m_queueCV;
++    std::queue<std::function<void()>> m_workQueue;
++    bool m_shutDown { false };
 +};
 +
 +} // namespace WebNN
@@ -73,9 +132,9 @@ new file mode 100644
 index 00000000000..b2c3d4e5f6a
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTContext.cpp
-@@ -0,0 +1,128 @@
+@@ -0,0 +1,188 @@
 +/*
-+ * WebNN context backed by LiteRT-LM.
++ * WebNN context backed by LiteRT.
 + */
 +
 +#include "config.h"
@@ -86,12 +145,12 @@ index 00000000000..b2c3d4e5f6a
 +#include "WebNNLiteRTGraph.h"
 +#include "MLTensor.h"
 +#include "MLOperand.h"
++#include <tensorflow/lite/kernels/register.h>
++#include <future>
 +
 +namespace WebCore {
 +namespace WebNN {
 +
-+// Tensor subclass backed by CPU buffer (XNNPACK path)
-+// GPU-backed tensors will use delegate-managed memory
 +class LiteRTTensor final : public MLTensor {
 +public:
 +    static Ref<LiteRTTensor> create(MLTensorDescriptor&& desc, size_t byteLength)
@@ -102,6 +161,10 @@ index 00000000000..b2c3d4e5f6a
 +    void* data() { return m_buffer.data(); }
 +    const void* data() const { return m_buffer.data(); }
 +    size_t byteLength() const { return m_buffer.size(); }
++    void* backendHandle() const override
++    {
++        return const_cast<uint8_t*>(m_buffer.data());
++    }
 +
 +private:
 +    LiteRTTensor(MLTensorDescriptor&& desc, size_t byteLength)
@@ -128,39 +191,64 @@ index 00000000000..b2c3d4e5f6a
 +{
 +}
 +
-+LiteRTContext::~LiteRTContext() = default;
++LiteRTContext::~LiteRTContext()
++{
++    {
++        std::lock_guard<std::mutex> lock(m_queueMutex);
++        m_shutDown = true;
++    }
++    m_queueCV.notify_one();
++    if (m_workerThread.joinable())
++        m_workerThread.join();
++}
 +
 +bool LiteRTContext::initialize()
 +{
-+    // Milestone 1: Verify LiteRT-LM library is loadable.
-+    //
-+    // Full initialization will:
-+    // 1. Load LiteRT shared library (or verify static link)
-+    // 2. Create TFLite ErrorReporter
-+    // 3. Configure XNNPACK delegate for CPU backend
-+    // 4. If GPU requested: load platform GPU delegate
-+    //    - Windows: DirectX via ML Drift
-+    //    - macOS/iOS: Metal
-+    //    - Linux: OpenCL
-+    //    - Android: OpenCL or NNAPI
-+    // 5. For LLM mode: initialize LiteRT-LM Engine
++    m_opResolver = std::make_unique<tflite::ops::builtin::BuiltinOpResolver>();
++
++    if (m_device == MLDevicePreference::GPU)
++        m_useGPU = true;
++
++    m_workerThread = std::thread([this] { workerThreadFunc(); });
 +
 +    m_initialized = true;
 +    return true;
 +}
 +
++void LiteRTContext::workerThreadFunc()
++{
++    while (true) {
++        std::function<void()> work;
++        {
++            std::unique_lock<std::mutex> lock(m_queueMutex);
++            m_queueCV.wait(lock, [this] {
++                return m_shutDown || !m_workQueue.empty();
++            });
++            if (m_shutDown && m_workQueue.empty())
++                return;
++            work = std::move(m_workQueue.front());
++            m_workQueue.pop();
++        }
++        work();
++    }
++}
++
++void LiteRTContext::postWork(std::function<void()>&& work)
++{
++    {
++        std::lock_guard<std::mutex> lock(m_queueMutex);
++        m_workQueue.push(std::move(work));
++    }
++    m_queueCV.notify_one();
++}
++
 +static size_t bytesPerElement(const String& dataType)
 +{
-+    if (dataType == "float32"_s)
-+        return 4;
-+    if (dataType == "float16"_s)
-+        return 2;
-+    if (dataType == "int32"_s || dataType == "uint32"_s)
-+        return 4;
-+    if (dataType == "int8"_s || dataType == "uint8"_s)
-+        return 1;
-+    if (dataType == "int64"_s)
-+        return 8;
++    if (dataType == "float32"_s) return 4;
++    if (dataType == "float16"_s) return 2;
++    if (dataType == "int32"_s || dataType == "uint32"_s) return 4;
++    if (dataType == "int8"_s || dataType == "uint8"_s) return 1;
++    if (dataType == "int64"_s) return 8;
 +    return 4;
 +}
 +
@@ -191,10 +279,17 @@ index 00000000000..b2c3d4e5f6a
 +    MLTensor& tensor,
 +    std::function<void(RefPtr<ArrayBuffer>)>&& callback)
 +{
-+    auto& lrtTensor = static_cast<LiteRTTensor&>(tensor);
-+    auto buffer = ArrayBuffer::tryCreate(lrtTensor.data(),
-+                                          lrtTensor.byteLength());
-+    callback(WTFMove(buffer));
++    auto promise = std::make_shared<std::promise<RefPtr<ArrayBuffer>>>();
++    auto future = promise->get_future();
++
++    postWork([&tensor, p = std::move(promise)]() {
++        auto& lrtTensor = static_cast<LiteRTTensor&>(tensor);
++        auto buffer = ArrayBuffer::tryCreate(lrtTensor.data(),
++                                              lrtTensor.byteLength());
++        p->set_value(WTFMove(buffer));
++    });
++
++    callback(future.get());
 +}
 +
 +void LiteRTContext::dispatch(
@@ -203,9 +298,17 @@ index 00000000000..b2c3d4e5f6a
 +    HashMap<String, RefPtr<MLTensor>>& outputs,
 +    std::function<void(bool)>&& callback)
 +{
++    auto inputsCopy = inputs;
++    auto outputsCopy = outputs;
 +    auto& lrtGraph = static_cast<LiteRTGraph&>(graph);
-+    bool success = lrtGraph.run(this, inputs, outputs);
-+    callback(success);
++
++    postWork([this, &lrtGraph,
++              ins = WTFMove(inputsCopy),
++              outs = WTFMove(outputsCopy),
++              cb = WTFMove(callback)]() mutable {
++        bool success = lrtGraph.run(this, ins, outs);
++        cb(success);
++    });
 +}
 +
 +std::unique_ptr<WebNNGraphImpl> LiteRTContext::buildGraph(
@@ -223,13 +326,14 @@ new file mode 100644
 index 00000000000..c3d4e5f6a7b
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTGraph.h
-@@ -0,0 +1,55 @@
+@@ -0,0 +1,70 @@
 +/*
 + * WebNN compiled graph backed by a LiteRT interpreter.
 + *
-+ * The graph builder translates MLOperand operations to TFLite built-in ops.
-+ * build() creates a TFLite FlatBuffer model in memory and instantiates an
-+ * Interpreter. dispatch() calls Interpreter::Invoke().
++ * The graph builder translates an MLOperand DAG to a TFLite FlatBuffer model,
++ * instantiates a tflite::Interpreter with an appropriate delegate (XNNPACK for
++ * CPU, TfLiteGpuDelegateV2 for GPU), and exposes a run() method that copies
++ * tensor data in/out of the interpreter and calls Invoke().
 + */
 +
 +#pragma once
@@ -243,6 +347,14 @@ index 00000000000..c3d4e5f6a7b
 +#include <wtf/RefPtr.h>
 +#include <wtf/text/WTFString.h>
 +#include <memory>
++#include <vector>
++
++namespace tflite {
++class Interpreter;
++class FlatBufferModel;
++}
++
++struct TfLiteDelegate;
 +
 +namespace WebCore {
 +namespace WebNN {
@@ -267,9 +379,16 @@ index 00000000000..c3d4e5f6a7b
 +    bool buildFromOperands(LiteRTContext*,
 +                           HashMap<String, RefPtr<MLOperand>>& outputs);
 +
-+    // TFLite Interpreter (will hold compiled model)
-+    // std::unique_ptr<tflite::Interpreter> m_interpreter;
++    std::unique_ptr<tflite::FlatBufferModel> m_model;
++    std::unique_ptr<tflite::Interpreter> m_interpreter;
++    std::vector<uint8_t> m_modelBuffer;
 +
++    enum class DelegateKind : uint8_t { None, XNNPACK, GPU };
++    DelegateKind m_delegateKind { DelegateKind::None };
++    TfLiteDelegate* m_delegate { nullptr };
++
++    HashMap<String, int> m_inputTensorIndices;
++    HashMap<String, int> m_outputTensorIndices;
 +    Vector<String> m_inputNames;
 +    Vector<String> m_outputNames;
 +};
@@ -283,13 +402,17 @@ new file mode 100644
 index 00000000000..d4e5f6a7b8c
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTGraph.cpp
-@@ -0,0 +1,94 @@
+@@ -0,0 +1,476 @@
 +/*
 + * WebNN compiled graph backed by a LiteRT interpreter.
 + *
-+ * Milestone 1: lifecycle validation (build → dispatch → read).
-+ * Full implementation will translate MLOperand DAG to TFLite FlatBuffer
-+ * model and compile via tflite::Interpreter.
++ * buildFromOperands() walks the MLOperand DAG in topological order,
++ * serialises it as an in-memory TFLite FlatBuffer, instantiates an
++ * Interpreter with XNNPACK (CPU) or GPU delegate, and calls
++ * AllocateTensors().
++ *
++ * run() copies input tensors into the interpreter, calls Invoke(),
++ * and copies results back to output MLTensors.
 + */
 +
 +#include "config.h"
@@ -301,11 +424,196 @@ index 00000000000..d4e5f6a7b8c
 +#include "MLOperand.h"
 +#include "MLTensor.h"
 +
++#include <tensorflow/lite/interpreter.h>
++#include <tensorflow/lite/interpreter_builder.h>
++#include <tensorflow/lite/model_builder.h>
++#include <tensorflow/lite/kernels/register.h>
++#include <tensorflow/lite/delegates/xnnpack/xnnpack_delegate.h>
++#include <tensorflow/lite/schema/schema_generated.h>
++#include <tensorflow/lite/c/common.h>
++
++#if HAVE(LITERT_GPU_DELEGATE)
++#include <tensorflow/lite/delegates/gpu/delegate.h>
++#endif
++
++#include <flatbuffers/flatbuffers.h>
++#include <wtf/HashSet.h>
++#include <wtf/text/CString.h>
++
 +namespace WebCore {
 +namespace WebNN {
 +
++namespace {
++
++tflite::TensorType mapDataType(const String& dataType)
++{
++    if (dataType == "float32"_s) return tflite::TensorType_FLOAT32;
++    if (dataType == "float16"_s) return tflite::TensorType_FLOAT16;
++    if (dataType == "int32"_s)   return tflite::TensorType_INT32;
++    if (dataType == "int8"_s)    return tflite::TensorType_INT8;
++    if (dataType == "uint8"_s)   return tflite::TensorType_UINT8;
++    if (dataType == "int64"_s)   return tflite::TensorType_INT64;
++    return tflite::TensorType_FLOAT32;
++}
++
++tflite::BuiltinOperator mapOperationType(const String& opType)
++{
++    if (opType == "add"_s)           return tflite::BuiltinOperator_ADD;
++    if (opType == "sub"_s)           return tflite::BuiltinOperator_SUB;
++    if (opType == "mul"_s)           return tflite::BuiltinOperator_MUL;
++    if (opType == "div"_s)           return tflite::BuiltinOperator_DIV;
++    if (opType == "relu"_s)          return tflite::BuiltinOperator_RELU;
++    if (opType == "sigmoid"_s)       return tflite::BuiltinOperator_LOGISTIC;
++    if (opType == "tanh"_s)          return tflite::BuiltinOperator_TANH;
++    if (opType == "softmax"_s)       return tflite::BuiltinOperator_SOFTMAX;
++    if (opType == "matmul"_s)        return tflite::BuiltinOperator_BATCH_MATMUL;
++    if (opType == "reshape"_s)       return tflite::BuiltinOperator_RESHAPE;
++    if (opType == "transpose"_s)     return tflite::BuiltinOperator_TRANSPOSE;
++    if (opType == "concat"_s)        return tflite::BuiltinOperator_CONCATENATION;
++    if (opType == "averagePool2d"_s) return tflite::BuiltinOperator_AVERAGE_POOL_2D;
++    if (opType == "maxPool2d"_s)     return tflite::BuiltinOperator_MAX_POOL_2D;
++    if (opType == "conv2d"_s)        return tflite::BuiltinOperator_CONV_2D;
++    if (opType == "gelu"_s)          return tflite::BuiltinOperator_GELU;
++    return tflite::BuiltinOperator_CUSTOM;
++}
++
++void collectOperandsTopological(MLOperand* operand,
++                                 HashSet<MLOperand*>& visited,
++                                 Vector<RefPtr<MLOperand>>& sorted)
++{
++    if (!operand || visited.contains(operand))
++        return;
++    visited.add(operand);
++
++    if (operand->kind() == MLOperand::Kind::Output) {
++        for (auto& input : operand->inputOperands())
++            collectOperandsTopological(input.get(), visited, sorted);
++    }
++    sorted.append(operand);
++}
++
++struct OperatorRecord {
++    tflite::BuiltinOperator builtinOp;
++    Vector<int32_t> inputIndices;
++    int32_t outputIndex;
++    const MLOperand* outputOperand;
++};
++
++void createBuiltinOptions(flatbuffers::FlatBufferBuilder& fbb,
++                           tflite::BuiltinOperator op,
++                           const MLOperand* operand,
++                           tflite::BuiltinOptions& outType,
++                           flatbuffers::Offset<void>& outOffset)
++{
++    using namespace tflite;
++    switch (op) {
++    case BuiltinOperator_ADD:
++        outType = BuiltinOptions_AddOptions;
++        outOffset = CreateAddOptions(fbb,
++            ActivationFunctionType_NONE).Union();
++        return;
++    case BuiltinOperator_SUB:
++        outType = BuiltinOptions_SubOptions;
++        outOffset = CreateSubOptions(fbb,
++            ActivationFunctionType_NONE).Union();
++        return;
++    case BuiltinOperator_MUL:
++        outType = BuiltinOptions_MulOptions;
++        outOffset = CreateMulOptions(fbb,
++            ActivationFunctionType_NONE).Union();
++        return;
++    case BuiltinOperator_DIV:
++        outType = BuiltinOptions_DivOptions;
++        outOffset = CreateDivOptions(fbb,
++            ActivationFunctionType_NONE).Union();
++        return;
++    case BuiltinOperator_SOFTMAX:
++        outType = BuiltinOptions_SoftmaxOptions;
++        outOffset = CreateSoftmaxOptions(fbb, 1.0f).Union();
++        return;
++    case BuiltinOperator_RESHAPE: {
++        Vector<int32_t> dims;
++        for (auto d : operand->shape())
++            dims.append(static_cast<int32_t>(d));
++        auto shapeVec = fbb.CreateVector(
++            dims.data(), dims.size());
++        outType = BuiltinOptions_ReshapeOptions;
++        outOffset = CreateReshapeOptions(fbb, shapeVec).Union();
++        return;
++    }
++    case BuiltinOperator_CONCATENATION:
++        outType = BuiltinOptions_ConcatenationOptions;
++        outOffset = CreateConcatenationOptions(
++            fbb, 0, ActivationFunctionType_NONE).Union();
++        return;
++    case BuiltinOperator_CONV_2D:
++        outType = BuiltinOptions_Conv2DOptions;
++        outOffset = CreateConv2DOptions(
++            fbb, Padding_SAME, 1, 1,
++            ActivationFunctionType_NONE, 1, 1).Union();
++        return;
++    case BuiltinOperator_AVERAGE_POOL_2D:
++    case BuiltinOperator_MAX_POOL_2D:
++        outType = BuiltinOptions_Pool2DOptions;
++        outOffset = CreatePool2DOptions(
++            fbb, Padding_SAME, 1, 1, 1, 1,
++            ActivationFunctionType_NONE).Union();
++        return;
++    case BuiltinOperator_BATCH_MATMUL:
++        outType = BuiltinOptions_BatchMatMulOptions;
++        outOffset = CreateBatchMatMulOptions(
++            fbb, false, false).Union();
++        return;
++    default:
++        outType = BuiltinOptions_NONE;
++        outOffset = 0;
++        return;
++    }
++}
++
++size_t bytesPerElement(const String& dataType)
++{
++    if (dataType == "float32"_s) return 4;
++    if (dataType == "float16"_s) return 2;
++    if (dataType == "int32"_s || dataType == "uint32"_s) return 4;
++    if (dataType == "int8"_s || dataType == "uint8"_s) return 1;
++    if (dataType == "int64"_s) return 8;
++    return 4;
++}
++
++size_t computeTensorByteLength(const String& dataType,
++                                const Vector<unsigned>& shape)
++{
++    size_t elements = 1;
++    for (auto dim : shape)
++        elements *= dim;
++    return elements * bytesPerElement(dataType);
++}
++
++} // anonymous namespace
++
 +LiteRTGraph::LiteRTGraph() = default;
-+LiteRTGraph::~LiteRTGraph() = default;
++
++LiteRTGraph::~LiteRTGraph()
++{
++    m_interpreter.reset();
++    m_model.reset();
++
++    if (m_delegate) {
++        switch (m_delegateKind) {
++        case DelegateKind::XNNPACK:
++            TfLiteXNNPackDelegateDelete(m_delegate);
++            break;
++        case DelegateKind::GPU:
++#if HAVE(LITERT_GPU_DELEGATE)
++            TfLiteGpuDelegateV2Delete(m_delegate);
++#endif
++            break;
++        case DelegateKind::None:
++            break;
++        }
++    }
++}
 +
 +std::unique_ptr<LiteRTGraph> LiteRTGraph::create(
 +    LiteRTContext* context,
@@ -321,63 +629,287 @@ index 00000000000..d4e5f6a7b8c
 +    LiteRTContext* context,
 +    HashMap<String, RefPtr<MLOperand>>& outputs)
 +{
-+    if (!context)
++    if (!context || !context->opResolver())
 +        return false;
 +
++    // Step 1: walk the MLOperand DAG from outputs back to inputs,
++    // producing a topologically-sorted list (inputs first).
++    HashSet<MLOperand*> visited;
++    Vector<RefPtr<MLOperand>> sorted;
 +    for (auto& [name, operand] : outputs) {
 +        if (operand)
-+            m_outputNames.append(name);
++            collectOperandsTopological(operand.get(), visited, sorted);
 +    }
 +
-+    // Full implementation will:
-+    //
-+    // 1. Walk the MLOperand DAG from outputs back to inputs.
-+    //
-+    // 2. Translate each MLOperand operation to a TFLite built-in op:
-+    //    - add → kTfLiteBuiltinAdd
-+    //    - mul → kTfLiteBuiltinMul
-+    //    - relu → kTfLiteBuiltinRelu
-+    //    - conv2d → kTfLiteBuiltinConv2d
-+    //    - matmul → kTfLiteBuiltinBatchMatmul
-+    //    - softmax → kTfLiteBuiltinSoftmax
-+    //    - gelu → kTfLiteBuiltinGelu
-+    //    etc. (see DESIGN.md op mapping table)
-+    //
-+    // 3. Serialize the graph as a TFLite FlatBuffer model in memory.
-+    //
-+    // 4. Create a tflite::Interpreter from the in-memory model.
-+    //
-+    // 5. Configure XNNPACK delegate (CPU) or GPU delegate based on
-+    //    context's device preference.
-+    //
-+    // 6. Call m_interpreter->AllocateTensors().
-
++    // Step 2: assign a unique FlatBuffer tensor index to every operand.
++    HashMap<MLOperand*, int32_t> tensorIndexMap;
++    int32_t nextIdx = 0;
++    for (auto& operand : sorted)
++        tensorIndexMap.set(operand.get(), nextIdx++);
++
++    // Step 3: classify operands into graph inputs, constants, and
++    // operation outputs; build OperatorRecords for each op.
++    Vector<int32_t> graphInputIndices;
++    Vector<int32_t> graphOutputIndices;
++    Vector<OperatorRecord> opRecords;
++
++    for (auto& operand : sorted) {
++        switch (operand->kind()) {
++        case MLOperand::Kind::Input:
++            m_inputNames.append(operand->name());
++            graphInputIndices.append(
++                tensorIndexMap.get(operand.get()));
++            break;
++        case MLOperand::Kind::Constant:
++            break;
++        case MLOperand::Kind::Output: {
++            auto builtinOp = mapOperationType(
++                operand->operationType());
++            if (builtinOp == tflite::BuiltinOperator_CUSTOM)
++                return false;
++
++            OperatorRecord rec;
++            rec.builtinOp = builtinOp;
++            rec.outputIndex = tensorIndexMap.get(operand.get());
++            rec.outputOperand = operand.get();
++            for (auto& input : operand->inputOperands()) {
++                auto it = tensorIndexMap.find(input.get());
++                if (it == tensorIndexMap.end())
++                    return false;
++                rec.inputIndices.append(it->value);
++            }
++            opRecords.append(WTFMove(rec));
++            break;
++        }
++        }
++    }
++
++    for (auto& [name, operand] : outputs) {
++        m_outputNames.append(name);
++        graphOutputIndices.append(
++            tensorIndexMap.get(operand.get()));
++    }
++
++    // Step 4: serialise the graph as a TFLite FlatBuffer in memory.
++    flatbuffers::FlatBufferBuilder fbb(4096);
++
++    // Buffer 0 is always empty per TFLite convention.
++    std::vector<flatbuffers::Offset<tflite::Buffer>> buffers;
++    buffers.push_back(tflite::CreateBuffer(fbb));
++
++    // 4a. Tensors
++    std::vector<flatbuffers::Offset<tflite::Tensor>> tensors;
++    for (auto& operand : sorted) {
++        Vector<int32_t> shape;
++        for (auto dim : operand->shape())
++            shape.append(static_cast<int32_t>(dim));
++        auto shapeFB = fbb.CreateVector(
++            shape.data(), shape.size());
++
++        CString nameUTF8 = operand->name().utf8();
++        auto nameFB = fbb.CreateString(
++            nameUTF8.data(), nameUTF8.length());
++
++        uint32_t bufferIdx = 0;
++        if (operand->kind() == MLOperand::Kind::Constant
++            && operand->constantData()) {
++            auto dataFB = fbb.CreateVector(
++                static_cast<const uint8_t*>(
++                    operand->constantData()),
++                operand->constantByteLength());
++            buffers.push_back(
++                tflite::CreateBuffer(fbb, dataFB));
++            bufferIdx = static_cast<uint32_t>(
++                buffers.size() - 1);
++        }
++
++        tensors.push_back(tflite::CreateTensor(
++            fbb, shapeFB,
++            mapDataType(operand->dataType()),
++            bufferIdx, nameFB));
++    }
++
++    // 4b. Operator codes (deduplicated)
++    HashMap<int, uint32_t> opCodeIndexMap;
++    std::vector<flatbuffers::Offset<tflite::OperatorCode>>
++        opCodes;
++    for (auto& rec : opRecords) {
++        int key = static_cast<int>(rec.builtinOp);
++        if (!opCodeIndexMap.contains(key)) {
++            opCodeIndexMap.set(key,
++                static_cast<uint32_t>(opCodes.size()));
++            opCodes.push_back(tflite::CreateOperatorCode(
++                fbb, 0, 0, 1, rec.builtinOp));
++        }
++    }
++
++    // 4c. Operators
++    std::vector<flatbuffers::Offset<tflite::Operator>> operators;
++    for (auto& rec : opRecords) {
++        uint32_t ocIdx = opCodeIndexMap.get(
++            static_cast<int>(rec.builtinOp));
++        auto inFB = fbb.CreateVector(
++            rec.inputIndices.data(),
++            rec.inputIndices.size());
++        std::vector<int32_t> outVec = { rec.outputIndex };
++        auto outFB = fbb.CreateVector(outVec);
++
++        tflite::BuiltinOptions optType;
++        flatbuffers::Offset<void> optOff;
++        createBuiltinOptions(fbb, rec.builtinOp,
++            rec.outputOperand, optType, optOff);
++
++        operators.push_back(tflite::CreateOperator(
++            fbb, ocIdx, inFB, outFB, optType, optOff));
++    }
++
++    // 4d. SubGraph
++    auto tensorsFB  = fbb.CreateVector(tensors);
++    auto gInputsFB  = fbb.CreateVector(
++        graphInputIndices.data(),
++        graphInputIndices.size());
++    auto gOutputsFB = fbb.CreateVector(
++        graphOutputIndices.data(),
++        graphOutputIndices.size());
++    auto opersFB    = fbb.CreateVector(operators);
++    auto gName      = fbb.CreateString("main");
++    auto subGraph   = tflite::CreateSubGraph(
++        fbb, tensorsFB, gInputsFB, gOutputsFB,
++        opersFB, gName);
++
++    // 4e. Model
++    auto opCodesFB = fbb.CreateVector(opCodes);
++    std::vector<flatbuffers::Offset<tflite::SubGraph>>
++        subs = { subGraph };
++    auto subsFB = fbb.CreateVector(subs);
++    auto desc   = fbb.CreateString("WebNN LiteRT graph");
++    auto bufsFB = fbb.CreateVector(buffers);
++    auto model  = tflite::CreateModel(
++        fbb, TFLITE_SCHEMA_VERSION,
++        opCodesFB, subsFB, desc, bufsFB);
++    fbb.Finish(model);
++
++    // Step 5: build interpreter from the in-memory FlatBuffer.
++    m_modelBuffer.assign(
++        fbb.GetBufferPointer(),
++        fbb.GetBufferPointer() + fbb.GetSize());
++
++    m_model = tflite::FlatBufferModel::BuildFromBuffer(
++        reinterpret_cast<const char*>(m_modelBuffer.data()),
++        m_modelBuffer.size());
++    if (!m_model)
++        return false;
++
++    tflite::InterpreterBuilder builder(
++        *m_model, *context->opResolver());
++    if (builder(&m_interpreter) != kTfLiteOk
++        || !m_interpreter)
++        return false;
++
++    // Step 6: attach delegate — try GPU first if requested,
++    // fall back silently to XNNPACK on failure.
++#if HAVE(LITERT_GPU_DELEGATE)
++    if (context->useGPU()) {
++        TfLiteGpuDelegateOptionsV2 gpuOpts =
++            TfLiteGpuDelegateOptionsV2Default();
++        TfLiteDelegate* gpu =
++            TfLiteGpuDelegateV2Create(&gpuOpts);
++        if (gpu) {
++            if (m_interpreter->ModifyGraphWithDelegate(gpu)
++                == kTfLiteOk) {
++                m_delegate = gpu;
++                m_delegateKind = DelegateKind::GPU;
++            } else {
++                TfLiteGpuDelegateV2Delete(gpu);
++            }
++        }
++    }
++#endif
++
++    if (!m_delegate) {
++        TfLiteXNNPackDelegateOptions xnnOpts =
++            TfLiteXNNPackDelegateOptionsDefault();
++        m_delegate = TfLiteXNNPackDelegateCreate(&xnnOpts);
++        if (m_delegate) {
++            m_interpreter->ModifyGraphWithDelegate(m_delegate);
++            m_delegateKind = DelegateKind::XNNPACK;
++        }
++    }
++
++    if (m_interpreter->AllocateTensors() != kTfLiteOk)
++        return false;
++
++    // Step 7: build name-to-interpreter-tensor-index maps so
++    // run() can locate tensors by binding name in O(1).
++    const auto& interpInputs = m_interpreter->inputs();
++    for (size_t i = 0; i < m_inputNames.size()
++                     && i < interpInputs.size(); ++i)
++        m_inputTensorIndices.set(
++            m_inputNames[i], interpInputs[i]);
++
++    const auto& interpOutputs = m_interpreter->outputs();
++    for (size_t i = 0; i < m_outputNames.size()
++                     && i < interpOutputs.size(); ++i)
++        m_outputTensorIndices.set(
++            m_outputNames[i], interpOutputs[i]);
++
 +    return true;
 +}
 +
 +bool LiteRTGraph::run(
-+    LiteRTContext* context,
++    LiteRTContext*,
 +    HashMap<String, RefPtr<MLTensor>>& inputs,
 +    HashMap<String, RefPtr<MLTensor>>& outputs)
 +{
-+    if (!context)
++    if (!m_interpreter)
 +        return false;
 +
-+    // Full implementation will:
-+    //
-+    // 1. Bind input MLTensors to interpreter input buffers:
-+    //    auto* input = m_interpreter->typed_input_tensor<float>(idx);
-+    //    memcpy(input, tensor->data(), tensor->byteLength());
-+    //
-+    // 2. Call m_interpreter->Invoke()
-+    //
-+    // 3. Copy output data from interpreter to output MLTensors:
-+    //    auto* output = m_interpreter->typed_output_tensor<float>(idx);
-+    //    memcpy(tensor->data(), output, tensor->byteLength());
-+    //
-+    // For GPU delegate: tensor data may already be on device;
-+    // use delegate-specific buffer sharing instead of memcpy.
-
++    // Copy input MLTensor data into interpreter input buffers.
++    for (auto& [name, tensor] : inputs) {
++        auto it = m_inputTensorIndices.find(name);
++        if (it == m_inputTensorIndices.end())
++            return false;
++
++        TfLiteTensor* tfl = m_interpreter->tensor(it->value);
++        if (!tfl || !tfl->data.raw)
++            return false;
++
++        void* src = tensor->backendHandle();
++        if (!src)
++            return false;
++
++        size_t srcBytes = computeTensorByteLength(
++            tensor->dataType(), tensor->shape());
++        size_t copyLen = std::min(
++            srcBytes, static_cast<size_t>(tfl->bytes));
++        memcpy(tfl->data.raw, src, copyLen);
++    }
++
++    if (m_interpreter->Invoke() != kTfLiteOk)
++        return false;
++
++    // Copy interpreter output buffers into output MLTensors.
++    for (auto& [name, tensor] : outputs) {
++        auto it = m_outputTensorIndices.find(name);
++        if (it == m_outputTensorIndices.end())
++            return false;
++
++        const TfLiteTensor* tfl =
++            m_interpreter->tensor(it->value);
++        if (!tfl || !tfl->data.raw)
++            return false;
++
++        void* dst = tensor->backendHandle();
++        if (!dst)
++            return false;
++
++        size_t dstBytes = computeTensorByteLength(
++            tensor->dataType(), tensor->shape());
++        size_t copyLen = std::min(
++            dstBytes, static_cast<size_t>(tfl->bytes));
++        memcpy(dst, tfl->data.raw, copyLen);
++    }
++
 +    return true;
 +}
 +
