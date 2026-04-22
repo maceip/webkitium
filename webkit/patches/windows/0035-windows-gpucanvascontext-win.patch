@@ -3,7 +3,7 @@ new file mode 100644
 index 0000000..6006fdd
 --- /dev/null
 +++ b/Source/WebCore/html/canvas/GPUCanvasContextWin.cpp
-@@ -0,0 +1,119 @@
+@@ -0,0 +1,131 @@
 +/*
 + * Copyright (C) 2026 The WebKit Authors. All rights reserved.
 + */
@@ -21,6 +21,7 @@ index 0000000..6006fdd
 +#include "GPUPresentationContext.h"
 +#include "GPUTexture.h"
 +#include "HTMLCanvasElement.h"
++#include <wtf/StdLibExtras.h>
 +#include <wtf/TZoneMallocInlines.h>
 +
 +namespace WebCore {
@@ -81,6 +82,17 @@ index 0000000..6006fdd
 +    m_configuration.reset();
 +}
 +
++void GPUCanvasContextWin::didUpdateCanvasSizeProperties(bool sizeChanged)
++{
++    if (!sizeChanged)
++        return;
++    if (RefPtr c = htmlCanvas()) {
++        m_width  = std::max<uint32_t>(1, c->width());
++        m_height = std::max<uint32_t>(1, c->height());
++        m_dirty = true;
++    }
++}
++
 +std::optional<GPUCanvasConfiguration> GPUCanvasContextWin::getConfiguration() const
 +{
 +    return m_configuration;
@@ -128,7 +140,7 @@ new file mode 100644
 index 0000000..57e1ca4
 --- /dev/null
 +++ b/Source/WebCore/html/canvas/GPUCanvasContextWin.h
-@@ -0,0 +1,62 @@
+@@ -0,0 +1,63 @@
 +/*
 + * Copyright (C) 2026 The WebKit Authors. All rights reserved.
 + */
@@ -169,6 +181,7 @@ index 0000000..57e1ca4
 +    void unconfigure() override;
 +    std::optional<GPUCanvasConfiguration> getConfiguration() const override;
 +    ExceptionOr<Ref<GPUTexture>> getCurrentTexture() override;
++    void didUpdateCanvasSizeProperties(bool) override;
 +
 +    void setHostHWND(HWND, uint32_t width, uint32_t height);
 +
