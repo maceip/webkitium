@@ -147,7 +147,7 @@ jobs:
           Remove-Item -LiteralPath $empty -Force -Recurse -ErrorAction SilentlyContinue
           $sw.Stop()
           $after = (Get-PSDrive C).Free
-          Write-Host ("After : {0:N1} GB free — reclaimed {1:N1} GB in {2:N1}s" -f ($after/1GB), (($after-$before)/1GB), $sw.Elapsed.TotalSeconds)
+          Write-Host ("After : {0:N1} GB free - reclaimed {1:N1} GB in {2:N1}s" -f ($after/1GB), (($after-$before)/1GB), $sw.Elapsed.TotalSeconds)
 
           if ($sw.Elapsed -gt $budget) {
             Write-Host "::warning::Cleanup exceeded $($budget.TotalMinutes) min budget"
@@ -184,7 +184,7 @@ jobs:
           # Verify tarball integrity
           echo "Verifying tarball..."
           tar -tzf "$ARCHIVE" > /dev/null
-          echo "Tarball OK — $(du -h "$ARCHIVE" | cut -f1)"
+          echo "Tarball OK - $(du -h "$ARCHIVE" | cut -f1)"
 
           # Extract and clean up
           tar -xzf "$ARCHIVE" --strip-components=1 -C "$SRC"
