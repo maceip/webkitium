@@ -172,8 +172,11 @@ jobs:
 
           set "SRC=C:\W\webkit-src"
           REM Strawberry Perl ships its own ccache + GCC in C:\Strawberry\c\bin
-          REM which confuses CMake into using GCC ABI flags. Strip it from PATH.
+          REM which confuses CMake into using GCC ABI flags. Strip it from PATH
+          REM and clear CC/CXX so build-webkit uses its own clang-cl detection.
           set "PATH=%PATH:C:\Strawberry\c\bin;=%"
+          set "CC="
+          set "CXX="
           set "PATH=C:\Bootstrap\toolbin;C:\Program Files\Git\cmd;C:\Ruby34-x64\bin;C:\Python314;C:\Python314\Scripts;C:\Program Files\LLVM\bin;C:\Program Files\CMake\bin;C:\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja;C:\Strawberry\perl\bin;%PATH%"
           set "VCPKG_ROOT=C:\vcpkg"
           set "SCCACHE_DIR=C:\Bootstrap\sccache-gh\windows-webgpu-dawn"
