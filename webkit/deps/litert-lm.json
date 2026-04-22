@@ -29,26 +29,82 @@
     }
   },
   "platforms": {
-    "windows": {
+    "windows_x86_64": {
       "build_config": "--config=windows",
-      "gpu_prebuilt": "prebuilt/windows_x64/",
       "gpu_requires": "DirectXShaderCompiler",
-      "toolchain": "VS 2022 MSVC"
+      "toolchain": "VS 2022 MSVC",
+      "prebuilt_libs": [
+        "libLiteRt.dll",
+        "libLiteRtWebGpuAccelerator.dll",
+        "libLiteRtTopKWebGpuSampler.dll",
+        "libGemmaModelConstraintProvider.dll"
+      ]
     },
-    "macos": {
+    "macos_arm64": {
       "build_config": "default (Xcode clang)",
-      "gpu_prebuilt": "prebuilt/macos_arm64/",
-      "toolchain": "xcode-select --install"
+      "toolchain": "xcode-select --install",
+      "prebuilt_libs": [
+        "libLiteRt.dylib",
+        "libLiteRtMetalAccelerator.dylib",
+        "libLiteRtWebGpuAccelerator.dylib",
+        "libLiteRtTopKWebGpuSampler.dylib",
+        "libGemmaModelConstraintProvider.dylib"
+      ]
     },
-    "linux": {
+    "linux_x86_64": {
       "build_config": "default (system clang)",
-      "gpu_prebuilt": "prebuilt/linux_x64/"
+      "prebuilt_libs": [
+        "libLiteRt.so",
+        "libLiteRtWebGpuAccelerator.so",
+        "libLiteRtTopKWebGpuSampler.so",
+        "libGemmaModelConstraintProvider.so"
+      ]
     },
-    "android": {
+    "linux_arm64": {
+      "build_config": "default (system clang, aarch64)",
+      "prebuilt_libs": [
+        "libLiteRt.so",
+        "libLiteRtWebGpuAccelerator.so",
+        "libLiteRtTopKWebGpuSampler.so",
+        "libGemmaModelConstraintProvider.so"
+      ]
+    },
+    "android_arm64": {
       "build_config": "--config=android_arm64",
-      "gpu_prebuilt": "prebuilt/android_arm64/",
-      "toolchain": "NDK r28b+"
+      "toolchain": "NDK r28b+",
+      "prebuilt_libs": [
+        "libLiteRtGpuAccelerator.so",
+        "libLiteRtOpenClAccelerator.so",
+        "libLiteRtTopKOpenClSampler.so",
+        "libLiteRtWebGpuAccelerator.so",
+        "libLiteRtTopKWebGpuSampler.so",
+        "libGemmaModelConstraintProvider.so"
+      ]
+    },
+    "android_x86_64": {
+      "build_config": "--config=android_x86_64",
+      "toolchain": "NDK r28b+",
+      "prebuilt_libs": [
+        "libLiteRtGpuAccelerator.so",
+        "libLiteRtOpenClAccelerator.so",
+        "libLiteRtTopKOpenClSampler.so",
+        "libLiteRtWebGpuAccelerator.so",
+        "libLiteRtTopKWebGpuSampler.so",
+        "libGemmaModelConstraintProvider.so"
+      ]
+    },
+    "ios_arm64": {
+      "build_config": "iOS device",
+      "prebuilt_libs": [
+        "libGemmaModelConstraintProvider.dylib"
+      ]
     }
+  },
+  "prebuilt_gpu_accelerators": {
+    "android": "libLiteRtGpuAccelerator.so + libLiteRtOpenClAccelerator.so (native OpenCL/GPU, no WebGPU needed)",
+    "macos": "libLiteRtMetalAccelerator.dylib (native Metal, no WebGPU needed)",
+    "windows": "libLiteRt.dll contains DirectX GPU path",
+    "linux": "CPU via XNNPACK (bundled in libLiteRt.so); WebGpuAccelerator available for Dawn-backed path"
   },
   "cpp_api": {
     "engine": "runtime/engine/engine.h",

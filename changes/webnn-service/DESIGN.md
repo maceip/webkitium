@@ -358,17 +358,28 @@ endif()
 | Git LFS | GPU prebuilt binaries | System install |
 | Bazel 7.6.1 | Source builds (optional) | System install |
 
-## Platform Build Notes
+## Prebuilt GPU Libraries
 
-| Platform | Build command | GPU libraries |
-|----------|--------------|---------------|
-| Windows | `bazel build --config=windows` | `prebuilt/windows_x64/*.dll` |
-| macOS | `bazel build` (Xcode clang) | `prebuilt/macos_arm64/*.dylib` |
-| Linux | `bazel build` (system clang) | `prebuilt/linux_x64/*.so` |
-| Android | `bazel build --config=android_arm64` | `prebuilt/android_arm64/*.so` |
+LiteRT-LM ships prebuilt native GPU accelerator binaries per platform in
+`prebuilt/<platform>/`. These use **native GPU APIs directly** (DirectX,
+Metal, OpenCL) — **no WebGPU is involved**. Copy them beside the browser
+binary at runtime.
 
-GPU prebuilt libraries must be placed beside the browser binary at runtime.
-Windows GPU requires DirectXShaderCompiler.
+| Platform | Key GPU libraries | Native API |
+|----------|------------------|------------|
+| Windows x86_64 | `libLiteRt.dll` | DirectX (GPU path built into core lib) |
+| macOS arm64 | `libLiteRtMetalAccelerator.dylib`, `libLiteRt.dylib` | Metal |
+| Linux x86_64 | `libLiteRt.so` | CPU (XNNPACK); OpenCL via WebGpuAccelerator for Dawn path |
+| Linux arm64 | `libLiteRt.so` | CPU (XNNPACK) |
+| Android arm64 | `libLiteRtGpuAccelerator.so`, `libLiteRtOpenClAccelerator.so` | OpenCL, native GPU |
+| Android x86_64 | `libLiteRtGpuAccelerator.so`, `libLiteRtOpenClAccelerator.so` | OpenCL, native GPU |
+| iOS arm64 | `libGemmaModelConstraintProvider.dylib` | Core ML (via LiteRT delegate) |
+
+All platforms also ship `libGemmaModelConstraintProvider` for constrained
+decoding with Gemma models.
+
+Git LFS is required to fetch the actual binaries (without LFS they are
+pointer files). Run `git lfs pull` after cloning.
 
 ## WebGPU Interop
 

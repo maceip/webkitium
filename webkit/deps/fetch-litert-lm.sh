@@ -66,19 +66,55 @@ done
 
 echo ""
 echo "Checking prebuilt GPU libraries..."
-for platform_dir in \
-    prebuilt/android_arm64 \
-    prebuilt/linux_x64 \
-    prebuilt/macos_arm64 \
-    prebuilt/windows_x64; do
-    if [ -d "${TARGET_DIR}/${platform_dir}" ]; then
-        echo "  OK: ${platform_dir}/"
+PREBUILT_PLATFORMS=(
+    "android_arm64:libLiteRtGpuAccelerator.so:libLiteRtOpenClAccelerator.so"
+    "android_x86_64:libLiteRtGpuAccelerator.so:libLiteRtOpenClAccelerator.so"
+    "linux_x86_64:libLiteRt.so"
+    "linux_arm64:libLiteRt.so"
+    "macos_arm64:libLiteRtMetalAccelerator.dylib:libLiteRt.dylib"
+    "windows_x86_64:libLiteRt.dll"
+)
+
+# Git LFS is needed for the prebuilt binaries
+if command -v git-lfs >/dev/null 2>&1 || git lfs version >/dev/null 2>&1; then
+    echo "  Git LFS available, pulling prebuilt binaries..."
+    (cd "${TARGET_DIR}" && git lfs pull) || echo "  WARNING: git lfs pull failed (binaries may be LFS pointers)"
+else
+    echo "  WARNING: Git LFS not installed. Prebuilt binaries will be LFS pointers."
+    echo "  Install Git LFS: https://git-lfs.com/"
+fi
+
+echo ""
+for entry in "${PREBUILT_PLATFORMS[@]}"; do
+    IFS=: read -r platform libs <<< "${entry}"
+    dir="${TARGET_DIR}/prebuilt/${platform}"
+    if [ -d "${dir}" ]; then
+        echo "  ${platform}/:"
+        IFS=: read -ra LIB_ARRAY <<< "${libs}"
+        for lib in "${LIB_ARRAY[@]}"; do
+            if [ -f "${dir}/${lib}" ]; then
+                size=$(stat -f%z "${dir}/${lib}" 2>/dev/null || stat -c%s "${dir}/${lib}" 2>/dev/null || echo "?")
+                if [ "${size}" -lt 1000 ] 2>/dev/null; then
+                    echo "    LFS POINTER: ${lib} (${size} bytes — run 'git lfs pull')"
+                else
+                    echo "    OK: ${lib} (${size} bytes)"
+                fi
+            else
+                echo "    MISSING: ${lib}"
+            fi
+        done
     else
-        echo "  NOT PRESENT: ${platform_dir}/ (GPU may need Git LFS)"
+        echo "  NOT PRESENT: prebuilt/${platform}/"
     fi
 done
 
 echo ""
 echo "=== LiteRT-LM ${LITERT_LM_VERSION} fetched successfully ==="
+echo ""
+echo "Prebuilt libraries to copy beside your browser binary:"
+echo "  Android: prebuilt/android_arm64/libLiteRtGpuAccelerator.so + libLiteRtOpenClAccelerator.so"
+echo "  macOS:   prebuilt/macos_arm64/libLiteRtMetalAccelerator.dylib + libLiteRt.dylib"
+echo "  Windows: prebuilt/windows_x86_64/libLiteRt.dll"
+echo "  Linux:   prebuilt/linux_x86_64/libLiteRt.so"
+echo ""
 echo "To build from source: cd ${TARGET_DIR} && bazel build //runtime/engine:litert_lm_main"
-echo "To use pre-built: copy prebuilt/<platform>/* beside your browser binary"

@@ -32,19 +32,17 @@ index 00000000000..a1b2c3d4e5f
 +    )
 +endif ()
 +
-+# LiteRT-LM library
++# LiteRT core library (prebuilt name is libLiteRt on all platforms)
 +find_library(LiteRT_LIBRARY
-+    NAMES litert_lm litert-lm
++    NAMES LiteRt litert_lm litert-lm tensorflow-lite tflite
 +)
 +
-+# Fall back to TFLite core library
-+if (NOT LiteRT_LIBRARY)
-+    find_library(LiteRT_LIBRARY
-+        NAMES tensorflow-lite tflite tensorflowlite
-+    )
-+endif ()
++# GPU accelerator (platform-specific, optional)
++find_library(LiteRT_GPU_LIBRARY
++    NAMES LiteRtMetalAccelerator LiteRtGpuAccelerator LiteRtOpenClAccelerator
++)
 +
-+# XNNPACK delegate (CPU acceleration)
++# XNNPACK delegate (CPU acceleration — bundled in LiteRT core on most platforms)
 +find_library(LiteRT_XNNPACK_LIBRARY
 +    NAMES xnnpack XNNPACK
 +)
@@ -56,6 +54,10 @@ index 00000000000..a1b2c3d4e5f
 +if (LiteRT_FOUND)
 +    set(LiteRT_INCLUDE_DIRS ${LiteRT_INCLUDE_DIR})
 +    set(LiteRT_LIBRARIES ${LiteRT_LIBRARY})
++    if (LiteRT_GPU_LIBRARY)
++        list(APPEND LiteRT_LIBRARIES ${LiteRT_GPU_LIBRARY})
++        SET_AND_EXPOSE_TO_BUILD(HAVE_LITERT_GPU_DELEGATE ON)
++    endif ()
 +    if (LiteRT_XNNPACK_LIBRARY)
 +        list(APPEND LiteRT_LIBRARIES ${LiteRT_XNNPACK_LIBRARY})
 +    endif ()
