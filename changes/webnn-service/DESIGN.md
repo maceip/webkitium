@@ -134,34 +134,98 @@ private:
 
 ### LiteRT-LM Engine for LLM Inference
 
-For higher-level LLM inference exposed through WebNN:
+For higher-level LLM inference exposed through WebNN. The key types come
+from [google-ai-edge/LiteRT-LM](https://github.com/google-ai-edge/LiteRT-LM):
+
+- `Engine` — heavyweight singleton, holds model weights
+  (`runtime/engine/engine.h`)
+- `Session` — stateful inference session
+  (`runtime/engine/engine.h`)
+- `Conversation` — high-level chat API, manages `Session` + prompt
+  templating + history + tool definitions + multimodal preprocessing
+  (`runtime/conversation/conversation.h`)
+- `Message` — type alias for `ordered_json` (nlohmann)
+  (`runtime/conversation/io_types.h`)
+- `Preface` — initial context (system instructions, tools, extra_context)
+  (`runtime/conversation/io_types.h`)
 
 ```cpp
-// Initialize Engine with platform-appropriate backend
-auto model_assets = litert::lm::ModelAssets::Create(model_path);
-auto engine_settings = litert::lm::EngineSettings::CreateDefault(
+#include "runtime/engine/engine.h"
+#include "runtime/conversation/conversation.h"
+
+// 1. Load model and create Engine
+auto model_assets = ModelAssets::Create(model_path);
+CHECK_OK(model_assets);
+
+auto engine_settings = EngineSettings::CreateDefault(
     model_assets,
-    devicePreference == MLDevicePreference::GPU
-        ? litert::lm::Backend::GPU
-        : litert::lm::Backend::CPU);
-auto engine = litert::lm::Engine::CreateEngine(engine_settings);
+    /*backend=*/litert::lm::Backend::CPU);
+    // GPU: litert::lm::Backend::GPU
+    // Multimodal: add vision_backend, audio_backend params
 
-// Create Conversation for multi-turn inference
-auto config = litert::lm::ConversationConfig::CreateDefault(**engine);
-auto conversation = litert::lm::Conversation::Create(**engine, *config);
+auto engine = Engine::CreateEngine(engine_settings);
+CHECK_OK(engine);
 
-// Inference (blocking)
-auto result = (*conversation)->SendMessage(
-    litert::lm::JsonMessage{
+// 2. Create Conversation (lightweight, manages Session internally)
+auto conversation_config = ConversationConfig::CreateDefault(**engine);
+// Optional: set Preface for system instructions, tools, etc.
+auto conversation = Conversation::Create(**engine, *conversation_config);
+CHECK_OK(conversation);
+
+// 3a. Blocking inference — returns complete Message
+absl::StatusOr<Message> response = (*conversation)->SendMessage(
+    Message{
         {"role", "user"},
-        {"content", prompt}
+        {"content", "What is the tallest building in the world?"}
     });
+CHECK_OK(response);
+// response is ordered_json with role="model", content=...
 
-// Async inference (streaming)
-(*conversation)->SendMessageAsync(message,
-    [](const std::string& token) {
-        // Stream token to JS callback
+// 3b. Async inference — streams tokens via callback
+(*conversation)->SendMessageAsync(
+    Message{{"role", "user"}, {"content", prompt}},
+    [](absl::StatusOr<Message> chunk) {
+        if (!chunk.ok()) return;
+        if (chunk->empty()) return; // end of stream
+        // chunk contains partial content
     });
+(*engine)->WaitUntilDone(absl::Seconds(30));
+```
+
+#### Multimodal (vision + audio)
+
+```cpp
+auto engine_settings = EngineSettings::CreateDefault(
+    model_assets,
+    /*backend=*/litert::lm::Backend::CPU,
+    /*vision_backend=*/litert::lm::Backend::GPU,
+    /*audio_backend=*/litert::lm::Backend::CPU);
+
+// content is an array of typed parts
+Message msg{
+    {"role", "user"},
+    {"content", {
+        {{"type", "text"}, {"text", "Describe this image:"}},
+        {{"type", "image"}, {"path", "/path/to/image.jpg"}}
+    }}
+};
+auto response = (*conversation)->SendMessage(msg);
+```
+
+#### Function calling (tool use)
+
+```cpp
+Preface preface = JsonPreface({
+    .tools = {
+        {{"name", "get_weather"},
+         {"description", "Returns weather for a location"},
+         {"parameters", {{"type", "object"},
+             {"properties", {{"location", {{"type", "string"}}}}},
+             {"required", {"location"}}}}}
+    }
+});
+auto config = ConversationConfig::CreateDefault(**engine);
+// attach preface to config
 ```
 
 ### Op-Level Graph Execution (WebNN Spec API)

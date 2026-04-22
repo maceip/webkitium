@@ -126,31 +126,46 @@ Rationale:
 
 ### LiteRT-LM C++ API
 
-The integration uses LiteRT-LM's `Engine` / `Conversation` API:
+The integration uses LiteRT-LM's `Engine` / `Conversation` / `Session` API
+from [google-ai-edge/LiteRT-LM](https://github.com/google-ai-edge/LiteRT-LM)
+(v0.10.2, Apache-2.0):
 
 ```cpp
-#include "runtime/engine/engine.h"
-#include "runtime/conversation/conversation.h"
+#include "runtime/engine/engine.h"         // Engine, Session, ModelAssets
+#include "runtime/conversation/conversation.h"  // Conversation, Message
 
-// Load model
+// 1. Load model and create Engine (heavyweight, holds weights)
 auto model_assets = ModelAssets::Create(model_path);
 auto engine_settings = EngineSettings::CreateDefault(
     model_assets, litert::lm::Backend::CPU);
 auto engine = Engine::CreateEngine(engine_settings);
 
-// Create conversation (manages KV-cache, tokenization, etc.)
+// 2. Create Conversation (lightweight, manages Session + history +
+//    prompt templates + tool definitions + multimodal preprocessing)
 auto config = ConversationConfig::CreateDefault(**engine);
 auto conversation = Conversation::Create(**engine, *config);
 
-// Inference
+// 3. Blocking inference — Message is ordered_json
 auto result = (*conversation)->SendMessage(
-    JsonMessage{{"role", "user"}, {"content", prompt}});
+    Message{{"role", "user"}, {"content", prompt}});
+
+// 4. Streaming inference — token-by-token via callback
+(*conversation)->SendMessageAsync(message, callback);
+(*engine)->WaitUntilDone(absl::Seconds(30));
 ```
 
 Backend selection:
 - `litert::lm::Backend::CPU` — XNNPACK-accelerated CPU inference
 - `litert::lm::Backend::GPU` — Platform GPU delegate (ML Drift on Android,
-  OpenCL, DirectX on Windows)
+  OpenCL, DirectX on Windows, Metal on macOS/iOS)
+
+Capabilities beyond basic inference:
+- Multi-modal (vision + audio) via `vision_backend` / `audio_backend`
+- Function calling / tool use via `Preface.tools`
+- Constrained decoding (regex, JSON schema, Lark grammar)
+- Session cloning for speculative decoding
+- Jinja prompt templates (Minja C++ engine)
+- Supported models: Gemma, Llama, Phi-4, Qwen, SmolLM, and more
 
 ### Dual-layer integration
 
