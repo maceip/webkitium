@@ -4,6 +4,9 @@ on:
   workflow_dispatch:
   workflow_call:
 
+permissions:
+  contents: write
+
 jobs:
   check:
     name: Runner Health Check
@@ -97,14 +100,14 @@ jobs:
               set "FAIL=1"
             )
           )
-          REM vcpkg uses 'version' not '--version'
+          REM vcpkg 'version' returns non-zero (telemetry nag), so just check it produces output
           set /a TOTAL+=1
-          vcpkg version >NUL 2>&1
-          if not errorlevel 1 (
-            echo   OK    vcpkg responds to version
+          for /f %%V in ('vcpkg version 2^>^&1 ^| findstr /C:"version"') do set "VCPKG_OK=1"
+          if defined VCPKG_OK (
+            echo   OK    vcpkg responds
             set /a PASS+=1
           ) else (
-            echo   FAIL  vcpkg version failed
+            echo   FAIL  vcpkg not functional
             set "FAIL=1"
           )
           echo.
