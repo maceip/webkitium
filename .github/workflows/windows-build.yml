@@ -30,9 +30,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: "Bootstrap: Ensure pwsh"
+      - name: "Bootstrap: Ensure pwsh in PATH"
         shell: cmd
-        run: where pwsh >NUL 2>&1 || (curl -sL -o %TEMP%\pwsh.msi https://github.com/PowerShell/PowerShell/releases/download/v7.5.1/PowerShell-7.5.1-win-x64.msi && msiexec /i %TEMP%\pwsh.msi /quiet /norestart && del %TEMP%\pwsh.msi)
+        run: |
+          where pwsh >NUL 2>&1 && exit /b 0
+          if exist "C:\Program Files\PowerShell\7\pwsh.exe" (
+            echo Adding pwsh to PATH...
+            echo C:\Program Files\PowerShell\7>>%GITHUB_PATH%
+            exit /b 0
+          )
+          echo ERROR: pwsh not installed. Install via SSM first.
+          exit /b 1
 
       - name: "Phase 0: Disk Check"
         shell: pwsh
