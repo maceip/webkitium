@@ -15,9 +15,50 @@ jobs:
     name: Runner Health Check
     uses: ./.github/workflows/windows-runner-check.yml
 
+  verify-patches:
+    name: Verify patch stack applies to pin
+    # Runs on a GitHub-hosted runner in parallel with preflight so a patch
+    # pre-image mismatch fails in ~2 minutes instead of burning a 75-minute
+    # WebKit compile cycle. Uses the same stitched-tarball flow as the build
+    # job, then defers to harness/tools/verify-patches.sh for the actual
+    # `git apply --check` sweep.
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download and stitch pin tarball
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          gh release download webkit-pin \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern 'webkit-pin.tar.gz.part-*'
+          shopt -s nullglob
+          for f in webkit-pin.tar.gz.part-*$'\r'; do
+            [[ -e "$f" ]] && mv -- "$f" "${f%$'\r'}"
+          done
+          parts=( webkit-pin.tar.gz.part-* )
+          if (( ${#parts[@]} == 0 )); then
+            echo "::error::No tarball parts found"
+            exit 1
+          fi
+          cat "${parts[@]}" > "$GITHUB_WORKSPACE/webkit-pin.tar.gz"
+          rm -f webkit-pin.tar.gz.part-*
+          echo "Stitched: $(du -h "$GITHUB_WORKSPACE/webkit-pin.tar.gz" | cut -f1)"
+
+      - name: Run verify-patches
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash changes/windows-webgpu-service/harness/tools/verify-patches.sh
+
   build:
     name: Windows WebKit Build
-    needs: preflight
+    needs: [preflight, verify-patches]
     runs-on:
       - self-hosted
       - Windows
