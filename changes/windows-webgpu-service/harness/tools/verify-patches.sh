@@ -46,8 +46,8 @@ echo "[verify] ${#ALL_PATCHES[@]} patches from ${#PATCH_DIRS[@]} directories"
 # Build file list from all patches (skip new-file entries: --- /dev/null)
 mkdir -p "$WORK"
 for p in "${ALL_PATCHES[@]}"; do
-    grep -h '^--- a/' "$p" 2>/dev/null | sed 's|^--- a/||' | awk '{print $1}'
-done | sort -u > "$WORK/files.list"
+    grep -h '^--- a/' "$p" 2>/dev/null || true
+done | sed 's|^--- a/||' | awk '{print $1}' | sort -u > "$WORK/files.list"
 
 if [ ! -s "$WORK/files.list" ]; then
     echo "[verify] warning: no existing files to extract (all patches create new files?)"

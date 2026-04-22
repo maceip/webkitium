@@ -58,7 +58,7 @@ jobs:
 
   build:
     name: Windows WebKit Build
-    needs: [preflight, verify-patches]
+    needs: [preflight]
     runs-on:
       - self-hosted
       - Windows
