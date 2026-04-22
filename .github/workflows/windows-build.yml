@@ -37,7 +37,7 @@ jobs:
           SRC_WIN='C:/W/webkit-src'
           SRC="$(cygpath -u "$SRC_WIN")"
           ARCHIVE="$RUNNER_TEMP/webkit-pin.tar.gz"
-          rm -rf "$SRC"
+          cmd //c "rd /s /q $SRC_WIN" 2>/dev/null || true
           mkdir -p "$SRC"
 
           # Download the four split parts from the webkit-pin release
