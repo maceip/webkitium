@@ -4,3 +4,11 @@ node_modules/
 .env
 *.log
 tools/noVNC/
+
+# WebKit source-pin tarball and its split parts (7+ GB; distributed via S3 / side-channel).
+# Never committed to git — the pin identity lives in config/windows-webgpu-dawn-green.json.
+webkit-pin.tar.gz
+webkit-pin.tar.gz.part-*
+
+# Scratch pin-verification workspace created by verify-patches.sh.
+.tmp/

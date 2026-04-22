@@ -1,0 +1,42 @@
+Add createPresentationContextForHWND to WebCore::GPU. Wraps the new backing
+method (patch 0038) and returns a GPUPresentationContext that the Windows
+canvas (patch 0035) can drive.
+
+Context verified against WebKit commit at May 2026 main:
+  Source/WebCore/Modules/WebGPU/GPU.h    createPresentationContext at line 63
+  Source/WebCore/Modules/WebGPU/GPU.cpp  createPresentationContext at line 78
+
+diff --git a/Source/WebCore/Modules/WebGPU/GPU.h b/Source/WebCore/Modules/WebGPU/GPU.h
+--- a/Source/WebCore/Modules/WebGPU/GPU.h
++++ b/Source/WebCore/Modules/WebGPU/GPU.h
+@@ -62,6 +62,10 @@ public:
+
+     RefPtr<GPUPresentationContext> createPresentationContext(const GPUPresentationContextDescriptor&);
+
++#if PLATFORM(WIN) && ENABLE(WEBGPU)
++    RefPtr<GPUPresentationContext> createPresentationContextForHWND(void* hwnd, void* hinstance);
++#endif
++
+     RefPtr<GPUCompositorIntegration> createCompositorIntegration();
+
+     void paintToCanvas(NativeImage&, const IntSize&, GraphicsContext&);
+diff --git a/Source/WebCore/Modules/WebGPU/GPU.cpp b/Source/WebCore/Modules/WebGPU/GPU.cpp
+--- a/Source/WebCore/Modules/WebGPU/GPU.cpp
++++ b/Source/WebCore/Modules/WebGPU/GPU.cpp
+@@ -85,6 +85,16 @@ RefPtr<GPUPresentationContext> GPU::createPresentationContext(const GPUPresentat
+     return GPUPresentationContext::create(context.releaseNonNull());
+ }
+
++#if PLATFORM(WIN) && ENABLE(WEBGPU)
++RefPtr<GPUPresentationContext> GPU::createPresentationContextForHWND(void* hwnd, void* hinstance)
++{
++    RefPtr context = m_backing->createPresentationContextForHWND(hwnd, hinstance);
++    if (!context)
++        return nullptr;
++    return GPUPresentationContext::create(context.releaseNonNull());
++}
++#endif
++
+ RefPtr<GPUCompositorIntegration> GPU::createCompositorIntegration()
+ {
+     RefPtr integration = m_backing->createCompositorIntegration();

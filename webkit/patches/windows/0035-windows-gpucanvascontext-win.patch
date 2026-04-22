@@ -1,0 +1,193 @@
+diff --git a/Source/WebCore/html/canvas/GPUCanvasContextWin.cpp b/Source/WebCore/html/canvas/GPUCanvasContextWin.cpp
+new file mode 100644
+index 0000000..6006fdd
+--- /dev/null
++++ b/Source/WebCore/html/canvas/GPUCanvasContextWin.cpp
+@@ -0,0 +1,119 @@
++/*
++ * Copyright (C) 2026 The WebKit Authors. All rights reserved.
++ */
++
++#include "config.h"
++#include "GPUCanvasContextWin.h"
++
++#if PLATFORM(WIN) && ENABLE(WEBGPU)
++
++#include "CanvasBase.h"
++#include "Document.h"
++#include "ExceptionOr.h"
++#include "GPU.h"
++#include "GPUCanvasConfiguration.h"
++#include "GPUPresentationContext.h"
++#include "GPUTexture.h"
++#include "HTMLCanvasElement.h"
++#include <wtf/TZoneMallocInlines.h>
++
++namespace WebCore {
++
++WTF_MAKE_TZONE_ALLOCATED_IMPL(GPUCanvasContextWin);
++
++std::unique_ptr<GPUCanvasContextWin> GPUCanvasContextWin::create(CanvasBase& canvas, GPU& gpu, Document*)
++{
++    auto presentationContext = gpu.createPresentationContextForHWND(nullptr, nullptr);
++    if (!presentationContext)
++        return nullptr;
++    auto context = std::unique_ptr<GPUCanvasContextWin>(new GPUCanvasContextWin(canvas, WTFMove(presentationContext)));
++    context->m_gpu = &gpu;
++    return context;
++}
++
++GPUCanvasContextWin::GPUCanvasContextWin(CanvasBase& canvas, RefPtr<GPUPresentationContext>&& presentationContext)
++    : GPUCanvasContext(canvas)
++    , m_presentationContext(WTFMove(presentationContext))
++{
++}
++
++GPUCanvasContext::CanvasType GPUCanvasContextWin::canvas()
++{
++    if (RefPtr c = htmlCanvas())
++        return c.releaseNonNull();
++#if ENABLE(OFFSCREEN_CANVAS)
++    return Ref { downcast<OffscreenCanvas>(canvasBase()) };
++#else
++    return Ref { downcast<HTMLCanvasElement>(canvasBase()) };
++#endif
++}
++
++ExceptionOr<void> GPUCanvasContextWin::configure(GPUCanvasConfiguration&& cfg)
++{
++    if (!m_presentationContext)
++        return Exception { ExceptionCode::InvalidStateError, "no presentation context"_s };
++
++    if (!m_width || !m_height) {
++        if (RefPtr c = htmlCanvas()) {
++            m_width  = std::max<uint32_t>(1, c->width());
++            m_height = std::max<uint32_t>(1, c->height());
++        }
++    }
++
++    if (!m_presentationContext->configure(cfg, m_width, m_height, /*reportValidationErrors*/ true))
++        return Exception { ExceptionCode::InvalidStateError, "presentationContext.configure failed"_s };
++
++    m_configuration = WTFMove(cfg);
++    m_dirty = false;
++    return { };
++}
++
++void GPUCanvasContextWin::unconfigure()
++{
++    if (m_presentationContext)
++        m_presentationContext->unconfigure();
++    m_configuration.reset();
++}
++
++std::optional<GPUCanvasConfiguration> GPUCanvasContextWin::getConfiguration() const
++{
++    return m_configuration;
++}
++
++void GPUCanvasContextWin::setHostHWND(HWND hwnd, uint32_t w, uint32_t h)
++{
++    if (hwnd == m_hwnd && w == m_width && h == m_height)
++        return;
++    m_hwnd = hwnd;
++    m_width = w;
++    m_height = h;
++    m_dirty = true;
++}
++
++void GPUCanvasContextWin::reconfigureIfNeeded()
++{
++    if (!m_dirty || !m_configuration || !m_presentationContext || !m_hwnd || !m_gpu)
++        return;
++    m_presentationContext = m_gpu->createPresentationContextForHWND(m_hwnd, m_hinstance);
++    if (!m_presentationContext)
++        return;
++    m_presentationContext->configure(*m_configuration, m_width, m_height, false);
++    m_dirty = false;
++}
++
++ExceptionOr<Ref<GPUTexture>> GPUCanvasContextWin::getCurrentTexture()
++{
++    reconfigureIfNeeded();
++    if (!m_presentationContext || !m_hwnd)
++        return Exception { ExceptionCode::InvalidStateError, "canvas is not yet bound to a host window"_s };
++
++    RefPtr tex = m_presentationContext->getCurrentTexture(m_frameIndex);
++    ++m_frameIndex;
++    if (!tex)
++        return Exception { ExceptionCode::OperationError, "surface.getCurrentTexture returned null"_s };
++    return tex.releaseNonNull();
++}
++
++} // namespace WebCore
++
++#endif // PLATFORM(WIN) && ENABLE(WEBGPU)
+diff --git a/Source/WebCore/html/canvas/GPUCanvasContextWin.h b/Source/WebCore/html/canvas/GPUCanvasContextWin.h
+new file mode 100644
+index 0000000..57e1ca4
+--- /dev/null
++++ b/Source/WebCore/html/canvas/GPUCanvasContextWin.h
+@@ -0,0 +1,62 @@
++/*
++ * Copyright (C) 2026 The WebKit Authors. All rights reserved.
++ */
++
++#pragma once
++
++#if PLATFORM(WIN) && ENABLE(WEBGPU)
++
++#include "GPUCanvasConfiguration.h"
++#include "GPUCanvasContext.h"
++#include "GPUPresentationContext.h"
++#include "GPUTexture.h"
++#include "HTMLCanvasElement.h"
++#include <wtf/Ref.h>
++#include <wtf/RefPtr.h>
++
++#if ENABLE(OFFSCREEN_CANVAS)
++#include "OffscreenCanvas.h"
++#endif
++
++struct HWND__;
++struct HINSTANCE__;
++using HWND = HWND__*;
++using HINSTANCE = HINSTANCE__*;
++
++namespace WebCore {
++
++class Document;
++class GPU;
++
++class GPUCanvasContextWin final : public GPUCanvasContext {
++    WTF_MAKE_TZONE_ALLOCATED(GPUCanvasContextWin);
++public:
++    static std::unique_ptr<GPUCanvasContextWin> create(CanvasBase&, GPU&, Document*);
++
++    CanvasType canvas() override;
++    ExceptionOr<void> configure(GPUCanvasConfiguration&&) override;
++    void unconfigure() override;
++    std::optional<GPUCanvasConfiguration> getConfiguration() const override;
++    ExceptionOr<Ref<GPUTexture>> getCurrentTexture() override;
++
++    void setHostHWND(HWND, uint32_t width, uint32_t height);
++
++private:
++    GPUCanvasContextWin(CanvasBase&, RefPtr<GPUPresentationContext>&&);
++
++    void reconfigureIfNeeded();
++
++    RefPtr<GPUPresentationContext> m_presentationContext;
++    RefPtr<GPU>                    m_gpu;
++    std::optional<GPUCanvasConfiguration> m_configuration;
++    HWND     m_hwnd { nullptr };
++    HINSTANCE m_hinstance { nullptr };
++    uint32_t m_width { 0 };
++    uint32_t m_height { 0 };
++    uint32_t m_frameIndex { 0 };
++    bool     m_dirty { false };
++};
++
++} // namespace WebCore
++
++#endif // PLATFORM(WIN) && ENABLE(WEBGPU)

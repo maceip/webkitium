@@ -1,0 +1,47 @@
+Dispatch GPUCanvasContext::create to GPUCanvasContextWin on Windows.
+
+Upstream returns nullptr on !PLATFORM(COCOA), which is why canvas.getContext('webgpu')
+is null on Windows today. Replace the stub for the Windows case with a real
+dispatch; other non-Cocoa platforms still get nullptr.
+
+Applies against Source/WebCore/html/canvas/GPUCanvasContext.cpp as fetched
+from upstream at the time of writing (May 2026). If upstream adds other
+non-Cocoa branches, rebase by merging under the same #if chain.
+
+diff --git a/Source/WebCore/html/canvas/GPUCanvasContext.cpp b/Source/WebCore/html/canvas/GPUCanvasContext.cpp
+--- a/Source/WebCore/html/canvas/GPUCanvasContext.cpp
++++ b/Source/WebCore/html/canvas/GPUCanvasContext.cpp
+@@ -26,16 +26,30 @@
+ #include "config.h"
+ #include "GPUCanvasContext.h"
+
+ #include "ContextDestructionObserverInlines.h"
+ #include <wtf/TZoneMallocInlines.h>
+
++#if PLATFORM(WIN) && ENABLE(WEBGPU)
++#include "GPUCanvasContextWin.h"
++#endif
++
+ namespace WebCore {
+
+ WTF_MAKE_TZONE_ALLOCATED_IMPL(GPUCanvasContext);
+
+ #if !PLATFORM(COCOA)
+-std::unique_ptr<GPUCanvasContext> GPUCanvasContext::create(CanvasBase&, GPU&, Document*)
++std::unique_ptr<GPUCanvasContext> GPUCanvasContext::create(CanvasBase& canvas, GPU& gpu, Document* document)
+ {
++#if PLATFORM(WIN) && ENABLE(WEBGPU)
++    auto context = GPUCanvasContextWin::create(canvas, gpu, document);
++    if (context)
++        context->suspendIfNeeded();
++    return context;
++#else
++    UNUSED_PARAM(canvas);
++    UNUSED_PARAM(gpu);
++    UNUSED_PARAM(document);
+     return nullptr;
++#endif
+ }
+ #endif
+
+ GPUCanvasContext::GPUCanvasContext(CanvasBase& canvas)

@@ -1,0 +1,63 @@
+diff --git a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDawnCompat.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDawnCompat.cpp
+index 74d6362..ed038f8 100644
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDawnCompat.cpp
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDawnCompat.cpp
+@@ -290,6 +290,43 @@ void insertDebugMarker(WGPURenderPassEncoder o, const String& label) { wgpuRende
+ void pushDebugGroup(WGPURenderBundleEncoder o, const String& label) { wgpuRenderBundleEncoderPushDebugGroup(o, toDawnStringView(label)); }
+ void insertDebugMarker(WGPURenderBundleEncoder o, const String& label) { wgpuRenderBundleEncoderInsertDebugMarker(o, toDawnStringView(label)); }
+ 
++WGPUSurface createSurfaceForHWND(WGPUInstance instance, void* hwnd, void* hinstance, const char* label)
++{
++    if (!instance || !hwnd)
++        return nullptr;
++
++    // Dawn v20260410.140140: WGPUSurfaceSourceWindowsHWND (legacy
++    // WGPUSurfaceDescriptorFromWindowsHWND was removed before this release).
++    WGPUSurfaceSourceWindowsHWND fromHwnd { };
++    fromHwnd.chain.next  = nullptr;
++    fromHwnd.chain.sType = WGPUSType_SurfaceSourceWindowsHWND;
++    fromHwnd.hinstance   = hinstance;
++    fromHwnd.hwnd        = hwnd;
++
++    WGPUSurfaceDescriptor desc { };
++    desc.nextInChain = &fromHwnd.chain;
++    desc.label       = WGPUStringView { label, label ? WGPU_STRLEN : 0 };
++
++    return wgpuInstanceCreateSurface(instance, &desc);
++}
++
++bool configureSurface(WGPUSurface surface, WGPUDevice device, WGPUTextureFormat format,
++                      WGPUTextureUsage usage, uint32_t width, uint32_t height)
++{
++    if (!surface || !device)
++        return false;
++    WGPUSurfaceConfiguration cfg { };
++    cfg.device          = device;
++    cfg.format          = format;
++    cfg.usage           = usage;
++    cfg.alphaMode       = WGPUCompositeAlphaMode_Auto;
++    cfg.width           = std::max<uint32_t>(1, width);
++    cfg.height          = std::max<uint32_t>(1, height);
++    cfg.presentMode     = WGPUPresentMode_Fifo;
++    wgpuSurfaceConfigure(surface, &cfg);
++    return true;
++}
++
+ } // namespace WebCore::WebGPU::DawnCompat
+ 
+ #endif // PLATFORM(WIN)
+diff --git a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDawnCompat.h b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDawnCompat.h
+index 35fd20c..0a94528 100644
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDawnCompat.h
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDawnCompat.h
+@@ -88,6 +88,10 @@ void insertDebugMarker(WGPURenderPassEncoder, const String&);
+ void pushDebugGroup(WGPURenderBundleEncoder, const String&);
+ void insertDebugMarker(WGPURenderBundleEncoder, const String&);
+ 
++// Windows surface helpers (used by GPUCanvasContextWin + GPUImpl::createPresentationContextForHWND).
++WGPUSurface createSurfaceForHWND(WGPUInstance, void* hwnd, void* hinstance, const char* label);
++bool configureSurface(WGPUSurface, WGPUDevice, WGPUTextureFormat, WGPUTextureUsage, uint32_t width, uint32_t height);
++
+ } // namespace WebCore::WebGPU::DawnCompat
+ 
+ #endif // PLATFORM(WIN)

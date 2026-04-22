@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<!--
+  In-browser validation probe for the Windows WebGPU lane.
+
+  Runs the subset of checks the external runner and webgpureport.org care
+  about — adapter info, device, queue, a compute readback, and a render
+  pass with surface present — and writes the result as JSON into a DOM
+  node so MiniBrowser can harvest it via JS evaluation.
+
+  The page is deliberately dependency-free (no imports, no service
+  workers) so it runs under `file://` from MiniBrowser without a server.
+
+  Harvest command (from MiniBrowser devtools or an injected script):
+    JSON.parse(document.getElementById('validation-report').textContent)
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>webgpu validation probe</title>
+  <style>
+    body {
+      font: 14px/1.4 ui-sans-serif, system-ui, sans-serif;
+      padding: 16px;
+      background: #0b0d12;
+      color: #d8e0ea;
+    }
+    #log { white-space: pre-wrap; }
+    .ok   { color: #8fd47d; }
+    .fail { color: #ff8a7a; }
+    pre#validation-report {
+      background: #11151c;
+      border: 1px solid #2a3140;
+      padding: 8px;
+      max-height: 40vh;
+      overflow: auto;
+    }
+    canvas {
+      display: block;
+      width: 320px;
+      height: 180px;
+      margin-top: 8px;
+      background: #222;
+    }
+  </style>
+</head>
+<body>
+  <h1>Windows WebGPU validation probe</h1>
+  <div id="log"></div>
+  <canvas id="canvas" width="320" height="180"></canvas>
+  <h2>Report</h2>
+  <pre id="validation-report">{"status":"pending"}</pre>
+
+<script>
+(async () => {
+  const log = document.getElementById('log');
+  const report = {
+    runtime: {
+      gpuAvailable: false,
+      queueAvailable: false,
+      surface: { configured: false, format: null },
+      render: { framesSubmitted: 0, framesPresented: 0, lastError: null },
+      probes: {}
+    }
+  };
+
+  function line(name, ok, detail, extra) {
+    const span = document.createElement('div');
+    span.innerHTML = `<span class="${ok?'ok':'fail'}">[${ok?'ok':'FAIL'}]</span> ${name} — ${detail||''}`;
+    log.appendChild(span);
+    report.runtime.probes[name] = Object.assign({ ok, detail: detail||'' }, extra||{});
+  }
+
+  function pubReport() {
+    document.getElementById('validation-report').textContent = JSON.stringify(report, null, 2);
+  }
+
+  if (!('gpu' in navigator)) {
+    line('navigatorGpu', false, 'navigator.gpu is undefined (is WebGPUEnabled pref set?)');
+    pubReport();
+    return;
+  }
+  report.runtime.gpuAvailable = true;
+  line('navigatorGpu', true, 'navigator.gpu present');
+
+  let adapter;
+  try {
+    adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+  } catch (e) {
+    line('requestAdapter', false, 'threw: ' + (e.message||e));
+    pubReport();
+    return;
+  }
+  if (!adapter) {
+    line('requestAdapter', false, 'returned null');
+    pubReport();
+    return;
+  }
+  const info = adapter.info || {};
+  const features = Array.from(adapter.features || []);
+  const limits = {};
+  for (const k in adapter.limits) limits[k] = adapter.limits[k];
+  line('requestAdapter', true, `backend=${info.backend||'?'} vendor=${info.vendor||'?'} device=${info.device||'?'}`, {
+    backend: info.backend, vendor: info.vendor, architecture: info.architecture,
+    device: info.device, description: info.description,
+    features, limits,
+  });
+
+  let device;
+  try {
+    device = await adapter.requestDevice();
+  } catch (e) {
+    line('requestDevice', false, 'threw: ' + (e.message||e));
+    pubReport();
+    return;
+  }
+  if (!device) {
+    line('requestDevice', false, 'returned null');
+    pubReport();
+    return;
+  }
+  report.runtime.queueAvailable = !!device.queue;
+  line('requestDevice', true, 'ok (queue=' + !!device.queue + ')', {
+    features: Array.from(device.features || []),
+    limits: (() => { const o = {}; for (const k in device.limits) o[k] = device.limits[k]; return o; })(),
+  });
+
+  // Uncaptured error sink.
+  let uncaptured = null;
+  device.onuncapturederror = (ev) => { uncaptured = ev.error?.message || String(ev.error); };
+
+  // Compute smoke (matches harness probeComputeSmoke).
+  try {
+    const N = 1024;
+    const shader = device.createShaderModule({ code: `
+      @group(0) @binding(0) var<storage, read_write> data : array<u32>;
+      @compute @workgroup_size(64)
+      fn main(@builtin(global_invocation_id) gid : vec3<u32>) {
+        let i = gid.x;
+        if (i >= arrayLength(&data)) { return; }
+        data[i] = 0xC0DE0000u | i;
+      }`});
+    const pipeline = device.createComputePipeline({ layout: 'auto', compute: { module: shader, entryPoint: 'main' } });
+    const bytes = N * 4;
+    const gpuBuf = device.createBuffer({ size: bytes, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC });
+    const rbBuf  = device.createBuffer({ size: bytes, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+    const bg = device.createBindGroup({
+      layout: pipeline.getBindGroupLayout(0),
+      entries: [{ binding: 0, resource: { buffer: gpuBuf } }],
+    });
+    const enc = device.createCommandEncoder();
+    const pass = enc.beginComputePass();
+    pass.setPipeline(pipeline);
+    pass.setBindGroup(0, bg);
+    pass.dispatchWorkgroups(Math.ceil(N/64));
+    pass.end();
+    enc.copyBufferToBuffer(gpuBuf, 0, rbBuf, 0, bytes);
+    device.queue.submit([enc.finish()]);
+    await rbBuf.mapAsync(GPUMapMode.READ);
+    const view = new Uint32Array(rbBuf.getMappedRange().slice(0));
+    rbBuf.unmap();
+    let mismatch = -1;
+    for (let i = 0; i < N; ++i) if (view[i] !== ((0xC0DE0000 | i) >>> 0)) { mismatch = i; break; }
+    line('computeSmoke', mismatch === -1, mismatch === -1 ? `ok (${N} elements)` : `mismatch @${mismatch}`, { elements: N, mismatchIndex: mismatch });
+  } catch (e) {
+    line('computeSmoke', false, 'threw: ' + (e.message||e));
+  }
+
+  // Canvas present (matches harness renderOffscreen + surfaceRoundtrip).
+  try {
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('webgpu');
+    if (!ctx) { line('canvasContext', false, 'canvas.getContext("webgpu") returned null'); }
+    else {
+      const fmt = navigator.gpu.getPreferredCanvasFormat();
+      ctx.configure({ device, format: fmt, usage: GPUTextureUsage.RENDER_ATTACHMENT, alphaMode: 'opaque' });
+      report.runtime.surface.configured = true;
+      report.runtime.surface.format = fmt;
+      line('canvasContext', true, 'configured format=' + fmt, { format: fmt });
+
+      const pipeline = device.createRenderPipeline({
+        layout: 'auto',
+        vertex: {
+          module: device.createShaderModule({ code: `
+            @vertex fn vs(@builtin(vertex_index) vi : u32) -> @builtin(position) vec4<f32> {
+              var p = array<vec2<f32>, 3>(vec2(0.0, 0.6), vec2(-0.6, -0.5), vec2(0.6, -0.5));
+              return vec4<f32>(p[vi], 0.0, 1.0);
+            }`}),
+          entryPoint: 'vs',
+        },
+        fragment: {
+          module: device.createShaderModule({ code: `
+            @fragment fn fs() -> @location(0) vec4<f32> { return vec4<f32>(0.35, 0.85, 0.55, 1.0); }`}),
+          entryPoint: 'fs',
+          targets: [{ format: fmt }],
+        },
+        primitive: { topology: 'triangle-list' },
+      });
+      const enc = device.createCommandEncoder();
+      const view = ctx.getCurrentTexture().createView();
+      const pass = enc.beginRenderPass({
+        colorAttachments: [{ view, clearValue: [0.05, 0.08, 0.12, 1.0], loadOp: 'clear', storeOp: 'store' }],
+      });
+      pass.setPipeline(pipeline);
+      pass.draw(3);
+      pass.end();
+      device.queue.submit([enc.finish()]);
+      report.runtime.render.framesSubmitted++;
+      report.runtime.render.framesPresented++;
+      line('canvasRender', true, 'triangle submitted');
+    }
+  } catch (e) {
+    line('canvasRender', false, 'threw: ' + (e.message||e));
+  }
+
+  report.runtime.uncapturedErrorDuringProbe = uncaptured;
+  pubReport();
+})();
+</script>
+</body>
+</html>

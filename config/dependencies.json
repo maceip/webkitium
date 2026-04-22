@@ -31,6 +31,26 @@
           "kind": "aws-ami",
           "region": "eu-west-1",
           "amiId": "ami-0151481223e75e08f"
+        },
+        {
+          "id": "dawn-pin",
+          "kind": "vcpkg-port",
+          "portName": "dawn",
+          "portVersion": "20260410.140140",
+          "upstreamRepo": "https://github.com/google/dawn.git",
+          "upstreamTag": "v20260410.140140",
+          "upstreamCommit": "493241c40dc94ca283c5e2b42a03911df870f359",
+          "vcpkgBaseline": "17e4940625388c7b893b6f3cb0bff43977da5a5f",
+          "baselineConfig": "config/vcpkg-configuration.json",
+          "notes": [
+            "Pinned via config/vcpkg-configuration.json. Every Windows builder,",
+            "CI job, and harness invocation resolves Dawn through this baseline.",
+            "At this pin the legacy type WGPUSurfaceDescriptorFromWindowsHWND has",
+            "been removed; use WGPUSurfaceSourceWindowsHWND.",
+            "wgpuDeviceSetUncapturedErrorCallback does not exist; the uncaptured",
+            "error callback must be installed via WGPUDeviceDescriptor at device",
+            "creation time."
+          ]
         }
       ]
     },

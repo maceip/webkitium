@@ -1,0 +1,35 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg-configuration.schema.json",
+  "default-registry": {
+    "kind": "git",
+    "repository": "https://github.com/microsoft/vcpkg",
+    "baseline": "17e4940625388c7b893b6f3cb0bff43977da5a5f"
+  },
+  "_notes": [
+    "Baseline 17e4940625388c7b893b6f3cb0bff43977da5a5f is the microsoft/vcpkg commit",
+    "'[dawn] Update to 20260410.140140 [skia] Update to 148 (#51241)' dated 2026-04-20.",
+    "At that baseline, port 'dawn' resolves to google/dawn tag v20260410.140140 ",
+    "(commit 493241c40dc94ca283c5e2b42a03911df870f359). Pinning here so every",
+    "builder, harness run, and CI job uses the same Dawn ABI, regardless of when",
+    "vcpkg is re-bootstrapped.",
+    "Symbols relied on at this pin (verified against src/dawn/dawn.json at the",
+    "Dawn tag):",
+    "  WGPUStringView, WGPUCallbackMode_AllowProcessEvents,",
+    "  WGPURequestAdapterCallbackInfo, WGPURequestDeviceCallbackInfo,",
+    "  WGPUSurfaceSourceWindowsHWND (note: legacy *DescriptorFromWindowsHWND",
+    "    no longer exists at this pin — use Source name),",
+    "  WGPUSType_SurfaceSourceWindowsHWND,",
+    "  wgpuInstanceProcessEvents, wgpuInstanceCreateSurface,",
+    "  wgpuSurfaceConfigure/GetCapabilities/GetCurrentTexture/Present/Unconfigure,",
+    "  wgpuAdapterGetInfo/GetLimits/GetFeatures, wgpuDeviceGetLimits/GetFeatures,",
+    "  wgpuBufferMapAsync (new callbackInfo signature),",
+    "  wgpuDevicePushErrorScope/PopErrorScope,",
+    "  wgpuAdapterInfoFreeMembers, wgpuSupportedFeaturesFreeMembers,",
+    "  wgpuSurfaceCapabilitiesFreeMembers.",
+    "Symbols that do NOT exist at this pin (removed or never present):",
+    "  wgpuDeviceSetUncapturedErrorCallback — use WGPUDeviceDescriptor.",
+    "    uncapturedErrorCallbackInfo at device creation time.",
+    "  WGPUSurfaceDescriptorFromWindowsHWND / WGPUSType_SurfaceDescriptorFromWindowsHWND",
+    "    — renamed to WGPUSurfaceSourceWindowsHWND / ..._SurfaceSourceWindowsHWND."
+  ]
+}

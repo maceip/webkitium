@@ -1,0 +1,15 @@
+diff --git a/Source/WebCore/Modules/WebGPU/InternalAPI/WebGPU.h b/Source/WebCore/Modules/WebGPU/InternalAPI/WebGPU.h
+index ec67607..38429e2 100644
+--- a/Source/WebCore/Modules/WebGPU/InternalAPI/WebGPU.h
++++ b/Source/WebCore/Modules/WebGPU/InternalAPI/WebGPU.h
+@@ -80,6 +80,10 @@ public:
+ 
+     virtual RefPtr<PresentationContext> createPresentationContext(const PresentationContextDescriptor&) = 0;
+ 
++    // Windows-only side-door. Default returns nullptr; overridden by GPUImpl
++    // on PLATFORM(WIN) to build a WGPUSurface from an HWND.
++    virtual RefPtr<PresentationContext> createPresentationContextForHWND(void* /*hwnd*/, void* /*hinstance*/) { return nullptr; }
++
+     virtual RefPtr<CompositorIntegration> createCompositorIntegration() = 0;
+     virtual void paintToCanvas(WebCore::NativeImage&, const WebCore::IntSize&, WebCore::GraphicsContext&) = 0;
+     virtual bool isValid(const CompositorIntegration&) const = 0;

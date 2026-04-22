@@ -1,0 +1,36 @@
+diff --git a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUImpl.cpp
+index bdff8da..2e6b8b4 100644
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUImpl.cpp
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUImpl.cpp
+@@ -167,6 +167,16 @@ RefPtr<PresentationContext> GPUImpl::createPresentationContext(const Presentatio
+ #endif
+ }
+ 
++#if PLATFORM(WIN) && ENABLE(WEBGPU)
++RefPtr<PresentationContext> GPUImpl::createPresentationContextForHWND(void* hwnd, void* hinstance)
++{
++    WGPUSurface surface = DawnCompat::createSurfaceForHWND(m_backing.get(), hwnd, hinstance, "canvas");
++    if (!surface)
++        return nullptr;
++    return PresentationContextImpl::create(adoptWebGPU(surface), m_convertToBackingContext);
++}
++#endif
++
+ RefPtr<CompositorIntegration> GPUImpl::createCompositorIntegration()
+ {
+     return CompositorIntegrationImpl::create(m_convertToBackingContext);
+diff --git a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUImpl.h b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUImpl.h
+index f40a670..2f512d5 100644
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUImpl.h
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUImpl.h
+@@ -105,6 +105,10 @@ private:
+ 
+     RefPtr<PresentationContext> createPresentationContext(const PresentationContextDescriptor&) final;
+ 
++#if PLATFORM(WIN) && ENABLE(WEBGPU)
++    RefPtr<PresentationContext> createPresentationContextForHWND(void* hwnd, void* hinstance) final;
++#endif
++
+     RefPtr<CompositorIntegration> createCompositorIntegration() final;
+     bool NODELETE isValid(const CompositorIntegration&) const final;
+     bool isValid(const Buffer&) const final;

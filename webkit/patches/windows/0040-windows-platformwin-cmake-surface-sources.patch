@@ -1,0 +1,17 @@
+diff --git a/Source/WebCore/PlatformWin.cmake b/Source/WebCore/PlatformWin.cmake
+index 7db8237..d0c0d4c 100644
+--- a/Source/WebCore/PlatformWin.cmake
++++ b/Source/WebCore/PlatformWin.cmake
+@@ -33,6 +33,12 @@ if (ENABLE_WEBGPU)
+     list(APPEND WebCore_LIBRARIES
+         Dawn::dawn
+     )
++    list(APPEND WebCore_SOURCES
++        html/canvas/GPUCanvasContextWin.cpp
++    )
++    list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
++        html/canvas/GPUCanvasContextWin.h
++    )
+ endif ()
+ 
+ list(APPEND WebCore_SOURCES
