@@ -38,9 +38,10 @@ jobs:
           SRC="$(cygpath -u "$SRC_WIN")"
           ARCHIVE="$RUNNER_TEMP/webkit-pin.tar.gz"
 
-          # Rename old dir out of the way (instant), delete in background
+          # Cleanup step at end of workflow guarantees this is gone,
+          # but handle stragglers defensively
           if [ -d "$SRC" ]; then
-            mv "$SRC" "${SRC}-old-$$" 2>/dev/null && rm -rf "${SRC}-old-$$" &
+            rm -rf "$SRC" || cmd //c "rd /s /q \"$SRC_WIN\"" 2>/dev/null || true
           fi
           mkdir -p "$SRC"
 
@@ -154,3 +155,9 @@ jobs:
             C:\W\webkit-src\WebKitBuild\Release\CMakeCache.txt
             C:\W\webkit-src\WebKitBuild\Release\vcpkg-manifest-install.log
           if-no-files-found: warn
+
+      - name: Cleanup Source
+        if: always()
+        shell: cmd
+        run: |
+          if exist "C:\W\webkit-src" rd /s /q "C:\W\webkit-src"
