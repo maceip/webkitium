@@ -114,7 +114,7 @@ index 0000000..6006fdd
 +    m_presentationContext = m_gpu->createPresentationContextForHWND(m_hwnd, m_hinstance);
 +    if (!m_presentationContext)
 +        return;
-+    m_presentationContext->configure(*m_configuration, m_width, m_height, false);
++    std::ignore = m_presentationContext->configure(*m_configuration, m_width, m_height, false);
 +    m_dirty = false;
 +}
 +
@@ -139,7 +139,7 @@ new file mode 100644
 index 0000000..57e1ca4
 --- /dev/null
 +++ b/Source/WebCore/html/canvas/GPUCanvasContextWin.h
-@@ -0,0 +1,63 @@
+@@ -0,0 +1,66 @@
 +/*
 + * Copyright (C) 2026 The WebKit Authors. All rights reserved.
 + */
@@ -151,6 +151,7 @@ index 0000000..57e1ca4
 +#include "GPUCanvasConfiguration.h"
 +#include "GPUCanvasContext.h"
 +#include "GPUPresentationContext.h"
++#include "ImageBuffer.h"
 +#include "GPUTexture.h"
 +#include "HTMLCanvasElement.h"
 +#include <wtf/Ref.h>
@@ -181,6 +182,8 @@ index 0000000..57e1ca4
 +    std::optional<GPUCanvasConfiguration> getConfiguration() const override;
 +    ExceptionOr<Ref<GPUTexture>> getCurrentTexture() override;
 +    void didUpdateCanvasSizeProperties(bool) override;
++    RefPtr<ImageBuffer> surfaceBufferToImageBuffer(SurfaceBuffer) override { return nullptr; }
++    bool isSurfaceBufferTransparentBlack(SurfaceBuffer) const override { return true; }
 +
 +    void setHostHWND(HWND, uint32_t width, uint32_t height);
 +
