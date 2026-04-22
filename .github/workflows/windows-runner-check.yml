@@ -1,0 +1,153 @@
+name: windows-runner-check
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  check:
+    name: Runner Health Check
+    runs-on:
+      - self-hosted
+      - Windows
+      - X64
+      - webkitium
+    steps:
+      - name: Runner Audit
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $fail = $false
+
+          function Check($label, $ok, $detail) {
+            if ($ok) {
+              Write-Host ("  OK    {0,-40} {1}" -f $label, $detail)
+            } else {
+              Write-Host ("  FAIL  {0,-40} {1}" -f $label, $detail)
+              $script:fail = $true
+            }
+          }
+
+          # ── Account & Identity ──
+          Write-Host "`n== Account =="
+          $user = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+          Check "runner identity" $true $user.Name
+          $isAdmin = ([Security.Principal.WindowsPrincipal]$user).IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)
+          Check "admin privileges" $true $(if ($isAdmin) { "yes (admin)" } else { "no (non-admin)" })
+
+          # ── Disk Space ──
+          Write-Host "`n== Disk Space =="
+          $c = Get-PSDrive C
+          $freeGB = [math]::Round($c.Free / 1GB, 1)
+          $totalGB = [math]::Round(($c.Used + $c.Free) / 1GB, 1)
+          Check "C: free space" ($freeGB -gt 30) "${freeGB} GB free / ${totalGB} GB total"
+
+          # ── Binaries ──
+          Write-Host "`n== Binaries =="
+          $bins = @{
+            'git.exe'        = 'C:\Program Files\Git\cmd\git.exe'
+            'bash.exe'       = 'C:\Program Files\Git\usr\bin\bash.exe'
+            'tar.exe'        = 'C:\Program Files\Git\usr\bin\tar.exe'
+            'perl.exe'       = 'C:\Strawberry\perl\bin\perl.exe'
+            'ruby.exe'       = 'C:\Ruby34-x64\bin\ruby.exe'
+            'python.exe'     = 'C:\Python314\python.exe'
+            'cmake.exe'      = 'C:\Program Files\CMake\bin\cmake.exe'
+            'ninja.exe'      = 'C:\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja\ninja.exe'
+            'clang-cl.exe'   = 'C:\Program Files\LLVM\bin\clang-cl.exe'
+            'lld-link.exe'   = 'C:\Program Files\LLVM\bin\lld-link.exe'
+            'sccache.exe'    = 'C:\Bootstrap\toolbin\sccache.exe'
+            'vcpkg.exe'      = 'C:\vcpkg\vcpkg.exe'
+            'gh.exe'         = 'C:\Program Files\GitHub CLI\gh.exe'
+            'pwsh.exe'       = 'C:\Program Files\PowerShell\7\pwsh.exe'
+            'VsDevCmd.bat'   = 'C:\BuildTools\Common7\Tools\VsDevCmd.bat'
+          }
+          foreach ($name in $bins.Keys | Sort-Object) {
+            $p = $bins[$name]
+            Check $name (Test-Path $p) $p
+          }
+
+          # ── Tool versions (proves they actually run) ──
+          Write-Host "`n== Tool Versions =="
+          $versions = @(
+            @('cmake',    'cmake --version 2>&1 | Select -First 1'),
+            @('ninja',    '"C:\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja\ninja.exe" --version 2>&1'),
+            @('clang-cl', '"C:\Program Files\LLVM\bin\clang-cl.exe" --version 2>&1 | Select -First 1'),
+            @('perl',     'perl -v 2>&1 | Select-String "This is perl"'),
+            @('ruby',     'ruby --version 2>&1'),
+            @('python',   '"C:\Python314\python.exe" --version 2>&1'),
+            @('git',      'git --version 2>&1'),
+            @('gh',       '"C:\Program Files\GitHub CLI\gh.exe" --version 2>&1 | Select -First 1'),
+            @('vcpkg',    '"C:\vcpkg\vcpkg.exe" version 2>&1 | Select -First 2 | Select -Last 1')
+          )
+          foreach ($v in $versions) {
+            try {
+              $out = Invoke-Expression $v[1] | Out-String
+              Check $v[0] $true $out.Trim().Substring(0, [Math]::Min(80, $out.Trim().Length))
+            } catch {
+              Check $v[0] $false "failed to execute"
+            }
+          }
+
+          # ── Environment Variables ──
+          Write-Host "`n== Environment =="
+          $envChecks = @{
+            'VCPKG_ROOT'   = 'C:\vcpkg'
+          }
+          foreach ($k in $envChecks.Keys) {
+            $val = [Environment]::GetEnvironmentVariable($k, 'Machine')
+            if (-not $val) { $val = [Environment]::GetEnvironmentVariable($k, 'User') }
+            Check "env:$k" ($val -eq $envChecks[$k]) $(if ($val) { $val } else { "(not set)" })
+          }
+
+          # ── PATH resolution ──
+          Write-Host "`n== PATH Resolution =="
+          $pathBins = @('git','cmake','perl','ruby','python')
+          foreach ($b in $pathBins) {
+            $found = Get-Command $b -ErrorAction SilentlyContinue
+            Check "PATH:$b" ($null -ne $found) $(if ($found) { $found.Source } else { "not in PATH" })
+          }
+
+          # ── Write Permissions ──
+          Write-Host "`n== Write Permissions =="
+          $dirs = @(
+            'C:\W',
+            'C:\vcpkg\buildtrees',
+            'C:\vcpkg\installed',
+            'C:\vcpkg\packages',
+            'C:\vcpkg\downloads',
+            'C:\Bootstrap\toolbin',
+            'C:\Bootstrap\sccache-gh\windows-webgpu-dawn'
+          )
+          foreach ($d in $dirs) {
+            if (-not (Test-Path $d)) {
+              try {
+                New-Item -Path $d -ItemType Directory -Force | Out-Null
+                Check $d $true "(created)"
+              } catch {
+                Check $d $false "(cannot create)"
+                continue
+              }
+            }
+            $testFile = Join-Path $d '_runner_check.tmp'
+            try {
+              [IO.File]::WriteAllText($testFile, 'test')
+              Remove-Item $testFile -Force
+              Check $d $true "writable"
+            } catch {
+              Check $d $false "NOT WRITABLE"
+            }
+          }
+
+          # ── VsDevCmd environment ──
+          Write-Host "`n== Visual Studio Environment =="
+          $vsOut = cmd /c '"C:\BuildTools\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64 >NUL 2>&1 && echo VSDEV_OK' 2>&1
+          Check "VsDevCmd.bat loads" ($vsOut -match 'VSDEV_OK') ""
+
+          # ── Summary ──
+          Write-Host ""
+          if ($fail) {
+            Write-Host "::error::Runner health check FAILED. See items marked FAIL above."
+            exit 1
+          } else {
+            Write-Host "Runner health check PASSED."
+          }
