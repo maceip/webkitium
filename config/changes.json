@@ -17,8 +17,8 @@
     },
     {
       "id": "webnn-service",
-      "enabled": false,
-      "platforms": ["windows", "macos", "linux", "android", "ios"]
+      "enabled": true,
+      "platforms": ["windows"]
     }
   ],
   "_comment": "Lane ids are stable names for changes/<id>/. windows-webgpu-service stays disabled when those patches live under webkit/patches/windows/. Enable only if you split them back into changes/windows-webgpu-service/patches/. webnn-service is the WebNN (navigator.ml) integration lane using LiteRT-LM as the unified C++ backend."
