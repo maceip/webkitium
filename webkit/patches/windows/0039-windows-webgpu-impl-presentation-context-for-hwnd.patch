@@ -5,7 +5,7 @@ index bdff8da..2e6b8b4 100644
 @@ -167,6 +167,16 @@ RefPtr<PresentationContext> GPUImpl::createPresentationContext(const Presentatio
  #endif
  }
- 
+
 +#if PLATFORM(WIN) && ENABLE(WEBGPU)
 +RefPtr<PresentationContext> GPUImpl::createPresentationContextForHWND(void* hwnd, void* hinstance)
 +{
@@ -24,9 +24,9 @@ index f40a670..2f512d5 100644
 --- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUImpl.h
 +++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUImpl.h
 @@ -105,6 +105,10 @@ private:
- 
+
      RefPtr<PresentationContext> createPresentationContext(const PresentationContextDescriptor&) final;
- 
+
 +#if PLATFORM(WIN) && ENABLE(WEBGPU)
 +    RefPtr<PresentationContext> createPresentationContextForHWND(void* hwnd, void* hinstance) final;
 +#endif

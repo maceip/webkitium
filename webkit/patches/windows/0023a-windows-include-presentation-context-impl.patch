@@ -1,0 +1,14 @@
+diff --git a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUImpl.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUImpl.cpp
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUImpl.cpp
+@@ -31,9 +31,7 @@
+ #include "WebGPUAdapterImpl.h"
+ #include "WebGPUCompositorIntegrationImpl.h"
+ #include "WebGPUDowncastConvertToBackingContext.h"
+ #include "WebGPUPresentationContextDescriptor.h"
+-#if !PLATFORM(WIN)
+ #include "WebGPUPresentationContextImpl.h"
+-#endif
+ #include "WebGPUDawnCompat.h"
+ #include <WebCore/GraphicsContext.h>
+ #include <WebCore/IntSize.h>

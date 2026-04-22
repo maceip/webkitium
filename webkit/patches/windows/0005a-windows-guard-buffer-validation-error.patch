@@ -1,0 +1,15 @@
+diff --git a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUBufferImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUBufferImpl.cpp
+--- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUBufferImpl.cpp
++++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUBufferImpl.cpp
+@@ -160,7 +160,11 @@ void BufferImpl::destroy()
+
+ void BufferImpl::generateAValidationError()
+ {
++#if !PLATFORM(WIN)
+     wgpuBufferGenerateAValidationError(m_backing.get());
++#else
++    // Dawn does not expose wgpuBufferGenerateAValidationError.
++#endif
+ }
+
+ void BufferImpl::setLabelInternal(const String& label)
