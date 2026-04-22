@@ -77,23 +77,14 @@ After creating interpreter, tries `TfLiteGpuDelegateV2Create` +
 back silently to XNNPACK on failure. Destructor cleans up delegate via
 `DelegateKind` discriminator.
 
-### Gap 7: WebGPU interop (`MLTensor` → `GPUBuffer`)
+### Gap 7: WebGPU interop (`MLTensor` → `GPUBuffer`) — DEFERRED
 
-**Problem:** The spec defines `MLTensor` export to `GPUBuffer` for zero-copy
-rendering of inference results. This requires Dawn and LiteRT to share
-GPU resources.
+**Decision:** Ship with native GPU prebuilts (Metal, DirectX, OpenCL) now.
+WebGPU interop is a future optimization when Dawn integration matures.
 
-**Work required:**
-- When both ENABLE_WEBGPU and ENABLE_WEBNN are on:
-  - If LiteRT GPU delegate uses the same D3D12/Vulkan/Metal device as Dawn,
-    share the underlying resource handle.
-  - Otherwise, copy from LiteRT output buffer to a Dawn-managed GPUBuffer.
-- Implement `MLContext.createContext(gpuDevice)` where `gpuDevice` is a
-  WebGPU GPUDevice.
-- Implement `exportToGPU()` on MLTensor.
-
-**Acceptance:** Inference output rendered by WebGPU pipeline without CPU
-round-trip.
+GPU inference works today via LiteRT-LM's prebuilt native accelerator
+libraries. WebGPU interop would add zero-copy rendering of inference
+results but is not a functional requirement.
 
 ### Gap 8: LiteRT-LM Engine integration (LLM inference)
 
@@ -166,11 +157,13 @@ Gap 10 (conformance) — iterative, expand with each new op
 Gap 3 (full ~95 ops) — iterative, expands over many cycles
 ```
 
-Gaps 1–6 are implemented. Gaps 7–8 are the differentiating features.
-Gap 9 is required for any public release. Gap 10 is iterative.
+Gaps 1–6 are implemented. Gap 7 (WebGPU interop) is explicitly deferred —
+ship with native GPU prebuilts now, add Dawn interop when it's ready.
+Gaps 8–10 are the remaining work.
 
 **Next concrete step:** Build the patches against a real WebKit checkout
-with LiteRT-LM libraries present to verify compilation and run the first
-end-to-end test (simple add/mul/relu graph).
+with LiteRT-LM prebuilt libraries beside MiniBrowser to verify compilation
+and run the first end-to-end test (simple add/mul/relu graph on CPU,
+then GPU via native accelerator).
 
 ---

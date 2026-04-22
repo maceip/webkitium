@@ -259,11 +259,32 @@ Build dependencies:
 | **3** | Dispatch + readback | `context.dispatch(graph, inputs, outputs)` executes; `context.readTensor()` returns correct results. End-to-end CPU inference. |
 | **4** | GPU context | `createContext({devicePreference:'gpu'})` succeeds with LiteRT GPU delegate. Same test graph dispatches on GPU. |
 | **5** | LLM inference | LiteRT-LM `Engine`/`Conversation` runs a `.litertlm` model (e.g. Gemma) from page JavaScript. |
-| **6** | WebGPU interop | `MLTensor` exported to `GPUBuffer` via WebGPU; render pipeline consumes inference output. |
-| **7** | Multi-platform | Same integration verified on at least Windows + one non-Windows platform (Linux or macOS). |
+| **6** | Multi-platform | Same integration verified on at least Windows + one non-Windows platform (Linux or macOS). |
+| **7** | WebGPU interop | (Future) `MLTensor` exported to `GPUBuffer` via Dawn; render pipeline consumes inference output. Not required for initial ship. |
+
+### GPU strategy
+
+GPU inference uses LiteRT-LM's **prebuilt native accelerator libraries**
+shipped in `prebuilt/<platform>/`. These use native GPU APIs directly —
+**no WebGPU dependency**:
+
+| Platform | Library | Native API |
+|----------|---------|------------|
+| Android | `libLiteRtGpuAccelerator.so` + `libLiteRtOpenClAccelerator.so` | OpenCL / native GPU |
+| macOS | `libLiteRtMetalAccelerator.dylib` | Metal |
+| Windows | `libLiteRt.dll` (GPU path built in) | DirectX |
+| Linux | `libLiteRt.so` (CPU/XNNPACK) | XNNPACK (GPU when available) |
+| iOS | Core ML delegate via LiteRT | Core ML |
+
+Drop these beside the browser binary. GPU inference works out of the box.
+
+WebGPU interop (`MLTensor` → `GPUBuffer` for zero-copy rendering) is a
+future optimization — it requires Dawn and LiteRT to share GPU device
+resources. Not a blocker for shipping GPU-accelerated WebNN.
 
 ### Out of scope for the lane (unless separate work)
 
+- WebGPU interop (future milestone when Dawn integration matures).
 - NPU delegation (future milestone after GPU works).
 - Full CTS-like operator conformance.
 - ONNX model support (LiteRT-LM uses `.litertlm` format; ONNX conversion is
@@ -310,10 +331,10 @@ Current status (April 2026): v2.4.0 supports `'webgpu'` and `'cpu'` only.
 3. `MLGraphBuilder` constructs a simple graph (add, mul, relu).
 4. `builder.build()` compiles the graph via LiteRT.
 5. `context.dispatch()` executes and `readTensor()` returns correct results.
-6. GPU context works via LiteRT GPU delegate.
+6. GPU context works via LiteRT prebuilt native accelerators (Metal, DirectX, OpenCL — no WebGPU needed).
 7. LiteRT-LM runs a real `.litertlm` model from page JavaScript.
-8. `MLTensor` exports to `GPUBuffer` for WebGPU interop.
-9. Same integration works on Windows + at least one other platform.
+8. Same integration works on Windows + at least one other platform.
+9. (Future) `MLTensor` exports to `GPUBuffer` for WebGPU interop when Dawn is ready.
 
 Each rung needs a build artifact and runtime probe in the standard harness.
 

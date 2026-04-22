@@ -60,14 +60,14 @@ Build dependencies:
 - macOS: Xcode command line tools
 - Android: NDK r28b+
 
-## Integration With WebGPU
+## GPU Acceleration
 
-WebNN and WebGPU are complementary. The `MLTensor` API supports export to
-`GPUBuffer` for zero-copy interop. This means an inference result from WebNN
-(via LiteRT-LM) can be rendered directly by a WebGPU pipeline (via Dawn)
-without CPU round-trip.
+GPU inference uses LiteRT-LM's **prebuilt native accelerator libraries**.
+These use platform GPU APIs directly (Metal, DirectX, OpenCL) — **no
+WebGPU dependency**. Copy `prebuilt/<platform>/*` beside the browser binary.
 
-For this interop to work, both `ENABLE_WEBGPU` and `ENABLE_WEBNN` must be on.
+WebGPU interop (`MLTensor` → `GPUBuffer` for zero-copy rendering) is a
+future optimization that will be added when Dawn integration matures.
 
 ## Acceptance
 

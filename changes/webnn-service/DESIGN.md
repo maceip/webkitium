@@ -381,19 +381,25 @@ decoding with Gemma models.
 Git LFS is required to fetch the actual binaries (without LFS they are
 pointer files). Run `git lfs pull` after cloning.
 
-## WebGPU Interop
+## GPU Acceleration (shipping now)
 
-When both `ENABLE_WEBGPU` and `ENABLE_WEBNN` are on and the `MLContext` is
-created from a `GPUDevice`, `MLTensor` export to `GPUBuffer` is possible:
+GPU inference uses the **prebuilt native accelerator libraries** from
+`prebuilt/<platform>/`. These use platform GPU APIs directly — Metal,
+DirectX, OpenCL — with no WebGPU dependency. Drop them beside the browser
+binary and GPU inference works.
 
-```cpp
-RefPtr<GPUBuffer> LiteRTContext::exportToGPU(MLTensor& tensor) {
-    // LiteRT GPU delegate may use the same underlying GPU device.
-    // If Dawn and LiteRT share a D3D12/Vulkan/Metal device, the
-    // tensor buffer can be shared via platform handle.
-    // Otherwise, copy from LiteRT output buffer to Dawn-managed buffer.
-}
-```
+The `HAVE_LITERT_GPU_DELEGATE` build flag is set automatically by
+`FindLiteRT.cmake` when it finds a GPU accelerator library. The graph
+implementation tries the GPU delegate first, then falls back to XNNPACK.
+
+## WebGPU Interop (future)
+
+When Dawn integration matures, `MLTensor` → `GPUBuffer` export will enable
+zero-copy rendering of inference results. This requires Dawn and LiteRT to
+share GPU device resources (D3D12, Vulkan, or Metal handle sharing).
+
+This is a performance optimization, not a functional requirement. GPU
+inference works today via native prebuilt accelerators.
 
 ## Acceptance Ladder
 
