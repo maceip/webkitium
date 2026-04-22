@@ -91,7 +91,11 @@ jobs:
 
           # Apply patches (strip CRLF -- git apply requires LF in patches)
           applied=0
-          for patch in "$GITHUB_WORKSPACE"/webkit/patches/common/* "$GITHUB_WORKSPACE"/webkit/patches/windows/*; do
+          for patch in \
+            "$GITHUB_WORKSPACE"/webkit/patches/common/* \
+            "$GITHUB_WORKSPACE"/webkit/patches/windows/* \
+            "$GITHUB_WORKSPACE"/changes/webnn-service/patches/common/* \
+            "$GITHUB_WORKSPACE"/changes/webnn-service/patches/windows/*; do
             [[ -f "$patch" ]] || continue
             echo "Applying $(basename "$patch")"
             clean="$RUNNER_TEMP/$(basename "$patch")"

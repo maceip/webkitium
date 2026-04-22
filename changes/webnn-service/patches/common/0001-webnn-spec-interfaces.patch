@@ -3,7 +3,7 @@ new file mode 100644
 index 00000000000..a1b2c3d4e5f
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/MLContextOptions.h
-@@ -0,0 +1,27 @@
+@@ -0,0 +1,32 @@
 +/*
 + * https://webmachinelearning.github.io/webnn/#dictdef-mlcontextoptions
 + */
@@ -67,7 +67,7 @@ new file mode 100644
 index 00000000000..c3d4e5f6a7b
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/MLContext.h
-@@ -0,0 +1,65 @@
+@@ -0,0 +1,55 @@
 +/*
 + * https://webmachinelearning.github.io/webnn/#api-mlcontext
 + */
@@ -128,7 +128,7 @@ new file mode 100644
 index 00000000000..d4e5f6a7b8c
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/MLContext.idl
-@@ -0,0 +1,20 @@
+@@ -0,0 +1,21 @@
 +/*
 + * https://webmachinelearning.github.io/webnn/#api-mlcontext
 + */
@@ -155,7 +155,7 @@ new file mode 100644
 index 00000000000..e5f6a7b8c9d
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/MLGraphBuilder.h
-@@ -0,0 +1,82 @@
+@@ -0,0 +1,85 @@
 +/*
 + * https://webmachinelearning.github.io/webnn/#api-mlgraphbuilder
 + */
@@ -246,7 +246,7 @@ new file mode 100644
 index 00000000000..f6a7b8c9d0e
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/MLGraphBuilder.idl
-@@ -0,0 +1,52 @@
+@@ -0,0 +1,56 @@
 +/*
 + * https://webmachinelearning.github.io/webnn/#api-mlgraphbuilder
 + */
@@ -308,7 +308,7 @@ new file mode 100644
 index 00000000000..a7b8c9d0e1f
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/MLGraph.h
-@@ -0,0 +1,38 @@
+@@ -0,0 +1,33 @@
 +/*
 + * https://webmachinelearning.github.io/webnn/#api-mlgraph
 + */
@@ -363,7 +363,7 @@ new file mode 100644
 index 00000000000..c9d0e1f2a3b
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/MLOperand.h
-@@ -0,0 +1,53 @@
+@@ -0,0 +1,49 @@
 +/*
 + * https://webmachinelearning.github.io/webnn/#api-mloperand
 + */
@@ -418,7 +418,7 @@ new file mode 100644
 index 00000000000..d0e1f2a3b4c
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/MLOperand.idl
-@@ -0,0 +1,13 @@
+@@ -0,0 +1,12 @@
 +/*
 + * https://webmachinelearning.github.io/webnn/#api-mloperand
 + */
@@ -436,7 +436,7 @@ new file mode 100644
 index 00000000000..e1f2a3b4c5d
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/MLTensor.h
-@@ -0,0 +1,50 @@
+@@ -0,0 +1,48 @@
 +/*
 + * https://webmachinelearning.github.io/webnn/#api-mltensor
 + */
@@ -490,7 +490,7 @@ new file mode 100644
 index 00000000000..f2a3b4c5d6e
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/MLTensor.idl
-@@ -0,0 +1,17 @@
+@@ -0,0 +1,18 @@
 +/*
 + * https://webmachinelearning.github.io/webnn/#api-mltensor
 + */
