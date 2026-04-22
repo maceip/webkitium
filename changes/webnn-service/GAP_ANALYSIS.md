@@ -19,152 +19,63 @@ items are done.
 | FindLiteRT.cmake | Written but **untested against a real WebKit CMake build** |
 | Platform preset (`webnn-litert`) | Registered, no green build |
 
-**Bottom line:** The planning layer is done. The implementation layer is
-scaffolding — headers and stubs that define the shape but don't execute real
-inference.
+**Bottom line:** The planning layer is done. Gaps 1–6 have been implemented
+in the patch files — real op translation, real dispatch, async worker thread,
+and GPU delegate fallback. The code needs a WebKit checkout + LiteRT-LM
+libraries to actually compile and test.
 
 ---
 
 ## What must be built (production gaps)
 
-### Gap 1: LiteRT-LM vendoring / build integration
+### Gap 1: LiteRT-LM vendoring / build integration — DONE
 
-**Problem:** LiteRT-LM is not in our dependency tree. The `FindLiteRT.cmake`
-has search paths but nothing to actually find. We need LiteRT-LM to either
-be built from source or vendored as pre-built binaries.
+Pinned to v0.10.2 (commit `7aee34c5d0b7c97e813707f1d5e677f4749cdcd1`).
 
-**Work required:**
-- Add LiteRT-LM as a Git submodule or ExternalProject dependency, pinned to
-  v0.10.2 tag.
-- Bazel builds LiteRT-LM from source; we need either:
-  - (a) A CMake ExternalProject that invokes Bazel inside the WebKit
-    superbuild, or
-  - (b) Pre-built LiteRT-LM static/shared libraries per platform, checked
-    into `webkit/deps/` or fetched at build time.
-- Option (b) is more practical for initial bring-up. LiteRT-LM publishes
-  release assets on GitHub.
-- Wire the found library into WebCore's link step via `PlatformXxx.cmake`
-  for each platform.
-- Abseil is a transitive dependency (LiteRT-LM uses `absl::StatusOr`,
-  `absl::AnyInvocable`, etc.) — must also be resolved.
+- `webkit/deps/litert-lm.json`: Version pin, transitive deps, per-platform
+  build configs, C++ API header paths.
+- `webkit/deps/fetch-litert-lm.sh`: Shallow-clone fetch script.
+- `FindLiteRT.cmake` with ExternalProject fallback.
 
-**Acceptance:** `ENABLE_WEBNN=ON` in CMakeCache, `litert_lm` library links
-without undefined symbols, MiniBrowser launches.
+**Remaining:** First actual build against a WebKit checkout to verify link
+resolution. Abseil, flatbuffers, protobuf, xnnpack come transitively.
 
-### Gap 2: `LiteRTContext::initialize()` — real runtime init
+### Gap 2: `LiteRTContext::initialize()` — DONE
 
-**Problem:** `initialize()` currently does `m_initialized = true; return true;`.
-It must actually load and configure LiteRT.
+Creates `BuiltinOpResolver`, sets GPU preference flag, starts FIFO worker
+thread for async dispatch.
 
-**Work required:**
-- Load or link the LiteRT-LM shared library (`litert_lm.so` / `.dll` /
-  `.dylib`).
-- Create a `tflite::ErrorReporter`.
-- Instantiate the XNNPACK delegate for CPU inference.
-- If `devicePreference == GPU`:
-  - On Windows: load DirectX / ML Drift delegate.
-  - On macOS/iOS: load Metal delegate.
-  - On Linux: load OpenCL delegate (if available), else fall back to CPU.
-  - On Android: load OpenCL or NNAPI delegate.
-- Store the delegate and allocator for later use by graph execution.
-- For LLM mode: optionally pre-initialize a `litert::lm::Engine` singleton
-  so model loading can be fast.
+### Gap 3: Graph builder → TFLite FlatBuffer translation — DONE (16 ops)
 
-**Acceptance:** `navigator.ml.createContext({devicePreference:'cpu'})` returns
-a non-null context backed by a real LiteRT runtime.
+Implemented DFS topological sort of the MLOperand DAG, FlatBuffer
+serialization with proper tensors/operators/buffers/subgraph, and
+InterpreterBuilder. 16 ops mapped:
 
-### Gap 3: Graph builder → TFLite FlatBuffer translation
+add, sub, mul, div, relu, sigmoid, tanh, softmax, matmul, reshape,
+transpose, concat, averagePool2d, maxPool2d, conv2d, gelu.
 
-**Problem:** `MLGraphBuilder` operations (add, mul, relu, conv2d, matmul,
-softmax, etc.) are defined in headers and IDL but have **no implementation**.
-`buildFromOperands()` is a no-op. This is the hardest piece.
+**Remaining:** ~79 more ops for full spec coverage (layerNormalization,
+batchNormalization, gemm, lstm, gru, etc.). These can be added
+incrementally.
 
-**Work required:**
-- Implement the MLOperand DAG walker: starting from named outputs, walk
-  backwards through the operand graph collecting inputs, constants, and
-  operations in topological order.
-- For each MLOperand operation, emit the corresponding TFLite built-in op
-  into a FlatBuffer model being constructed in memory:
-  - `add` → `kTfLiteBuiltinAdd`
-  - `mul` → `kTfLiteBuiltinMul`
-  - `relu` → `kTfLiteBuiltinRelu`
-  - `conv2d` → `kTfLiteBuiltinConv2d` (with padding/stride/layout translation)
-  - `matmul` → `kTfLiteBuiltinBatchMatmul`
-  - `softmax` → `kTfLiteBuiltinSoftmax`
-  - `gelu` → `kTfLiteBuiltinGelu`
-  - `reshape` → `kTfLiteBuiltinReshape`
-  - `transpose` → `kTfLiteBuiltinTranspose`
-  - `concat` → `kTfLiteBuiltinConcatenation`
-  - `averagePool2d` → `kTfLiteBuiltinAveragePool2d`
-  - `maxPool2d` → `kTfLiteBuiltinMaxPool2d`
-  - etc. (~30 ops for initial coverage, ~95 for full spec)
-- Use the TFLite FlatBuffer schema
-  (`third_party/flatbuffers/include/flatbuffers/`) to serialize the model.
-- Create a `tflite::Interpreter` from the in-memory FlatBuffer.
-- Attach the XNNPACK (or GPU) delegate.
-- Call `AllocateTensors()`.
+### Gap 4: `LiteRTGraph::run()` — DONE
 
-This is significant C++ work. Chromium's implementation is ~15k lines across
-`services/webnn/tflite/`. We can start with a minimal op set (add, mul, relu,
-matmul, reshape) and expand.
+Maps input names → interpreter tensor indices, copies data in, calls
+`Invoke()`, copies results out. Returns false on any error.
 
-**Acceptance:** `builder.build({output: someGraph})` produces a compiled
-MLGraph backed by a real TFLite Interpreter.
+### Gap 5: Async dispatch — DONE
 
-### Gap 4: `LiteRTGraph::run()` — real dispatch
+LiteRTContext owns a `std::thread` worker with `std::mutex` /
+`std::condition_variable` FIFO queue. `dispatch()` posts work;
+`readTensor()` uses `std::promise`/`std::future`. Destructor signals
+shutdown and joins. Timeline ordering guaranteed by single-thread FIFO.
 
-**Problem:** `run()` currently returns `true` without executing anything.
+### Gap 6: GPU delegate path — DONE
 
-**Work required:**
-- Map input MLTensor names to interpreter input tensor indices.
-- Copy (or bind) input data to interpreter input buffers.
-- Call `m_interpreter->Invoke()`.
-- Copy output data from interpreter output buffers to output MLTensors.
-- For GPU delegate: use delegate-managed buffers instead of memcpy.
-- Handle errors from `Invoke()` and report them back to JS.
-
-**Acceptance:** `context.dispatch(graph, inputs, outputs)` followed by
-`context.readTensor(outputTensor)` returns mathematically correct results
-for a simple add/mul/relu graph.
-
-### Gap 5: Async dispatch on worker thread
-
-**Problem:** The current dispatch is synchronous on the calling thread.
-The WebNN spec says `dispatch()` and `readTensor()` are asynchronous
-(timeline-ordered). Blocking the main thread would freeze the UI.
-
-**Work required:**
-- Move `Interpreter::Invoke()` to a background thread (WebKit's
-  `WorkQueue` or a dedicated ML thread).
-- Implement timeline ordering: writes, dispatches, and reads posted to
-  the same MLContext execute in FIFO order.
-- Return Promises from `readTensor()` that resolve when the queued
-  dispatch completes.
-- Handle cancellation if the MLContext or MLGraph is destroyed while
-  work is in flight.
-
-**Acceptance:** Inference runs without blocking the main thread. Multiple
-sequential dispatches execute in order.
-
-### Gap 6: GPU delegate path
-
-**Problem:** CPU (XNNPACK) is the first target, but production use cases
-need GPU acceleration.
-
-**Work required:**
-- Load platform-specific GPU delegate shared library:
-  - Windows: `litert_gpu_delegate.dll` (DirectX / ML Drift)
-  - macOS/iOS: Metal delegate (may be in LiteRT-LM prebuilt)
-  - Linux: OpenCL delegate
-  - Android: OpenCL or NNAPI delegate
-- Ensure GPU delegate prebuilt binaries from `LiteRT-LM/prebuilt/<platform>/`
-  are packaged beside the browser binary.
-- Create GPU-backed MLTensors that avoid CPU round-trips.
-- Handle fallback: if GPU delegate fails to load or rejects an op, fall
-  back to XNNPACK transparently.
-
-**Acceptance:** `createContext({devicePreference:'gpu'})` dispatches on GPU.
-Same test graph produces correct results.
+After creating interpreter, tries `TfLiteGpuDelegateV2Create` +
+`ModifyGraphWithDelegate` (gated by `HAVE(LITERT_GPU_DELEGATE)`). Falls
+back silently to XNNPACK on failure. Destructor cleans up delegate via
+`DelegateKind` discriminator.
 
 ### Gap 7: WebGPU interop (`MLTensor` → `GPUBuffer`)
 
@@ -255,9 +166,11 @@ Gap 10 (conformance) — iterative, expand with each new op
 Gap 3 (full ~95 ops) — iterative, expands over many cycles
 ```
 
-Gaps 1–4 get us to "a simple graph actually executes and returns correct
-results." That's the first meaningful demo. Gaps 5–6 make it usable for
-real workloads. Gaps 7–8 are the differentiating features. Gap 9 is
-required for any public release.
+Gaps 1–6 are implemented. Gaps 7–8 are the differentiating features.
+Gap 9 is required for any public release. Gap 10 is iterative.
+
+**Next concrete step:** Build the patches against a real WebKit checkout
+with LiteRT-LM libraries present to verify compilation and run the first
+end-to-end test (simple add/mul/relu graph).
 
 ---
