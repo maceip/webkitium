@@ -1,19 +1,10 @@
-name: Webkitium Windows Orchestrator
+name: windows-build
 
 on:
   workflow_dispatch:
-  repository_dispatch:
-    types: [build-windows]
-
-env:
-  VCPKG_ROOT: "C:\\vcpkg"
-  VCPKG_BINARY_SOURCES: "clear;nuget,GitHub,readwrite"
-  SOURCE_TAG: "webkit-pin"
-  BUILD_TYPE: "Release"
 
 permissions:
-  contents: write
-  packages: write
+  contents: read
 
 concurrency:
   group: webkitium-windows-build
@@ -30,175 +21,50 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: "Bootstrap: Ensure pwsh in PATH"
-        shell: cmd
-        run: |
-          where pwsh >NUL 2>&1 && exit /b 0
-          if exist "C:\Program Files\PowerShell\7\pwsh.exe" (
-            echo Adding pwsh to PATH...
-            echo C:\Program Files\PowerShell\7>>%GITHUB_PATH%
-            exit /b 0
-          )
-          echo ERROR: pwsh not installed. Install via SSM first.
-          exit /b 1
-
-      - name: "Phase 0a: Preflight (fail fast on missing deps)"
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $required = @{
-            'pwsh'          = 'C:\Program Files\PowerShell\7\pwsh.exe'
-            'gh'            = 'C:\Program Files\GitHub CLI\gh.exe'
-            'git'           = 'C:\Program Files\Git\cmd\git.exe'
-            'bash'          = 'C:\Program Files\Git\usr\bin\bash.exe'
-            'tar'           = 'C:\Program Files\Git\usr\bin\tar.exe'
-            'perl'          = 'C:\Strawberry\perl\bin\perl.exe'
-            'python'        = 'C:\Python314\python.exe'
-            'ruby'          = 'C:\Ruby34-x64\bin\ruby.exe'
-            'cmake'         = 'C:\Program Files\CMake\bin\cmake.exe'
-            'clang-cl'      = 'C:\Program Files\LLVM\bin\clang-cl.exe'
-            'lld-link'      = 'C:\Program Files\LLVM\bin\lld-link.exe'
-            'ninja'         = 'C:\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja\ninja.exe'
-            'VsDevCmd'      = 'C:\BuildTools\Common7\Tools\VsDevCmd.bat'
-            'vcpkg'         = 'C:\vcpkg\vcpkg.exe'
-            'vcpkg_root'    = 'C:\vcpkg'
-            'sccache'       = 'C:\Bootstrap\toolbin\sccache.exe'
-            'toolbin'       = 'C:\Bootstrap\toolbin'
-          }
-          $missing = @()
-          foreach ($k in $required.Keys | Sort-Object) {
-            $p = $required[$k]
-            if (Test-Path -LiteralPath $p) {
-              Write-Host ("OK       {0,-12} {1}" -f $k, $p)
-            } else {
-              Write-Host ("MISSING  {0,-12} {1}" -f $k, $p)
-              $missing += "$k ($p)"
-            }
-          }
-          if ($missing.Count -gt 0) {
-            Write-Host "::error::Preflight failed. Missing:"
-            $missing | ForEach-Object { Write-Host "::error::  $_" }
-            exit 1
-          }
-          Write-Host "Preflight OK."
-
-      - name: "Phase 0b: Disk Clean (fast, parallel)"
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Continue'
-          $before = (Get-PSDrive C).Free
-          Write-Host ("Before: {0:N1} GB free" -f ($before/1GB))
-          $budget  = [TimeSpan]::FromMinutes(3)
-          $sw      = [System.Diagnostics.Stopwatch]::StartNew()
-          $cutoff  = (Get-Date).AddHours(-2)
-
-          $empty = "$env:RUNNER_TEMP\__empty_$(Get-Random)"
-          New-Item -Path $empty -ItemType Directory -Force | Out-Null
-
-          $keep = @('toolbin','sccache','sccache-gh','installers','manual-install','gh-ci','baseline-vcpkg','baseline-vcpkg-probe','dawn-adapter-options-probe','dawn-device-probe','dawn-warp-probe')
-
-          $targets = @()
-          $targets += Get-ChildItem 'C:\Bootstrap' -Directory -ErrorAction SilentlyContinue |
-            Where-Object { $keep -notcontains $_.Name -and $_.LastWriteTime -lt $cutoff } |
-            Select-Object -ExpandProperty FullName
-          $targets += Get-ChildItem 'C:\W' -Directory -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -ne 'webkit-src' -and $_.LastWriteTime -lt $cutoff } |
-            Select-Object -ExpandProperty FullName
-
-          Write-Host "Nuking $($targets.Count) top-level dirs in parallel (robocopy /MIR + MT)..."
-          $targets | ForEach-Object -Parallel {
-            $empty = $using:empty
-            $p = $_
-            try {
-              $null = robocopy $empty $p /MIR /NFL /NDL /NJH /NJS /NP /NC /NS /R:0 /W:0 /MT:16
-              Remove-Item -LiteralPath $p -Force -Recurse -ErrorAction SilentlyContinue
-            } catch {}
-          } -ThrottleLimit 8
-
-          # Loose files in C:\Bootstrap (fast: File.Delete inline)
-          Get-ChildItem 'C:\Bootstrap' -File -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -match '^(setup-deps-.*\.log|.*\.patch|.*\.tar\.gz)$' } |
-            ForEach-Object { try { [System.IO.File]::Delete($_.FullName) } catch {} }
-
-          # TEMP (only items older than cutoff)
-          foreach ($t in @($env:TEMP, 'C:\Windows\Temp')) {
-            if (-not (Test-Path $t)) { continue }
-            Get-ChildItem $t -ErrorAction SilentlyContinue |
-              Where-Object { $_.LastWriteTime -lt $cutoff } |
-              ForEach-Object -Parallel {
-                $empty = $using:empty
-                $p = $_.FullName
-                try {
-                  if ($_.PSIsContainer) {
-                    $null = robocopy $empty $p /MIR /NFL /NDL /NJH /NJS /NP /NC /NS /R:0 /W:0 /MT:8
-                    Remove-Item -LiteralPath $p -Force -Recurse -ErrorAction SilentlyContinue
-                  } else {
-                    [System.IO.File]::Delete($p)
-                  }
-                } catch {}
-              } -ThrottleLimit 8
-          }
-
-          # Windows Update staging (small, fast)
-          Stop-Service wuauserv -Force -ErrorAction SilentlyContinue
-          Remove-Item 'C:\Windows\SoftwareDistribution\Download\*' -Recurse -Force -ErrorAction SilentlyContinue
-          Start-Service wuauserv -ErrorAction SilentlyContinue
-
-          Remove-Item -LiteralPath $empty -Force -Recurse -ErrorAction SilentlyContinue
-          $sw.Stop()
-          $after = (Get-PSDrive C).Free
-          Write-Host ("After : {0:N1} GB free - reclaimed {1:N1} GB in {2:N1}s" -f ($after/1GB), (($after-$before)/1GB), $sw.Elapsed.TotalSeconds)
-
-          if ($sw.Elapsed -gt $budget) {
-            Write-Host "::warning::Cleanup exceeded $($budget.TotalMinutes) min budget"
-          }
-          if ($after -lt 20GB) {
-            Write-Host "::error::Disk still under 20GB after cleanup ($([math]::Round($after/1GB,1)) GB free). Aborting."
-            exit 1
-          }
-
-      - name: "Phase 1: Fetch and Stitch Source"
+      - name: Prepare Source
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
           SRC_WIN='C:/W/webkit-src'
           SRC="$(cygpath -u "$SRC_WIN")"
-          ARCHIVE="$RUNNER_TEMP/webkit-pin.tar.gz"
+          ARCHIVE="$RUNNER_TEMP/webkit-source.tar.gz"
           rm -rf "$SRC"
           mkdir -p "$SRC"
 
-          # Download split parts from draft release
-          cd "$RUNNER_TEMP"
-          gh release download ${{ env.SOURCE_TAG }} \
-            --repo ${{ github.repository }} \
-            --pattern "webkit-pin.tar.gz.part-*"
+          curl -L --fail \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/octet-stream" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/maceip/webkitium/releases/assets/401651875 \
+            -o "$ARCHIVE"
 
-          # Stitch parts back into single tarball (shell glob sorts alphabetically)
-          shopt -s nullglob
-          cat webkit-pin.tar.gz.part-* > "$ARCHIVE"
-          rm -f webkit-pin.tar.gz.part-*
+          echo "Tarball downloaded: $(du -h "$ARCHIVE" | cut -f1)"
 
-          # Verify tarball integrity
-          echo "Verifying tarball..."
-          tar -tzf "$ARCHIVE" > /dev/null
-          echo "Tarball OK - $(du -h "$ARCHIVE" | cut -f1)"
+          # Extract, excluding paths that contain macOS/iOS framework symlinks
+          # and test suites not needed for a Windows build.  Tolerate warnings
+          # from any remaining symlink entries inside Source/.
+          tar -xzf "$ARCHIVE" --strip-components=1 -C "$SRC" \
+            --exclude='*/LayoutTests/*' \
+            --exclude='*/PerformanceTests/*' \
+            --exclude='*/WebKitLibraries/SDKs/*' \
+            --exclude='*/Websites/*' \
+            --exclude='*/JSTests/*' \
+            || true
 
-          # Extract and clean up
-          tar -xzf "$ARCHIVE" --strip-components=1 -C "$SRC"
           rm -f "$ARCHIVE"
 
+          # Verify the source tree actually arrived
+          if [[ ! -d "$SRC/Source" ]]; then
+            echo "::error::Extraction failed -- Source/ directory missing"
+            exit 1
+          fi
           echo "Source ready at $SRC_WIN"
           ls "$SRC" | head -20
 
-      - name: "Phase 2: Apply Patches"
-        shell: bash
-        run: |
-          set -euo pipefail
-          SRC="$(cygpath -u 'C:/W/webkit-src')"
-
+          # Apply patches
           applied=0
           for patch in webkit/patches/common/* webkit/patches/windows/*; do
             [[ -f "$patch" ]] || continue
@@ -209,18 +75,7 @@ jobs:
           done
           echo "Applied $applied patches."
 
-      - name: "Phase 3: Configure vcpkg Binary Cache"
-        shell: pwsh
-        run: |
-          $url = "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
-          $nuget = $(vcpkg fetch nuget | Select-Object -Last 1)
-          & $nuget sources add -Name "GitHub" -Source $url `
-            -UserName "${{ github.actor }}" `
-            -Password "${{ secrets.GITHUB_TOKEN }}" `
-            -StorePasswordInClearText
-          Write-Host "vcpkg NuGet binary cache configured."
-
-      - name: "Phase 4: Build"
+      - name: Build
         shell: cmd
         run: |
           @echo on
@@ -231,7 +86,6 @@ jobs:
           set "SRC=C:\W\webkit-src"
           set "PATH=C:\Bootstrap\toolbin;C:\Program Files\Git\cmd;C:\Ruby34-x64\bin;C:\Python314;C:\Python314\Scripts;C:\Program Files\LLVM\bin;C:\Program Files\CMake\bin;C:\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja;C:\Strawberry\perl\bin;%PATH%"
           set "VCPKG_ROOT=C:\vcpkg"
-          set "VCPKG_BINARY_SOURCES=clear;nuget,GitHub,readwrite"
           set "SCCACHE_DIR=C:\Bootstrap\sccache-gh\windows-webgpu-dawn"
           if not exist "%SCCACHE_DIR%" mkdir "%SCCACHE_DIR%"
           set "SCCACHE_CACHE_SIZE=50G"
@@ -240,7 +94,7 @@ jobs:
           C:\Bootstrap\toolbin\sccache.exe --zero-stats
 
           cd /d "%SRC%"
-          perl Tools\Scripts\build-webkit --release --win --makeargs=-j%NUMBER_OF_PROCESSORS% ^
+          perl Tools\Scripts\build-webkit --release --win --makeargs=-j8 ^
             -DCMAKE_C_COMPILER=C:/Progra~1/LLVM/bin/clang-cl.exe ^
             -DCMAKE_CXX_COMPILER=C:/Progra~1/LLVM/bin/clang-cl.exe ^
             -DCMAKE_LINKER=C:/Progra~1/LLVM/bin/lld-link.exe ^
@@ -262,11 +116,11 @@ jobs:
 
           C:\Bootstrap\toolbin\sccache.exe --show-stats
 
-      - name: "Phase 5: Export Binaries"
+      - name: Upload Artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: webkitium-win64-${{ env.BUILD_TYPE }}-${{ github.run_id }}
+          name: windows-build-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             C:\W\webkit-src\WebKitBuild\Release\bin
             C:\W\webkit-src\WebKitBuild\Release\CMakeCache.txt
