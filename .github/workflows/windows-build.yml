@@ -1,10 +1,18 @@
-name: windows-build
+name: Webkitium Windows Orchestrator
 
 on:
   workflow_dispatch:
+  repository_dispatch:
+    types: [build-windows]
+
+env:
+  VCPKG_BINARY_SOURCES: "clear;nuget,GitHub,readwrite"
+  SOURCE_TAG: "webkit-pin"
+  BUILD_TYPE: "Release"
 
 permissions:
-  contents: read
+  contents: write
+  packages: write
 
 concurrency:
   group: webkitium-windows-build
@@ -21,35 +29,92 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Prepare Source
+      - name: "Phase 0: Disk Check"
+        shell: pwsh
+        run: |
+          Write-Host "Current Disk Status:"
+          Get-PSDrive C | Select-Object Used, Free
+          $free = (Get-PSDrive C).Free
+          if ($free -lt 30GB) {
+            Write-Host "WARNING: Less than 30GB free — cleaning bloatware..."
+            $targets = @(
+              "C:/Microsoft/AndroidSDK",
+              "C:/Program Files/Android",
+              "C:/usr/local/lib/android",
+              "$env:AGENT_TOOLSDIRECTORY"
+            )
+            foreach ($path in $targets) {
+              if (Test-Path $path) {
+                Write-Host "Deleting $path..."
+                Remove-Item -Recurse -Force $path -ErrorAction SilentlyContinue
+              }
+            }
+            Get-PSDrive C | Select-Object Used, Free
+          }
+
+      - name: "Phase 1: Fetch and Stitch Source"
         shell: bash
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
           SRC_WIN='C:/W/webkit-src'
           SRC="$(cygpath -u "$SRC_WIN")"
-          ARCHIVE="$RUNNER_TEMP/webkit-source.tar.gz"
+          ARCHIVE="$RUNNER_TEMP/webkit-pin.tar.gz"
           rm -rf "$SRC"
           mkdir -p "$SRC"
 
-          curl -L --fail \
-            -H "Authorization: Bearer $GITHUB_TOKEN" \
-            -H "Accept: application/octet-stream" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            https://api.github.com/repos/maceip/webkitium/releases/assets/401651875 \
-            -o "$ARCHIVE"
-          tar -xzf "$ARCHIVE" --strip-components=1 -C "$SRC"
+          # Download split parts from draft release
+          cd "$RUNNER_TEMP"
+          gh release download ${{ env.SOURCE_TAG }} \
+            --repo ${{ github.repository }} \
+            --pattern "webkit-pin.tar.gz.part-*"
 
+          # Stitch parts back into single tarball (sorted glob)
+          cat $(ls webkit-pin.tar.gz.part-* | sort) > "$ARCHIVE"
+          rm -f webkit-pin.tar.gz.part-*
+
+          # Verify tarball integrity
+          echo "Verifying tarball..."
+          tar -tzf "$ARCHIVE" > /dev/null
+          echo "Tarball OK — $(du -h "$ARCHIVE" | cut -f1)"
+
+          # Extract and clean up
+          tar -xzf "$ARCHIVE" --strip-components=1 -C "$SRC"
+          rm -f "$ARCHIVE"
+
+          echo "Source ready at $SRC_WIN"
+          ls "$SRC" | head -20
+
+      - name: "Phase 2: Apply Patches"
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC="$(cygpath -u 'C:/W/webkit-src')"
+
+          applied=0
           for patch in webkit/patches/common/* webkit/patches/windows/*; do
             [[ -f "$patch" ]] || continue
             echo "Applying $(basename "$patch")"
             git -C "$SRC" apply --check --whitespace=nowarn --unidiff-zero "$GITHUB_WORKSPACE/$patch"
             git -C "$SRC" apply --whitespace=nowarn --unidiff-zero "$GITHUB_WORKSPACE/$patch"
+            applied=$((applied + 1))
           done
+          echo "Applied $applied patches."
 
-      - name: Build
+      - name: "Phase 3: Configure vcpkg Binary Cache"
+        shell: pwsh
+        run: |
+          $url = "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
+          $nuget = $(vcpkg fetch nuget | Select-Object -Last 1)
+          & $nuget sources add -Name "GitHub" -Source $url `
+            -UserName "${{ github.actor }}" `
+            -Password "${{ secrets.GITHUB_TOKEN }}" `
+            -StorePasswordInClearText
+          Write-Host "vcpkg NuGet binary cache configured."
+
+      - name: "Phase 4: Build"
         shell: cmd
         run: |
           @echo on
@@ -60,6 +125,7 @@ jobs:
           set "SRC=C:\W\webkit-src"
           set "PATH=C:\Bootstrap\toolbin;C:\Program Files\Git\cmd;C:\Ruby34-x64\bin;C:\Python314;C:\Python314\Scripts;C:\Program Files\LLVM\bin;C:\Program Files\CMake\bin;C:\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja;C:\Strawberry\perl\bin;%PATH%"
           set "VCPKG_ROOT=C:\vcpkg"
+          set "VCPKG_BINARY_SOURCES=clear;nuget,GitHub,readwrite"
           set "SCCACHE_DIR=C:\Bootstrap\sccache-gh\windows-webgpu-dawn"
           if not exist "%SCCACHE_DIR%" mkdir "%SCCACHE_DIR%"
           set "SCCACHE_CACHE_SIZE=50G"
@@ -68,7 +134,7 @@ jobs:
           C:\Bootstrap\toolbin\sccache.exe --zero-stats
 
           cd /d "%SRC%"
-          perl Tools\Scripts\build-webkit --release --win --makeargs=-j8 ^
+          perl Tools\Scripts\build-webkit --release --win --makeargs=-j%NUMBER_OF_PROCESSORS% ^
             -DCMAKE_C_COMPILER=C:/Progra~1/LLVM/bin/clang-cl.exe ^
             -DCMAKE_CXX_COMPILER=C:/Progra~1/LLVM/bin/clang-cl.exe ^
             -DCMAKE_LINKER=C:/Progra~1/LLVM/bin/lld-link.exe ^
@@ -90,11 +156,11 @@ jobs:
 
           C:\Bootstrap\toolbin\sccache.exe --show-stats
 
-      - name: Upload Artifacts
+      - name: "Phase 5: Export Binaries"
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: windows-build-${{ github.run_id }}-${{ github.run_attempt }}
+          name: webkitium-win64-${{ env.BUILD_TYPE }}-${{ github.run_id }}
           path: |
             C:\W\webkit-src\WebKitBuild\Release\bin
             C:\W\webkit-src\WebKitBuild\Release\CMakeCache.txt
