@@ -24,28 +24,13 @@ echo "[verify] tarball prefix: $PREFIX (strip-components=$STRIP)"
 # Collect all patch directories in apply order, matching the build workflow
 PATCH_DIRS=("$REPO_ROOT/webkit/patches/common" "$REPO_ROOT/webkit/patches/windows")
 
-# Add enabled change lanes (same logic as build workflow)
-if command -v python3 &>/dev/null; then
-    PYTHON=python3
-elif command -v python &>/dev/null; then
-    PYTHON=python
-else
-    PYTHON=""
-fi
-
-if [ -n "$PYTHON" ] && [ -f "$REPO_ROOT/config/changes.json" ]; then
-    readarray -t lanes < <($PYTHON -c "
-import json,sys
-cfg=json.load(open(sys.argv[1]))
-for c in cfg.get('activeChanges',[]):
-    if c.get('enabled') and 'windows' in c.get('platforms',[]):
-        print(c['id'])
-" "$REPO_ROOT/config/changes.json" 2>/dev/null || true)
-    for lane in "${lanes[@]}"; do
-        [ -d "$REPO_ROOT/changes/$lane/patches/common" ] && PATCH_DIRS+=("$REPO_ROOT/changes/$lane/patches/common")
-        [ -d "$REPO_ROOT/changes/$lane/patches/windows" ] && PATCH_DIRS+=("$REPO_ROOT/changes/$lane/patches/windows")
-    done
-fi
+# Add enabled change lanes — scan changes/*/patches/ directories that exist
+for lane_dir in "$REPO_ROOT"/changes/*/patches; do
+    [ -d "$lane_dir" ] || continue
+    lane="$(basename "$(dirname "$lane_dir")")"
+    [ -d "$lane_dir/common" ] && PATCH_DIRS+=("$lane_dir/common")
+    [ -d "$lane_dir/windows" ] && PATCH_DIRS+=("$lane_dir/windows")
+done
 
 # Build list of all patches
 ALL_PATCHES=()
@@ -58,12 +43,15 @@ done
 
 echo "[verify] ${#ALL_PATCHES[@]} patches from ${#PATCH_DIRS[@]} directories"
 
-# Build file list from all patches
+# Build file list from all patches (skip new-file entries: --- /dev/null)
 mkdir -p "$WORK"
-> "$WORK/files.list"
 for p in "${ALL_PATCHES[@]}"; do
     grep -h '^--- a/' "$p" 2>/dev/null | sed 's|^--- a/||' | awk '{print $1}'
 done | sort -u > "$WORK/files.list"
+
+if [ ! -s "$WORK/files.list" ]; then
+    echo "[verify] warning: no existing files to extract (all patches create new files?)"
+fi
 
 # Prefix for tar extraction
 sed "s|^|${PREFIX}|" "$WORK/files.list" > "$WORK/tar-paths.list"
