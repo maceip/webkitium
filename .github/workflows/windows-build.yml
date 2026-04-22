@@ -42,20 +42,20 @@ jobs:
 
           echo ── Checking tool binaries ──
           for %%T in (
-            "git"   "C:\Program Files\Git\cmd\git.exe"
-            "bash"  "C:\Program Files\Git\usr\bin\bash.exe"
-            "perl"  "C:\Strawberry\perl\bin\perl.exe"
-            "ruby"  "C:\Ruby34-x64\bin\ruby.exe"
-            "python" "C:\Python314\python.exe"
-            "cmake" "C:\Program Files\CMake\bin\cmake.exe"
-            "ninja" "C:\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja\ninja.exe"
-            "clang-cl" "C:\Program Files\LLVM\bin\clang-cl.exe"
-            "lld-link" "C:\Program Files\LLVM\bin\lld-link.exe"
-            "sccache" "C:\Bootstrap\toolbin\sccache.exe"
-            "vcpkg" "C:\vcpkg\vcpkg.exe"
+            "C:\Program Files\Git\cmd\git.exe"
+            "C:\Program Files\Git\usr\bin\bash.exe"
+            "C:\Strawberry\perl\bin\perl.exe"
+            "C:\Ruby34-x64\bin\ruby.exe"
+            "C:\Python314\python.exe"
+            "C:\Program Files\CMake\bin\cmake.exe"
+            "C:\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja\ninja.exe"
+            "C:\Program Files\LLVM\bin\clang-cl.exe"
+            "C:\Program Files\LLVM\bin\lld-link.exe"
+            "C:\Bootstrap\toolbin\sccache.exe"
+            "C:\vcpkg\vcpkg.exe"
           ) do (
             if exist %%T (
-              echo OK    %%T
+              echo OK    %%~nxT
             ) else (
               echo MISS  %%T
               set "FAIL=1"
