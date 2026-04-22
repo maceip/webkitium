@@ -1,0 +1,21 @@
+{
+  "id": "webnn-service",
+  "title": "WebNN inference service integration",
+  "enabledByDefault": false,
+  "description": "Repo-owned lane for WebNN (navigator.ml) integration using platform ML backends (ONNX Runtime on Windows, Core ML on macOS, TFLite on Linux/Android).",
+  "platforms": ["windows", "macos", "linux", "android", "ios"],
+  "patchOrder": [
+    "patches/common",
+    "patches/windows",
+    "patches/macos",
+    "patches/linux",
+    "patches/android",
+    "patches/ios"
+  ],
+  "notes": [
+    "Keep service/process integration here, not in generic platform build-fix patches.",
+    "Use patches/<platform> for platform-specific WebKit source changes.",
+    "Use patches/common for cross-platform WebNN WebKit interfaces.",
+    "Acceptance requires MiniBrowser runtime validation where navigator.ml.createContext() succeeds."
+  ]
+}

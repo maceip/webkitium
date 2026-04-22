@@ -1,0 +1,511 @@
+diff --git a/Source/WebCore/Modules/WebNN/MLContextOptions.h b/Source/WebCore/Modules/WebNN/MLContextOptions.h
+new file mode 100644
+index 00000000000..a1b2c3d4e5f
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/MLContextOptions.h
+@@ -0,0 +1,27 @@
++/*
++ * https://webmachinelearning.github.io/webnn/#dictdef-mlcontextoptions
++ */
++
++#pragma once
++
++#if ENABLE(WEBNN)
++
++#include <wtf/text/WTFString.h>
++
++namespace WebCore {
++
++enum class MLDevicePreference : uint8_t {
++    CPU,
++    GPU,
++    NPU,
++};
++
++enum class MLPowerPreference : uint8_t {
++    Default,
++    LowPower,
++    HighPerformance,
++};
++
++struct MLContextOptions {
++    MLDevicePreference devicePreference { MLDevicePreference::CPU };
++    MLPowerPreference powerPreference { MLPowerPreference::Default };
++};
++
++} // namespace WebCore
++
++#endif // ENABLE(WEBNN)
+diff --git a/Source/WebCore/Modules/WebNN/MLContextOptions.idl b/Source/WebCore/Modules/WebNN/MLContextOptions.idl
+new file mode 100644
+index 00000000000..b2c3d4e5f6a
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/MLContextOptions.idl
+@@ -0,0 +1,20 @@
++/*
++ * https://webmachinelearning.github.io/webnn/#dictdef-mlcontextoptions
++ */
++
++[Conditional=WEBNN] enum MLDevicePreference {
++    "cpu",
++    "gpu",
++    "npu"
++};
++
++[Conditional=WEBNN] enum MLPowerPreference {
++    "default",
++    "low-power",
++    "high-performance"
++};
++
++[Conditional=WEBNN] dictionary MLContextOptions {
++    MLDevicePreference devicePreference = "cpu";
++    MLPowerPreference powerPreference = "default";
++};
+diff --git a/Source/WebCore/Modules/WebNN/MLContext.h b/Source/WebCore/Modules/WebNN/MLContext.h
+new file mode 100644
+index 00000000000..c3d4e5f6a7b
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/MLContext.h
+@@ -0,0 +1,65 @@
++/*
++ * https://webmachinelearning.github.io/webnn/#api-mlcontext
++ */
++
++#pragma once
++
++#if ENABLE(WEBNN)
++
++#include "MLContextOptions.h"
++#include <wtf/RefCounted.h>
++#include <wtf/RefPtr.h>
++#include <wtf/HashMap.h>
++#include <wtf/text/WTFString.h>
++
++namespace WebCore {
++
++class MLGraph;
++class MLTensor;
++class MLTensorDescriptor;
++class DeferredPromise;
++class ArrayBuffer;
++
++namespace WebNN {
++class WebNNContextImpl;
++}
++
++using MLNamedTensors = HashMap<String, RefPtr<MLTensor>>;
++
++class MLContext final : public RefCounted<MLContext> {
++public:
++    static RefPtr<MLContext> create(std::unique_ptr<WebNN::WebNNContextImpl>&&);
++    ~MLContext();
++
++    MLDevicePreference devicePreference() const { return m_devicePreference; }
++
++    // Tensor lifecycle
++    void createTensor(MLTensorDescriptor&&, Ref<DeferredPromise>&&);
++    void writeTensor(MLTensor&, const ArrayBuffer&);
++    void readTensor(MLTensor&, Ref<DeferredPromise>&&);
++
++    // Graph execution
++    void dispatch(MLGraph&, MLNamedTensors&& inputs, MLNamedTensors&& outputs);
++
++    WebNN::WebNNContextImpl* impl() const { return m_impl.get(); }
++
++private:
++    explicit MLContext(std::unique_ptr<WebNN::WebNNContextImpl>&&);
++
++    std::unique_ptr<WebNN::WebNNContextImpl> m_impl;
++    MLDevicePreference m_devicePreference { MLDevicePreference::CPU };
++};
++
++} // namespace WebCore
++
++#endif // ENABLE(WEBNN)
+diff --git a/Source/WebCore/Modules/WebNN/MLContext.idl b/Source/WebCore/Modules/WebNN/MLContext.idl
+new file mode 100644
+index 00000000000..d4e5f6a7b8c
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/MLContext.idl
+@@ -0,0 +1,20 @@
++/*
++ * https://webmachinelearning.github.io/webnn/#api-mlcontext
++ */
++
++[
++    Conditional=WEBNN,
++    Exposed=Window,
++    SecureContext
++] interface MLContext {
++    readonly attribute MLDevicePreference devicePreference;
++
++    [NewObject] Promise<MLTensor> createTensor(MLTensorDescriptor descriptor);
++
++    undefined writeTensor(MLTensor tensor, AllowSharedBufferSource data);
++
++    [NewObject] Promise<ArrayBuffer> readTensor(MLTensor tensor);
++
++    undefined dispatch(MLGraph graph,
++        record<USVString, MLTensor> inputs,
++        record<USVString, MLTensor> outputs);
++};
+diff --git a/Source/WebCore/Modules/WebNN/MLGraphBuilder.h b/Source/WebCore/Modules/WebNN/MLGraphBuilder.h
+new file mode 100644
+index 00000000000..e5f6a7b8c9d
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/MLGraphBuilder.h
+@@ -0,0 +1,82 @@
++/*
++ * https://webmachinelearning.github.io/webnn/#api-mlgraphbuilder
++ */
++
++#pragma once
++
++#if ENABLE(WEBNN)
++
++#include "MLContext.h"
++#include "MLOperand.h"
++#include <wtf/RefCounted.h>
++#include <wtf/RefPtr.h>
++#include <wtf/Vector.h>
++#include <wtf/HashMap.h>
++
++namespace WebCore {
++
++class DeferredPromise;
++class MLGraph;
++class ArrayBuffer;
++
++struct MLOperandDescriptor {
++    String dataType; // "float32", "float16", "int32", "uint32", "int8", "uint8"
++    Vector<unsigned> dimensions;
++};
++
++class MLGraphBuilder final : public RefCounted<MLGraphBuilder> {
++public:
++    static Ref<MLGraphBuilder> create(MLContext&);
++    ~MLGraphBuilder();
++
++    MLContext& context() const { return m_context; }
++
++    // Input and constant declaration
++    RefPtr<MLOperand> input(const String& name, MLOperandDescriptor&&);
++    RefPtr<MLOperand> constant(MLOperandDescriptor&&, const ArrayBuffer&);
++
++    // Element-wise binary
++    RefPtr<MLOperand> add(MLOperand&, MLOperand&);
++    RefPtr<MLOperand> sub(MLOperand&, MLOperand&);
++    RefPtr<MLOperand> mul(MLOperand&, MLOperand&);
++    RefPtr<MLOperand> div(MLOperand&, MLOperand&);
++
++    // Element-wise unary / activations
++    RefPtr<MLOperand> relu(MLOperand&);
++    RefPtr<MLOperand> sigmoid(MLOperand&);
++    RefPtr<MLOperand> tanh(MLOperand&);
++    RefPtr<MLOperand> softmax(MLOperand&);
++    RefPtr<MLOperand> gelu(MLOperand&);
++
++    // Linear algebra
++    RefPtr<MLOperand> matmul(MLOperand&, MLOperand&);
++    RefPtr<MLOperand> gemm(MLOperand&, MLOperand&);
++
++    // Convolution
++    RefPtr<MLOperand> conv2d(MLOperand& input, MLOperand& filter);
++
++    // Normalization
++    RefPtr<MLOperand> batchNormalization(MLOperand& input, MLOperand& mean,
++                                        MLOperand& variance);
++    RefPtr<MLOperand> layerNormalization(MLOperand& input);
++
++    // Pooling
++    RefPtr<MLOperand> averagePool2d(MLOperand&);
++    RefPtr<MLOperand> maxPool2d(MLOperand&);
++
++    // Tensor manipulation
++    RefPtr<MLOperand> reshape(MLOperand&, Vector<unsigned>&& newShape);
++    RefPtr<MLOperand> transpose(MLOperand&);
++    RefPtr<MLOperand> concat(Vector<RefPtr<MLOperand>>&&, unsigned axis);
++
++    // Graph compilation
++    void build(HashMap<String, RefPtr<MLOperand>>&& outputs,
++               Ref<DeferredPromise>&&);
++
++private:
++    explicit MLGraphBuilder(MLContext&);
++
++    MLContext& m_context;
++    Vector<RefPtr<MLOperand>> m_operands;
++};
++
++} // namespace WebCore
++
++#endif // ENABLE(WEBNN)
+diff --git a/Source/WebCore/Modules/WebNN/MLGraphBuilder.idl b/Source/WebCore/Modules/WebNN/MLGraphBuilder.idl
+new file mode 100644
+index 00000000000..f6a7b8c9d0e
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/MLGraphBuilder.idl
+@@ -0,0 +1,52 @@
++/*
++ * https://webmachinelearning.github.io/webnn/#api-mlgraphbuilder
++ */
++
++[Conditional=WEBNN] dictionary MLOperandDescriptor {
++    required DOMString dataType;
++    required sequence<unsigned long> dimensions;
++};
++
++[
++    Conditional=WEBNN,
++    Exposed=Window,
++    SecureContext
++] interface MLGraphBuilder {
++    constructor(MLContext context);
++
++    // Inputs and constants
++    MLOperand input(DOMString name, MLOperandDescriptor descriptor);
++    MLOperand constant(MLOperandDescriptor descriptor, AllowSharedBufferSource data);
++
++    // Element-wise binary
++    MLOperand add(MLOperand a, MLOperand b);
++    MLOperand sub(MLOperand a, MLOperand b);
++    MLOperand mul(MLOperand a, MLOperand b);
++    MLOperand div(MLOperand a, MLOperand b);
++
++    // Element-wise unary / activations
++    MLOperand relu(MLOperand input);
++    MLOperand sigmoid(MLOperand input);
++    MLOperand tanh(MLOperand input);
++    MLOperand softmax(MLOperand input);
++    MLOperand gelu(MLOperand input);
++
++    // Linear algebra
++    MLOperand matmul(MLOperand a, MLOperand b);
++    MLOperand gemm(MLOperand a, MLOperand b);
++
++    // Convolution
++    MLOperand conv2d(MLOperand input, MLOperand filter);
++
++    // Normalization
++    MLOperand batchNormalization(MLOperand input, MLOperand mean, MLOperand variance);
++    MLOperand layerNormalization(MLOperand input);
++
++    // Pooling
++    MLOperand averagePool2d(MLOperand input);
++    MLOperand maxPool2d(MLOperand input);
++
++    // Tensor manipulation
++    MLOperand reshape(MLOperand input, sequence<unsigned long> newShape);
++    MLOperand transpose(MLOperand input);
++    MLOperand concat(sequence<MLOperand> inputs, unsigned long axis);
++
++    // Build
++    [NewObject] Promise<MLGraph> build(record<USVString, MLOperand> outputs);
++};
+diff --git a/Source/WebCore/Modules/WebNN/MLGraph.h b/Source/WebCore/Modules/WebNN/MLGraph.h
+new file mode 100644
+index 00000000000..a7b8c9d0e1f
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/MLGraph.h
+@@ -0,0 +1,38 @@
++/*
++ * https://webmachinelearning.github.io/webnn/#api-mlgraph
++ */
++
++#pragma once
++
++#if ENABLE(WEBNN)
++
++#include <wtf/RefCounted.h>
++#include <memory>
++
++namespace WebCore {
++
++namespace WebNN {
++class WebNNGraphImpl;
++}
++
++class MLGraph final : public RefCounted<MLGraph> {
++public:
++    static Ref<MLGraph> create(std::unique_ptr<WebNN::WebNNGraphImpl>&&);
++    ~MLGraph();
++
++    WebNN::WebNNGraphImpl* impl() const { return m_impl.get(); }
++
++private:
++    explicit MLGraph(std::unique_ptr<WebNN::WebNNGraphImpl>&&);
++
++    std::unique_ptr<WebNN::WebNNGraphImpl> m_impl;
++};
++
++} // namespace WebCore
++
++#endif // ENABLE(WEBNN)
+diff --git a/Source/WebCore/Modules/WebNN/MLGraph.idl b/Source/WebCore/Modules/WebNN/MLGraph.idl
+new file mode 100644
+index 00000000000..b8c9d0e1f2a
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/MLGraph.idl
+@@ -0,0 +1,10 @@
++/*
++ * https://webmachinelearning.github.io/webnn/#api-mlgraph
++ */
++
++[
++    Conditional=WEBNN,
++    Exposed=Window,
++    SecureContext
++] interface MLGraph {
++};
+diff --git a/Source/WebCore/Modules/WebNN/MLOperand.h b/Source/WebCore/Modules/WebNN/MLOperand.h
+new file mode 100644
+index 00000000000..c9d0e1f2a3b
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/MLOperand.h
+@@ -0,0 +1,53 @@
++/*
++ * https://webmachinelearning.github.io/webnn/#api-mloperand
++ */
++
++#pragma once
++
++#if ENABLE(WEBNN)
++
++#include <wtf/RefCounted.h>
++#include <wtf/Vector.h>
++#include <wtf/text/WTFString.h>
++
++namespace WebCore {
++
++class MLOperand final : public RefCounted<MLOperand> {
++public:
++    enum class Kind : uint8_t {
++        Input,
++        Constant,
++        Output,
++    };
++
++    static Ref<MLOperand> createInput(const String& name, const String& dataType,
++                                       Vector<unsigned>&& dimensions);
++    static Ref<MLOperand> createConstant(const String& dataType,
++                                          Vector<unsigned>&& dimensions,
++                                          const void* data, size_t byteLength);
++    static Ref<MLOperand> createOutput(const String& dataType,
++                                        Vector<unsigned>&& dimensions);
++    ~MLOperand();
++
++    Kind kind() const { return m_kind; }
++    const String& name() const { return m_name; }
++    const String& dataType() const { return m_dataType; }
++    const Vector<unsigned>& shape() const { return m_dimensions; }
++
++private:
++    MLOperand(Kind, const String& name, const String& dataType,
++              Vector<unsigned>&&);
++
++    Kind m_kind;
++    String m_name;
++    String m_dataType;
++    Vector<unsigned> m_dimensions;
++};
++
++} // namespace WebCore
++
++#endif // ENABLE(WEBNN)
+diff --git a/Source/WebCore/Modules/WebNN/MLOperand.idl b/Source/WebCore/Modules/WebNN/MLOperand.idl
+new file mode 100644
+index 00000000000..d0e1f2a3b4c
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/MLOperand.idl
+@@ -0,0 +1,13 @@
++/*
++ * https://webmachinelearning.github.io/webnn/#api-mloperand
++ */
++
++[
++    Conditional=WEBNN,
++    Exposed=Window,
++    SecureContext
++] interface MLOperand {
++    readonly attribute DOMString dataType;
++    readonly attribute FrozenArray<unsigned long> shape;
++};
+diff --git a/Source/WebCore/Modules/WebNN/MLTensor.h b/Source/WebCore/Modules/WebNN/MLTensor.h
+new file mode 100644
+index 00000000000..e1f2a3b4c5d
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/MLTensor.h
+@@ -0,0 +1,50 @@
++/*
++ * https://webmachinelearning.github.io/webnn/#api-mltensor
++ */
++
++#pragma once
++
++#if ENABLE(WEBNN)
++
++#include <wtf/RefCounted.h>
++#include <wtf/Vector.h>
++#include <wtf/text/WTFString.h>
++
++namespace WebCore {
++
++struct MLTensorDescriptor {
++    String dataType;
++    Vector<unsigned> shape;
++    bool readable { false };
++    bool writable { false };
++};
++
++class MLTensor : public RefCounted<MLTensor> {
++public:
++    static Ref<MLTensor> create(MLTensorDescriptor&&);
++    virtual ~MLTensor();
++
++    const String& dataType() const { return m_dataType; }
++    const Vector<unsigned>& shape() const { return m_shape; }
++    bool readable() const { return m_readable; }
++    bool writable() const { return m_writable; }
++
++    void destroy();
++
++    virtual void* backendHandle() const { return nullptr; }
++
++protected:
++    explicit MLTensor(MLTensorDescriptor&&);
++
++    String m_dataType;
++    Vector<unsigned> m_shape;
++    bool m_readable { false };
++    bool m_writable { false };
++    bool m_destroyed { false };
++};
++
++} // namespace WebCore
++
++#endif // ENABLE(WEBNN)
+diff --git a/Source/WebCore/Modules/WebNN/MLTensor.idl b/Source/WebCore/Modules/WebNN/MLTensor.idl
+new file mode 100644
+index 00000000000..f2a3b4c5d6e
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/MLTensor.idl
+@@ -0,0 +1,17 @@
++/*
++ * https://webmachinelearning.github.io/webnn/#api-mltensor
++ */
++
++[Conditional=WEBNN] dictionary MLTensorDescriptor {
++    required DOMString dataType;
++    required sequence<unsigned long> shape;
++    boolean readable = false;
++    boolean writable = false;
++};
++
++[
++    Conditional=WEBNN,
++    Exposed=Window,
++    SecureContext
++] interface MLTensor {
++    undefined destroy();
++};

@@ -1,0 +1,166 @@
+diff --git a/Source/cmake/FindONNXRuntime.cmake b/Source/cmake/FindONNXRuntime.cmake
+new file mode 100644
+index 00000000000..a1b2c3d4e5f
+--- /dev/null
++++ b/Source/cmake/FindONNXRuntime.cmake
+@@ -0,0 +1,48 @@
++# FindONNXRuntime.cmake
++#
++# Finds the ONNX Runtime library for WebNN backend support.
++#
++# This will define the following variables:
++#   ONNXRuntime_FOUND        - True if the system has ONNX Runtime
++#   ONNXRuntime_INCLUDE_DIRS - The ONNX Runtime include directories
++#   ONNXRuntime_LIBRARIES    - The libraries needed to use ONNX Runtime
++#   ONNXRuntime_VERSION      - The version of ONNX Runtime found
++
++include(FindPackageHandleStandardArgs)
++
++find_path(ONNXRuntime_INCLUDE_DIR
++    NAMES onnxruntime_c_api.h
++    PATH_SUFFIXES onnxruntime
++)
++
++if (NOT ONNXRuntime_INCLUDE_DIR)
++    find_path(ONNXRuntime_INCLUDE_DIR
++        NAMES onnxruntime/onnxruntime_c_api.h
++    )
++endif ()
++
++find_library(ONNXRuntime_LIBRARY
++    NAMES onnxruntime
++)
++
++if (NOT ONNXRuntime_LIBRARY)
++    find_library(ONNXRuntime_LIBRARY
++        NAMES onnxruntime.dll.lib onnxruntime.lib
++    )
++endif ()
++
++if (ONNXRuntime_INCLUDE_DIR AND EXISTS "${ONNXRuntime_INCLUDE_DIR}/onnxruntime_c_api.h")
++    file(STRINGS "${ONNXRuntime_INCLUDE_DIR}/onnxruntime_c_api.h" _ort_version_str
++         REGEX "^#define ORT_API_VERSION[ \t]+[0-9]+")
++    if (_ort_version_str MATCHES "^#define ORT_API_VERSION[ \t]+([0-9]+)")
++        set(ONNXRuntime_VERSION "${CMAKE_MATCH_1}")
++    endif ()
++endif ()
++
++find_package_handle_standard_args(ONNXRuntime
++    REQUIRED_VARS ONNXRuntime_LIBRARY ONNXRuntime_INCLUDE_DIR
++    VERSION_VAR ONNXRuntime_VERSION
++)
++
++if (ONNXRuntime_FOUND)
++    set(ONNXRuntime_INCLUDE_DIRS ${ONNXRuntime_INCLUDE_DIR})
++    set(ONNXRuntime_LIBRARIES ${ONNXRuntime_LIBRARY})
++endif ()
++
++mark_as_advanced(ONNXRuntime_INCLUDE_DIR ONNXRuntime_LIBRARY)
+diff --git a/Source/cmake/OptionsWin.cmake b/Source/cmake/OptionsWin.cmake
+index be254c9e980..f1a2b3c4d5e 100644
+--- a/Source/cmake/OptionsWin.cmake
++++ b/Source/cmake/OptionsWin.cmake
+@@ -106,6 +106,7 @@ WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_VARIATION_FONTS PRIVATE ${ENABLE_EXPERIM
+ WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_WEBDRIVER PRIVATE ${ENABLE_EXPERIMENTAL_FEATURES})
+ WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_WEBGPU PRIVATE ${ENABLE_EXPERIMENTAL_FEATURES})
++WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_WEBNN PRIVATE ${ENABLE_EXPERIMENTAL_FEATURES})
+ 
+ # No support planned
+ WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_FTPDIR PRIVATE OFF)
+@@ -186,6 +187,11 @@ if (ENABLE_WEBGPU)
+     SET_AND_EXPOSE_TO_BUILD(HAVE_WEBGPU_IMPLEMENTATION ON)
+ endif ()
+ 
++if (ENABLE_WEBNN)
++    find_package(ONNXRuntime REQUIRED)
++    SET_AND_EXPOSE_TO_BUILD(HAVE_WEBNN_IMPLEMENTATION ON)
++endif ()
++
+ set(bmalloc_LIBRARY_TYPE OBJECT)
+ set(WTF_LIBRARY_TYPE OBJECT)
+ set(JavaScriptCore_LIBRARY_TYPE SHARED)
+diff --git a/Source/WebCore/PlatformWin.cmake b/Source/WebCore/PlatformWin.cmake
+index 00000000001..00000000002 100644
+--- a/Source/WebCore/PlatformWin.cmake
++++ b/Source/WebCore/PlatformWin.cmake
+@@ -0,0 +1,12 @@
++# WebNN / ONNX Runtime sources (Windows)
++if (ENABLE_WEBNN AND ONNXRuntime_FOUND)
++    list(APPEND WebCore_SOURCES
++        Modules/WebNN/Implementation/WebNNContextImpl.cpp
++        Modules/WebNN/Implementation/WebNNGraphImpl.cpp
++        Modules/WebNN/Implementation/WebNNWindowsOnnxRT.cpp
++        Modules/WebNN/Implementation/WebNNWindowsOnnxRTGraph.cpp
++    )
++    list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES ${ONNXRuntime_INCLUDE_DIRS})
++    list(APPEND WebCore_LIBRARIES ${ONNXRuntime_LIBRARIES})
++    SET_AND_EXPOSE_TO_BUILD(HAVE_ONNXRUNTIME ON)
++endif ()
+diff --git a/Tools/Scripts/webkitperl/FeatureList.pm b/Tools/Scripts/webkitperl/FeatureList.pm
+index 2cdd50532f7..e3f4a5b6c7d 100644
+--- a/Tools/Scripts/webkitperl/FeatureList.pm
++++ b/Tools/Scripts/webkitperl/FeatureList.pm
+@@ -158,6 +158,7 @@ my (
+     $webdriverWheelInteractionsSupport,
+     $webglSupport,
+     $webgpuSupport,
++    $webnnSupport,
+     $webGpuSwift,
+     $webXRSupport,
+     $wirelessPlaybackTargetSupport,
+@@ -418,6 +419,9 @@ my @features = (
+     { option => "webgpu", desc => "Toggle WebGPU support",
+       define => "ENABLE_WEBGPU", value => \$webgpuSupport },
+ 
++    { option => "webnn", desc => "Toggle WebNN support",
++      define => "ENABLE_WEBNN", value => \$webnnSupport },
++
+     { option => "webgpu-swift", desc => "Toggle WebGPU Swift Implementation",
+       define => "ENABLE_WEBGPU_SWIFT", value => \$webGpuSwift },
+ 
+diff --git a/Tools/Scripts/webkitdirs.pm b/Tools/Scripts/webkitdirs.pm
+index 44ad7a4f237..b5c6d7e8f9a 100755
+--- a/Tools/Scripts/webkitdirs.pm
++++ b/Tools/Scripts/webkitdirs.pm
+@@ -3149,6 +3149,7 @@ sub vcpkgArgsFromFeatures(\@;$)
+     my $lcms = 1;
+     my $skia = 1;
+     my $webgpu = 0;
++    my $webnn = 0;
+     my $woff2 = 1;
+ 
+     if (isJSCOnly()) {
+@@ -3170,6 +3171,8 @@ sub vcpkgArgsFromFeatures(\@;$)
+                     $skia = $featureValue;
+                 } elsif ($featureName eq "ENABLE_WEBGPU") {
+                     $webgpu = $featureValue;
++                } elsif ($featureName eq "ENABLE_WEBNN") {
++                    $webnn = $featureValue;
+                 } elsif ($featureName eq "USE_WOFF2") {
+                     $woff2 = $featureValue;
+                 }
+@@ -3183,6 +3186,7 @@ sub vcpkgArgsFromFeatures(\@;$)
+     push @args, "lcms" if $lcms;
+     push @args, $skia ? "skia" : "cairo";
+     push @args, "webgpu" if $webgpu;
++    push @args, "webnn" if $webnn;
+     push @args, "woff2" if $woff2;
+ 
+     return "-DVCPKG_MANIFEST_FEATURES=\"" . join(";", @args) . "\"";
+diff --git a/vcpkg.json b/vcpkg.json
+index 59001efceec..c2d3e4f5a6b 100644
+--- a/vcpkg.json
++++ b/vcpkg.json
+@@ -96,6 +96,12 @@
+         "dawn"
+       ]
+     },
++    "webnn": {
++      "description": "Build with WebNN support (ONNX Runtime backend)",
++      "dependencies": [
++        "onnxruntime"
++      ]
++    },
+     "woff2": {
+       "description": "Build with WOFF2 file support",
+       "dependencies": [

@@ -1,0 +1,90 @@
+diff --git a/Source/WebCore/Modules/WebNN/Implementation/WebNNContextImpl.h b/Source/WebCore/Modules/WebNN/Implementation/WebNNContextImpl.h
+new file mode 100644
+index 00000000000..a1b2c3d4e5f
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/Implementation/WebNNContextImpl.h
+@@ -0,0 +1,53 @@
++/*
++ * Abstract backend interface for WebNN context implementations.
++ * Platform backends (ONNX Runtime, Core ML, TFLite) implement this.
++ */
++
++#pragma once
++
++#if ENABLE(WEBNN)
++
++#include "MLContextOptions.h"
++#include "MLTensor.h"
++#include <wtf/RefPtr.h>
++#include <wtf/HashMap.h>
++#include <wtf/text/WTFString.h>
++#include <functional>
++#include <memory>
++
++namespace WebCore {
++
++class MLGraph;
++class ArrayBuffer;
++
++namespace WebNN {
++
++class WebNNGraphImpl;
++
++class WebNNContextImpl {
++    WTF_MAKE_FAST_ALLOCATED;
++public:
++    virtual ~WebNNContextImpl() = default;
++
++    virtual MLDevicePreference devicePreference() const = 0;
++
++    virtual RefPtr<MLTensor> createTensor(MLTensorDescriptor&&) = 0;
++    virtual void writeTensor(MLTensor&, const void* data, size_t byteLength) = 0;
++    virtual void readTensor(MLTensor&,
++                            std::function<void(RefPtr<ArrayBuffer>)>&&) = 0;
++
++    virtual void dispatch(WebNNGraphImpl&,
++                          HashMap<String, RefPtr<MLTensor>>& inputs,
++                          HashMap<String, RefPtr<MLTensor>>& outputs,
++                          std::function<void(bool)>&&) = 0;
++
++    virtual std::unique_ptr<WebNNGraphImpl> buildGraph(
++        HashMap<String, RefPtr<class MLOperand>>& outputs) = 0;
++};
++
++} // namespace WebNN
++} // namespace WebCore
++
++#endif // ENABLE(WEBNN)
+diff --git a/Source/WebCore/Modules/WebNN/Implementation/WebNNGraphImpl.h b/Source/WebCore/Modules/WebNN/Implementation/WebNNGraphImpl.h
+new file mode 100644
+index 00000000000..b2c3d4e5f6a
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/Implementation/WebNNGraphImpl.h
+@@ -0,0 +1,27 @@
++/*
++ * Abstract backend interface for WebNN compiled graph implementations.
++ */
++
++#pragma once
++
++#if ENABLE(WEBNN)
++
++#include <wtf/HashMap.h>
++#include <wtf/text/WTFString.h>
++
++namespace WebCore {
++namespace WebNN {
++
++class WebNNGraphImpl {
++    WTF_MAKE_FAST_ALLOCATED;
++public:
++    virtual ~WebNNGraphImpl() = default;
++
++    // Opaque handle to the compiled graph in the backend runtime.
++    virtual void* backendHandle() const { return nullptr; }
++};
++
++} // namespace WebNN
++} // namespace WebCore
++
++#endif // ENABLE(WEBNN)
