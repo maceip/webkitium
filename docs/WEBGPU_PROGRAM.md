@@ -22,6 +22,7 @@ WebKit NG ships on **Android, iOS, macOS, and Windows**; this file is **only** t
 | Dawn/runtime architecture | [`windows-webgpu-service/DESIGN.md`](windows-webgpu-service/DESIGN.md) |
 | macOS lane notes | [`../webkit/scripts/macos/notes.md`](../webkit/scripts/macos/notes.md) |
 | Repository shape (patches, docs) | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
+| WebNN inference program | [`WEBNN_PROGRAM.md`](WEBNN_PROGRAM.md) |
 
 ---
 
@@ -50,6 +51,9 @@ WebKit NG ships on **Android, iOS, macOS, and Windows**; this file is **only** t
 - WebXR + WebGPU (`ENABLE_WEBXR=OFF` unless needed elsewhere).
 - Reviving deleted `USE_DAWN` / old `platform/graphics/gpu/dawn` sources.
 - “Conformance complete” as a ship gate.
+- WebNN inference integration — see [`WEBNN_PROGRAM.md`](WEBNN_PROGRAM.md) for
+  the pairwise ML inference program. WebNN and WebGPU share an interop path
+  via `MLTensor` → `GPUBuffer` export.
 
 ---
 

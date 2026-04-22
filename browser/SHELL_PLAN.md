@@ -49,6 +49,7 @@ Each shell talks to the portable core through explicit adapters.
 MiniBrowser may temporarily host:
 
 - WebGPU Dawn smoke probes
+- WebNN inference smoke probes
 - early tab model integration
 - platform-specific experiments that are too small to justify a product shell
 

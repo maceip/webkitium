@@ -58,3 +58,4 @@ Apply order is defined in **`webkit/scripts/`**: enabled **`changes/`** lanes fi
 - [`README.md`](../README.md) — entry by role, targets, how to run a build.
 - [`policy/STATUS.md`](policy/STATUS.md) — recent build outcomes (rotating log).
 - [`DIRECTION.md`](DIRECTION.md) — phases, guardrails, guiding light.
+- [`WEBNN_PROGRAM.md`](WEBNN_PROGRAM.md) — WebNN inference milestones.

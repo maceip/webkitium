@@ -59,6 +59,30 @@
             "Preserves WebKitBuild for incremental Ninja retries",
             "Keeps sccache mandatory and verified"
           ]
+        },
+        "webnn-onnxrt": {
+          "description": "Windows WebNN/ONNX Runtime build for ML inference acceleration.",
+          "env": {
+            "NG_WINDOWS_SOURCE_PRESET": "iangrunert-win-gigacage-skia-fixes",
+            "NG_WINDOWS_ENABLE_WEBNN": "1",
+            "NG_WINDOWS_ENABLE_WEBGPU": "1",
+            "NG_WINDOWS_ENABLE_SCCACHE": "1"
+          },
+          "validationArtifacts": [
+            "validation-report.json",
+            "validation-recovered.json",
+            "manifest-pre.json",
+            "manifest-post.json",
+            "build-progress.json"
+          ],
+          "acceptance": [
+            "CMakeCache contains ENABLE_WEBNN:BOOL=ON",
+            "onnxruntime.dll is packaged next to MiniBrowser.exe",
+            "onnxruntime.dll loads with LOAD_WITH_ALTERED_SEARCH_PATH",
+            "validation-report.json runtime smoke shows navigator.ml exists",
+            "validation-report.json runtime smoke shows createContext succeeds",
+            "BUILD_DONE.txt is written only after S3 sync succeeds"
+          ]
         }
       }
     },

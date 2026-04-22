@@ -10,6 +10,7 @@
 | 3 | [`policy/STATUS.md`](policy/STATUS.md) | Recent build outcomes |
 | 4 | [`policy/RUNNER.md`](policy/RUNNER.md), [`../orchestrator/RUNNER_API.md`](../orchestrator/RUNNER_API.md), [`policy/ASSETS.md`](policy/ASSETS.md) | Runner, API, S3 |
 | 5 | [`WEBGPU_PROGRAM.md`](WEBGPU_PROGRAM.md) | Windows WebGPU milestones |
+| 5b | [`WEBNN_PROGRAM.md`](WEBNN_PROGRAM.md) | WebNN inference milestones |
 | 6 | [`policy/DOCUMENTATION.md`](policy/DOCUMENTATION.md) | Redirect / entry |
 
-Lane docs: `changes/<lane>/` and `docs/windows-webgpu-service/`.
+Lane docs: `changes/<lane>/` and `docs/windows-webgpu-service/`, `docs/webnn-service/`.
