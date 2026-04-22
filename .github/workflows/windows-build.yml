@@ -103,11 +103,17 @@ jobs:
           echo "Applied $applied patches."
 
       # ── Build ──────────────────────────────────────────────────────
+      # Strategy: ninja -k 0 so all compile errors surface in one run,
+      # full output redirected to build.log (uploaded as artifact),
+      # tail + findstr summary printed at end so the top errors are
+      # visible in the Actions log viewer without downloading anything.
       - name: Build
         shell: cmd
+        timeout-minutes: 240
         run: |
           @echo on
           setlocal
+
           call "C:\BuildTools\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64
           if errorlevel 1 exit /b %errorlevel%
 
@@ -121,8 +127,10 @@ jobs:
           C:\Bootstrap\toolbin\sccache.exe --start-server >NUL 2>&1
           C:\Bootstrap\toolbin\sccache.exe --zero-stats
 
+          set "BUILD_LOG=%GITHUB_WORKSPACE%\build.log"
+
           cd /d "%SRC%"
-          perl Tools\Scripts\build-webkit --release --win --makeargs=-j%NUMBER_OF_PROCESSORS% ^
+          perl Tools\Scripts\build-webkit --release --win --makeargs="-k 0 -j%NUMBER_OF_PROCESSORS%" ^
             -DCMAKE_C_COMPILER=C:/Progra~1/LLVM/bin/clang-cl.exe ^
             -DCMAKE_CXX_COMPILER=C:/Progra~1/LLVM/bin/clang-cl.exe ^
             -DCMAKE_LINKER=C:/Progra~1/LLVM/bin/lld-link.exe ^
@@ -139,10 +147,39 @@ jobs:
             -DVCPKG_TARGET_TRIPLET=x64-windows-webkit ^
             -DVCPKG_INSTALLED_DIR=C:/vcpkg/installed ^
             -DVCPKG_MANIFEST_MODE=OFF ^
-            --webgpu -DENABLE_EXPERIMENTAL_FEATURES=ON -DENABLE_WEBXR=OFF
-          if errorlevel 1 exit /b %errorlevel%
+            --webgpu -DENABLE_EXPERIMENTAL_FEATURES=ON -DENABLE_WEBXR=OFF > "%BUILD_LOG%" 2>&1
+          set "BUILD_ERR=%ERRORLEVEL%"
 
+          echo.
+          echo ============================================================
+          echo  build.log tail (last 500 lines)
+          echo ============================================================
+          powershell -NoProfile -Command "if (Test-Path -LiteralPath $env:BUILD_LOG) { Get-Content -LiteralPath $env:BUILD_LOG -Tail 500 } else { Write-Host 'no build.log produced' }"
+
+          echo.
+          echo ============================================================
+          echo  error summary (unique lines matching error/FAILED/fatal)
+          echo ============================================================
+          findstr /I /C:"error:" /C:"error C" /C:"FAILED:" /C:"fatal error" /C:"ninja: error" /C:"undefined reference" "%BUILD_LOG%"
+
+          echo.
+          echo ============================================================
+          echo  sccache stats
+          echo ============================================================
           C:\Bootstrap\toolbin\sccache.exe --show-stats
+
+          if %BUILD_ERR% neq 0 (
+            echo ::error::build-webkit exited with %BUILD_ERR%. See build-log-* artifact for full log.
+            exit /b %BUILD_ERR%
+          )
+
+      - name: Upload Build Log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build.log
+          if-no-files-found: warn
 
       - name: Upload Artifacts
         if: always()
@@ -152,6 +189,10 @@ jobs:
           path: |
             C:\W\webkit-src\WebKitBuild\Release\bin
             C:\W\webkit-src\WebKitBuild\Release\CMakeCache.txt
+            C:\W\webkit-src\WebKitBuild\Release\build.ninja
+            C:\W\webkit-src\WebKitBuild\Release\compile_commands.json
+            C:\W\webkit-src\WebKitBuild\Release\CMakeFiles\CMakeError.log
+            C:\W\webkit-src\WebKitBuild\Release\CMakeFiles\CMakeOutput.log
             C:\W\webkit-src\WebKitBuild\Release\vcpkg-manifest-install.log
           if-no-files-found: warn
 
