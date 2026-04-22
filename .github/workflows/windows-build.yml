@@ -32,7 +32,7 @@ jobs:
 
       - name: "Bootstrap: Ensure pwsh"
         shell: cmd
-        run: where pwsh >NUL 2>&1 || winget install --id Microsoft.PowerShell --accept-package-agreements --accept-source-agreements --silent
+        run: where pwsh >NUL 2>&1 || (curl -sL -o %TEMP%\pwsh.msi https://github.com/PowerShell/PowerShell/releases/download/v7.5.1/PowerShell-7.5.1-win-x64.msi && msiexec /i %TEMP%\pwsh.msi /quiet /norestart && del %TEMP%\pwsh.msi)
 
       - name: "Phase 0: Disk Check"
         shell: pwsh
