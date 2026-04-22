@@ -74,7 +74,6 @@ jobs:
           # from any remaining symlink entries inside Source/.
           tar -xzf "$ARCHIVE" --strip-components=1 -C "$SRC" \
             --exclude='*/LayoutTests/*' \
-            --exclude='*/PerformanceTests/*' \
             --exclude='*/WebKitLibraries/SDKs/*' \
             --exclude='*/Websites/*' \
             --exclude='*/JSTests/*' \
@@ -123,7 +122,7 @@ jobs:
           C:\Bootstrap\toolbin\sccache.exe --zero-stats
 
           cd /d "%SRC%"
-          perl Tools\Scripts\build-webkit --release --win --makeargs=-j8 ^
+          perl Tools\Scripts\build-webkit --release --win --makeargs=-j%NUMBER_OF_PROCESSORS% ^
             -DCMAKE_C_COMPILER=C:/Progra~1/LLVM/bin/clang-cl.exe ^
             -DCMAKE_CXX_COMPILER=C:/Progra~1/LLVM/bin/clang-cl.exe ^
             -DCMAKE_LINKER=C:/Progra~1/LLVM/bin/lld-link.exe ^
