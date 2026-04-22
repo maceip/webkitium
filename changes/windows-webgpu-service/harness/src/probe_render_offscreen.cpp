@@ -175,13 +175,15 @@ ProbeOutcome probeRenderOffscreen(const GpuBootstrap& g) {
     wgpuRenderPassEncoderEnd(pass);
     wgpuRenderPassEncoderRelease(pass);
 
-    WGPUImageCopyTexture texSrc{};
+    // Dawn v20260410.140140: WGPUImageCopy{Texture,Buffer} were renamed to
+    // WGPUTexelCopy{Texture,Buffer}Info. Same shape, new names.
+    WGPUTexelCopyTextureInfo texSrc{};
     texSrc.texture = color;
     texSrc.mipLevel = 0;
     texSrc.origin  = {0, 0, 0};
     texSrc.aspect  = WGPUTextureAspect_All;
 
-    WGPUImageCopyBuffer bufDst{};
+    WGPUTexelCopyBufferInfo bufDst{};
     bufDst.buffer = rbBuf;
     bufDst.layout.offset = 0;
     bufDst.layout.bytesPerRow = kBytesPerRow;

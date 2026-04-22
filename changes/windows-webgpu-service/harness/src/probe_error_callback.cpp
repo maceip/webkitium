@@ -63,7 +63,7 @@ ProbeOutcome probeErrorCallback(GpuBootstrap& g) {
     // we verify validation errors via pushErrorScope/popErrorScope below, which
     // does not depend on the uncaptured callback.
     (void)es;
-    (void)onError;
+    (void)&onError;
 
     // Push a validation error scope so we also capture the error via pop.
     wgpuDevicePushErrorScope(g.device, WGPUErrorFilter_Validation);

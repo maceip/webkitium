@@ -70,7 +70,11 @@ add_executable(webgpu_host WIN32
 )
 
 target_include_directories(webgpu_host PRIVATE include)
-target_link_libraries(webgpu_host PRIVATE ${WEBGPU_HOST_DAWN_TARGET} user32 gdi32 dxgi)
+target_link_libraries(webgpu_host PRIVATE ${WEBGPU_HOST_DAWN_TARGET}
+    user32 gdi32
+    dxgi dxguid d3d11 d3d12
+    onecore   # CompareObjectHandles
+)
 target_compile_definitions(webgpu_host PRIVATE
     NOMINMAX
     WIN32_LEAN_AND_MEAN
@@ -98,4 +102,39 @@ if (DAWN_DLL)
                 "${ABSEIL_DLL}" "$<TARGET_FILE_DIR:webgpu_host>/abseil_dll.dll"
         )
     endif()
+endif()
+
+# Dawn's D3D12 backend calls LoadLibrary("dxil.dll") at device-create time to
+# sign shader bytecode, and "dxcompiler.dll" to compile HLSL. Both ship in the
+# Windows 10/11 SDK (Windows Kits\10\bin\<ver>\x64) but aren't on PATH. Copy
+# whichever version we can find beside the exe so it launches without manual
+# SDK setup. If not found, we warn — placing them manually is still fine.
+if (NOT WEBGPU_HOST_DXC_DIR)
+    file(GLOB _webgpu_host_sdk_dirs
+        "$ENV{ProgramFiles\(x86\)}/Windows Kits/10/bin/10.*"
+        "C:/Program Files (x86)/Windows Kits/10/bin/10.*")
+    list(SORT _webgpu_host_sdk_dirs ORDER DESCENDING)
+    foreach(_d ${_webgpu_host_sdk_dirs})
+        if (EXISTS "${_d}/x64/dxil.dll" AND EXISTS "${_d}/x64/dxcompiler.dll")
+            set(WEBGPU_HOST_DXC_DIR "${_d}/x64" CACHE PATH
+                "Directory containing dxil.dll + dxcompiler.dll for Dawn")
+            break()
+        endif()
+    endforeach()
+endif()
+if (WEBGPU_HOST_DXC_DIR)
+    message(STATUS "webgpu_host: using DXC from ${WEBGPU_HOST_DXC_DIR}")
+    add_custom_command(TARGET webgpu_host POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${WEBGPU_HOST_DXC_DIR}/dxil.dll"
+            "$<TARGET_FILE_DIR:webgpu_host>/dxil.dll"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${WEBGPU_HOST_DXC_DIR}/dxcompiler.dll"
+            "$<TARGET_FILE_DIR:webgpu_host>/dxcompiler.dll"
+        COMMENT "Staging DXC runtime DLLs (dxil + dxcompiler) for Dawn"
+    )
+else()
+    message(WARNING "webgpu_host: Windows SDK DXC DLLs not found. Before running, "
+        "copy dxil.dll and dxcompiler.dll from Windows Kits\\10\\bin\\<ver>\\x64 "
+        "beside webgpu_host.exe, or pass -DWEBGPU_HOST_DXC_DIR=<path>.")
 endif()
