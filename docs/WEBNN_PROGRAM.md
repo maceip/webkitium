@@ -32,26 +32,7 @@ The [Web Neural Network API](https://webmachinelearning.github.io/webnn/)
 (W3C Candidate Recommendation, January 2026) is a dedicated **low-level API
 for neural-network inference hardware acceleration**. It exposes ~95
 operations (`conv2d`, `matmul`, `relu`, `softmax`, `gelu`, `lstm`, …) through
-a graph-construction → compile → dispatch model backed by OS-level inference
-runtimes:
-
-| Platform | CPU backend | GPU backend | NPU backend |
-|----------|------------|------------|-------------|
-| Windows 11 24H2+ | ONNX Runtime / Windows ML | ONNX Runtime GPU EP | ONNX Runtime NPU EP |
-| Windows (default) | TFLite + XNNPACK | DirectML (flag) | DirectML (if hw) |
-| macOS Apple Silicon ≥14.4 | Core ML (CPUOnly) | Core ML (CPUAndGPU) | Core ML (NeuralEngine) |
-| macOS Intel / <14.4 | TFLite + XNNPACK | TFLite (fallback) | — |
-| Linux | TFLite + XNNPACK | CPU fallback | — |
-| Android | TFLite + XNNPACK | TFLite OpenCL | TFLite NNAPI |
-| ChromeOS | TFLite + XNNPACK | Chrome ML GPU | CPU fallback |
-
-Key design points:
-- **Privacy-preserving**: all computation on-device.
-- **Hardware-agnostic**: GPUs, CPUs, and dedicated ML accelerators via OS
-  backends.
-- **WebGPU interop**: `MLTensor.exportToGPU` for zero-copy sharing.
-- **Permissions-gated**: `"webnn"` policy, disabled in cross-origin iframes
-  by default.
+a graph-construction → compile → dispatch model.
 
 ### Relationship to WebGPU
 
@@ -61,12 +42,12 @@ WebNN and WebGPU are **complementary**, not competing:
 |---------|--------|-------|
 | Primary workload | Graphics rendering + general compute shaders | Neural-network inference |
 | Programming model | Write WGSL shaders, manage buffers/pipelines | Declare a computation graph, dispatch |
-| Hardware target | GPU (D3D12, Vulkan, Metal) | GPU, CPU, or NPU via OS ML runtime |
+| Hardware target | GPU (D3D12, Vulkan, Metal) | GPU, CPU, or NPU via ML runtime |
 | Interop | `GPUBuffer`, `GPUTexture` | `MLTensor` can export to `GPUBuffer` |
 
-A typical real-world pipeline: capture frame → WebNN inference (object
-detection / segmentation) → WebGPU render (overlay / post-process). Our
-browser must support both.
+A typical pipeline: capture frame → WebNN inference (detection /
+segmentation) → WebGPU render (overlay / post-process). Our browser must
+support both.
 
 ---
 
@@ -76,233 +57,234 @@ browser must support both.
 
 Three integration approaches were evaluated:
 
-#### 1. Direct WebNN API (native `navigator.ml`)
+#### 1. ONNX Runtime (per-platform, Windows-primary)
 
-WebKit upstream tracks the spec. Chromium already ships `navigator.ml` from
-M112+. For our downstream WebKit, this means patching WebCore to wire
-`navigator.ml` through to a platform ML backend, mirroring how WebGPU was
-wired to Dawn.
+ONNX Runtime is Microsoft's inference engine. Ships with Windows 11 24H2+ and
+is the default WebNN backend in Chromium on Windows.
 
-**Pros:** Smallest API surface. Standards-only. No JS framework dependency.
-Tightest integration with the engine.
+**Pros:** Deep Windows integration. `.onnx` model format.
+**Cons:** Not the primary backend on non-Windows platforms. Would need
+separate Core ML (macOS), TFLite (Linux/Android) backends — meaning three
+C++ integrations instead of one. No unified cross-platform story.
 
-**Cons:** Requires per-platform backend implementation (ONNX Runtime on
-Windows, Core ML on macOS, TFLite on Linux/Android). Significant C++ work per
-platform.
+#### 2. LiteRT-LM (unified C++ across all platforms) ← CHOSEN
 
-#### 2. Bolt-on ONNX Runtime Web (`onnxruntime-web`)
+[LiteRT-LM](https://github.com/google-ai-edge/LiteRT-LM) (v0.10.2, April
+2026) is Google's production-ready C++ inference framework built on LiteRT
+(successor to TensorFlow Lite). It already powers on-device GenAI in
+**Chrome**, **Chromebook Plus**, and **Pixel Watch**.
 
-ONNX Runtime Web is the **most mature** WebNN consumer. Install
-`onnxruntime-web`, import the `/all` bundle, set
-`executionProviders: [{ name: 'webnn' }]`. Unsupported ops auto-fall back to
-WASM. Microsoft co-develops the WebNN spec and this EP.
+**Pros:**
+- **One C++ library for all platforms**: Windows, macOS, Linux, Android, iOS,
+  and IoT (Raspberry Pi).
+- **Hardware acceleration built in**: CPU (XNNPACK), GPU (ML Drift / OpenCL /
+  DirectX on Windows), NPU via platform delegates.
+- **Already the Chromium WebNN backend**: TFLite/LiteRT is the inference
+  engine Chromium uses for WebNN on ChromeOS, Linux, Android, and as a
+  fallback on Windows and macOS.
+- **LLM-native**: `Engine`/`Conversation` API handles KV-cache, tokenization,
+  session cloning, prompt templating, function calling.
+- **Multi-modal**: vision, audio, and text inputs.
+- **CMake build support**: `CMakeLists.txt` with `ExternalProject_Add`, plus
+  Bazel for source builds.
+- **Broad model support**: Gemma, Llama, Phi-4, Qwen, and more via
+  `.litertlm` format.
 
-**Pros:** Production-ready. Runs `.onnx` models. Automatic WASM fallback for
-unsupported ops. IO binding with `MLTensor` for zero-copy. Best operator
-coverage.
+**Cons:** Bazel-primary build (CMake is available but less documented).
+Requires protobuf and flatbuffers as build dependencies.
 
-**Cons:** Requires the browser to expose `navigator.ml` first (circular if
-WebNN is not wired). Adds a JS-layer dependency. NPM / bundler story needed.
+#### 3. Direct per-platform wiring (Core ML, TFLite, ONNX RT)
 
-#### 3. Bolt-on LiteRT.js (`@litertjs/core`)
+Wire each platform to its native ML runtime individually.
 
-Google's LiteRT.js (v2.4.0) supports WebGPU and CPU today. WebNN support is
-**"coming soon"** — active GitHub work exists but no public API surface yet.
-Chromium itself already uses TFLite as a WebNN backend internally.
+**Pros:** Tightest integration. Uses Chromium's exact backend per platform.
+**Cons:** Three+ separate C++ implementations to maintain. Enormous surface
+area. LiteRT-LM effectively subsumes this — it wraps TFLite delegates
+underneath and handles platform dispatch internally.
 
-**Pros:** Familiar TFLite model format. Google-backed. Chromium already uses
-TFLite underneath WebNN.
+### Decision: LiteRT-LM
 
-**Cons:** **WebNN delegate not yet shipped** in the JS API. Only WebGPU and
-CPU available today. Cannot be used as a WebNN consumer until Google ships the
-delegate.
+**LiteRT-LM is the unified C++ backend for WebNN across all platforms.**
 
-### Decision
-
-**Phased approach — all three, in order of readiness:**
-
-1. **Phase A (now):** Wire the **direct WebNN API** into downstream WebKit,
-   mirroring the WebGPU/Dawn pattern. Platform backends: ONNX Runtime
-   (Windows), Core ML (macOS), TFLite (Linux/Android). This is the engine
-   prerequisite — without `navigator.ml`, neither framework can use WebNN.
-
-2. **Phase B (after navigator.ml works):** Integrate **ONNX Runtime Web** as
-   the reference JS-level ML framework. Validates WebNN end-to-end with real
-   `.onnx` models and proves the WASM fallback path.
-
-3. **Phase C (when available):** Add **LiteRT.js** WebNN delegate support when
-   Google ships it. Monitor `@litertjs/core` releases. This gives `.tflite`
-   model consumers the same hardware acceleration path.
-
-This phased approach ensures we:
-- Unblock the standards-track API first (like we did with WebGPU/Dawn).
-- Have a working validation framework (ONNX Runtime Web) before we need
-  custom test infrastructure.
-- Stay ready for LiteRT.js when Google ships the delegate.
-
----
-
-## WebNN on Windows — strategy (Phase A lead platform)
-
-1. **Wire ONNX Runtime as the ML backend** through downstream WebKit. ONNX
-   Runtime is Microsoft's chosen platform inference engine and already ships
-   with Windows 11 24H2+. Use `ENABLE_WEBNN=ON` + `FindONNXRuntime.cmake`.
-2. **Do not** require full op coverage to ship. The first milestone is
-   `navigator.ml.createContext()` → `MLGraphBuilder` → `builder.build()` →
-   `context.dispatch()`.
-3. **Coordinate** through the runner: preset `webnn-onnxrt`.
-
-### Product bar
-
-`navigator.ml`, context, graph builder, compiled graph, dispatch, read —
-end-to-end inference on a small model (e.g. MobileNet classification or a
-simple math graph). NPU and full op coverage are **not** required for first
-bar.
-
-### Milestones
-
-| # | Milestone | Exit (must all be true) |
-|---|-----------|-------------------------|
-| **1** | Foundations | `ENABLE_WEBNN=ON` in cache; ONNX Runtime libs loadable beside MiniBrowser; `navigator.ml` exists in JS. |
-| **2** | Context + graph build | `navigator.ml.createContext({devicePreference:'cpu'})` succeeds; `MLGraphBuilder` constructs a simple add/mul graph; `builder.build()` compiles. |
-| **3** | Dispatch + readback | `context.dispatch(graph, inputs, outputs)` executes; `context.readTensor()` returns correct results for the test graph. End-to-end on CPU. |
-| **4** | GPU context | `createContext({devicePreference:'gpu'})` succeeds with ONNX Runtime GPU EP or DirectML. Same test graph dispatches on GPU. |
-| **5** | Real model | An ONNX model (via ONNX Runtime Web with WebNN EP) runs inference. E.g. MobileNetV2 image classification. |
-| **6** | WebGPU interop | `MLTensor` exported to `GPUBuffer` via WebGPU; render pipeline consumes inference output. |
-
-### Out of scope for the lane (unless separate work)
-
-- NPU / Neural Engine backends (future milestone after GPU works).
-- Full CTS-like operator conformance.
-- LiteRT.js integration (Phase C, separate lane).
+Rationale:
+1. **One codebase**: A single C++ integration covers Windows, macOS, Linux,
+   Android, iOS, and embedded. This mirrors how Dawn is the single WebGPU
+   library for all platforms.
+2. **Production-proven**: Already shipping in Chrome and Chromebook Plus for
+   on-device GenAI.
+3. **Chromium alignment**: Chromium uses TFLite/LiteRT as its WebNN backend
+   on most platforms. LiteRT-LM is the GenAI orchestration layer on top.
+4. **Hardware acceleration without delegate management**: GPU and NPU
+   acceleration is handled internally by LiteRT-LM via the `Backend` enum
+   (`CPU`, `GPU`), not by manual delegate configuration.
+5. **Future-proof**: LiteRT-LM is actively developed (v0.10.2, 4.1k+ stars),
+   with new model support and platform capabilities arriving regularly.
 
 ---
 
 ## Integration shape
 
-### Backend naming
+### LiteRT-LM C++ API
 
-Mirror the WebGPU pattern. Do not add `NGWebNNBackend_ONNX` to WebKit's
-spec-level types. Keep it in repo-owned selectors:
+The integration uses LiteRT-LM's `Engine` / `Conversation` API:
 
 ```cpp
-enum class NGWebNNProvider {
-    OnnxRuntime,    // Windows (primary), Linux (fallback)
-    CoreML,         // macOS / iOS
-    TFLite,         // Linux / Android / ChromeOS
-};
+#include "runtime/engine/engine.h"
+#include "runtime/conversation/conversation.h"
 
-enum class NGWebNNDevice {
-    Default,
-    CPU,
-    GPU,
-    NPU,
-};
+// Load model
+auto model_assets = ModelAssets::Create(model_path);
+auto engine_settings = EngineSettings::CreateDefault(
+    model_assets, litert::lm::Backend::CPU);
+auto engine = Engine::CreateEngine(engine_settings);
+
+// Create conversation (manages KV-cache, tokenization, etc.)
+auto config = ConversationConfig::CreateDefault(**engine);
+auto conversation = Conversation::Create(**engine, *config);
+
+// Inference
+auto result = (*conversation)->SendMessage(
+    JsonMessage{{"role", "user"}, {"content", prompt}});
 ```
 
-The selector maps to the real `MLDevicePreference` only at the
-`createContext()` boundary.
+Backend selection:
+- `litert::lm::Backend::CPU` — XNNPACK-accelerated CPU inference
+- `litert::lm::Backend::GPU` — Platform GPU delegate (ML Drift on Android,
+  OpenCL, DirectX on Windows)
+
+### Dual-layer integration
+
+WebNN has two integration points in our browser:
+
+**Layer 1: WebNN spec API (`navigator.ml`)** — The low-level graph
+construction/dispatch API that web content uses directly. Backed by LiteRT
+(the core runtime) for op-level graph execution.
+
+**Layer 2: LiteRT-LM orchestration** — The higher-level LLM engine that web
+content can use via WebNN for model-level inference. Handles tokenization,
+KV-cache, multi-turn conversations, tool use, and multi-modal inputs.
+
+Both layers use the same underlying LiteRT runtime for hardware-accelerated
+execution.
 
 ### WebKit source layout
 
 ```text
 Source/WebCore/Modules/WebNN/
-  MLContext.{h,cpp,idl}              Spec MLContext interface
-  MLGraphBuilder.{h,cpp,idl}        Spec graph builder
-  MLGraph.{h,cpp,idl}               Compiled graph
-  MLTensor.{h,cpp,idl}              Device tensor
-  MLOperand.{h,cpp,idl}             Graph operand
+  Navigator+ML.{h,cpp,idl}             navigator.ml property
+  ML.{h,cpp,idl}                       ML interface (createContext)
+  MLContext.{h,cpp,idl}                 Context: dispatch, tensor lifecycle
+  MLGraphBuilder.{h,cpp,idl}           Graph construction API
+  MLGraph.{h,cpp,idl}                  Compiled graph
+  MLTensor.{h,cpp,idl}                 Opaque device tensor
+  MLOperand.{h,cpp,idl}                Graph node / intermediate value
 
 Source/WebCore/Modules/WebNN/Implementation/
-  WebNNImpl.cpp                      Platform-neutral entry
-  WebNNContextImpl.{h,cpp}           Context abstraction
-  WebNNGraphImpl.{h,cpp}             Graph abstraction
-
-  WebNNWindowsOnnxRT.{h,cpp}         Windows ONNX Runtime context
-  WebNNWindowsOnnxRTGraph.{h,cpp}    Windows ONNX Runtime graph
-  WebNNMacOSCoreML.{h,cpp}           macOS Core ML context (future)
-  WebNNLinuxTFLite.{h,cpp}           Linux TFLite context (future)
+  WebNNContextImpl.{h,cpp}             Abstract context backend interface
+  WebNNGraphImpl.{h,cpp}               Abstract graph backend interface
+  WebNNLiteRTContext.{h,cpp}           LiteRT-LM context (all platforms)
+  WebNNLiteRTGraph.{h,cpp}             LiteRT-LM graph (all platforms)
 ```
 
 ### Navigator entry point
 
 ```cpp
 #if ENABLE(WEBNN)
-Navigator::ml() {
-#if PLATFORM(WIN) && HAVE(ONNXRUNTIME)
-    m_mlForWebNN = ML::create(WebNN::WindowsOnnxRTContext::create(...));
-#elif PLATFORM(COCOA) && HAVE(COREML)
-    m_mlForWebNN = ML::create(WebNN::MacOSCoreMLContext::create(...));
-#elif HAVE(TFLITE)
-    m_mlForWebNN = ML::create(WebNN::LinuxTFLiteContext::create(...));
-#endif
+ML* Navigator::ml() {
+    if (!m_ml) {
+        auto backend = WebNN::LiteRTContext::create(devicePreference);
+        m_ml = ML::create(*this, WTFMove(backend));
+    }
+    return m_ml.get();
 }
 #endif
 ```
 
-### Build wiring (Windows)
+No platform switch needed — LiteRT-LM handles platform dispatch internally.
+
+### Build wiring
+
+LiteRT-LM builds with CMake via `ExternalProject_Add` or as a pre-built
+library. For our WebKit integration:
 
 ```bash
-NG_WINDOWS_ENABLE_WEBNN=1
+NG_ENABLE_WEBNN=1
 ```
 
 CMake requirements:
 - `ENABLE_WEBNN:BOOL=ON`
-- `FindONNXRuntime.cmake` resolves vcpkg `onnxruntime`.
-- ONNX Runtime DLLs present beside `MiniBrowser.exe`.
-- Windows-only WebNN source files appended from `PlatformWin.cmake` when
-  `ENABLE_WEBNN` is on.
+- `FindLiteRT.cmake` resolves pre-built LiteRT-LM libraries or builds from
+  source via `ExternalProject_Add`.
+- LiteRT-LM shared libraries present beside the browser binary.
+- WebNN source files compiled when `ENABLE_WEBNN` is on.
+
+Build dependencies:
+- Bazel 7.6.1 (for source builds) or pre-built libraries
+- protobuf, flatbuffers (fetched by LiteRT-LM build)
+- Git LFS (for GPU prebuilt binaries)
+
+### Platform-specific notes
+
+| Platform | Backend | GPU acceleration | Build notes |
+|----------|---------|-----------------|-------------|
+| Windows | LiteRT-LM | DirectX / ML Drift | `--config=windows` Bazel flag; requires VS 2022 MSVC |
+| macOS | LiteRT-LM | Metal (via LiteRT GPU delegate) | `xcode-select --install` for clang |
+| Linux | LiteRT-LM | OpenCL (if available) | Standard clang build |
+| Android | LiteRT-LM | GPU delegate / NNAPI (NPU) | NDK r28b+; `--config=android_arm64` |
+| iOS | LiteRT-LM | Core ML delegate | Swift API coming soon; C++ available |
 
 ---
 
-## ONNX Runtime Web validation (Phase B)
+## Milestones
 
-Once `navigator.ml` works end-to-end, validate with ONNX Runtime Web:
+| # | Milestone | Exit (must all be true) |
+|---|-----------|-------------------------|
+| **1** | Foundations | `ENABLE_WEBNN=ON` in cache; LiteRT-LM libs loadable beside MiniBrowser; `navigator.ml` exists in JS. |
+| **2** | Context + graph build | `navigator.ml.createContext({devicePreference:'cpu'})` succeeds; `MLGraphBuilder` constructs a simple add/mul graph; `builder.build()` compiles via LiteRT. |
+| **3** | Dispatch + readback | `context.dispatch(graph, inputs, outputs)` executes; `context.readTensor()` returns correct results. End-to-end CPU inference. |
+| **4** | GPU context | `createContext({devicePreference:'gpu'})` succeeds with LiteRT GPU delegate. Same test graph dispatches on GPU. |
+| **5** | LLM inference | LiteRT-LM `Engine`/`Conversation` runs a `.litertlm` model (e.g. Gemma) from page JavaScript. |
+| **6** | WebGPU interop | `MLTensor` exported to `GPUBuffer` via WebGPU; render pipeline consumes inference output. |
+| **7** | Multi-platform | Same integration verified on at least Windows + one non-Windows platform (Linux or macOS). |
+
+### Out of scope for the lane (unless separate work)
+
+- NPU delegation (future milestone after GPU works).
+- Full CTS-like operator conformance.
+- ONNX model support (LiteRT-LM uses `.litertlm` format; ONNX conversion is
+  separate tooling).
+
+---
+
+## ONNX Runtime Web validation (secondary)
+
+Once `navigator.ml` works end-to-end with LiteRT, ONNX Runtime Web can be
+used as a secondary validation path. ONNX Runtime Web's WebNN EP delegates to
+whatever `navigator.ml` implementation the browser provides — in our case,
+LiteRT-LM.
 
 ```javascript
 import * as ort from 'onnxruntime-web/all';
-
-const session = await ort.InferenceSession.create('./mobilenet.onnx', {
-  executionProviders: [{
-    name: 'webnn',
-    deviceType: 'gpu',
-    powerPreference: 'high-performance',
-  }]
-});
-
-const input = new ort.Tensor('float32', imageData, [1, 3, 224, 224]);
-const results = await session.run({ 'input': input });
-console.log('Top-1:', argmax(results['output'].data));
-```
-
-ONNX Runtime Web auto-falls back to WASM for unsupported ops, so partial
-WebNN coverage is acceptable for initial validation.
-
-### IO binding validation
-
-```javascript
-const mlContext = await navigator.ml.createContext({ deviceType: 'gpu' });
 const session = await ort.InferenceSession.create('./model.onnx', {
-  executionProviders: [{ name: 'webnn', context: mlContext }],
-  preferredOutputLocation: 'ml-tensor'
+  executionProviders: [{ name: 'webnn', deviceType: 'gpu' }]
 });
-// Tensors stay on device — no CPU round-trip between inference steps.
 ```
+
+This validates that third-party frameworks can consume our WebNN
+implementation.
 
 ---
 
-## LiteRT.js readiness tracking (Phase C)
+## LiteRT.js readiness tracking
 
-Monitor these signals for LiteRT.js WebNN delegate readiness:
+LiteRT.js (`@litertjs/core`) is the JS-side runtime. Its WebNN delegate is
+under development. When it ships, it provides a higher-level JS API on top
+of our LiteRT-LM C++ backend:
 
 - [ ] `@litertjs/core` npm release includes `accelerator: 'webnn'` option.
-- [ ] LiteRT.js WebNN delegate passes on Chromium nightly.
-- [ ] GitHub issue / PR for "Exposing WebNN Options to LiteRT.js user" is
-      merged.
+- [ ] LiteRT.js WebNN delegate passes on our browser.
 
-Current status (April 2026): WebNN delegate is under active development.
-`@litertjs/core` v2.4.0 supports only `'webgpu'` and `'cpu'`. When the
-delegate ships, add a lane under `changes/webnn-litert/`.
+Current status (April 2026): v2.4.0 supports `'webgpu'` and `'cpu'` only.
 
 ---
 
@@ -311,11 +293,12 @@ delegate ships, add a lane under `changes/webnn-litert/`.
 1. `navigator.ml` exists.
 2. `navigator.ml.createContext()` returns non-null with CPU device.
 3. `MLGraphBuilder` constructs a simple graph (add, mul, relu).
-4. `builder.build()` compiles the graph.
+4. `builder.build()` compiles the graph via LiteRT.
 5. `context.dispatch()` executes and `readTensor()` returns correct results.
-6. GPU context works (ONNX Runtime GPU EP or DirectML).
-7. ONNX Runtime Web runs a real `.onnx` model through the WebNN EP.
+6. GPU context works via LiteRT GPU delegate.
+7. LiteRT-LM runs a real `.litertlm` model from page JavaScript.
 8. `MLTensor` exports to `GPUBuffer` for WebGPU interop.
+9. Same integration works on Windows + at least one other platform.
 
 Each rung needs a build artifact and runtime probe in the standard harness.
 

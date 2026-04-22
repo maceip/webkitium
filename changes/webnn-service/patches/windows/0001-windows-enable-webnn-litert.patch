@@ -1,61 +1,88 @@
-diff --git a/Source/cmake/FindONNXRuntime.cmake b/Source/cmake/FindONNXRuntime.cmake
+diff --git a/Source/cmake/FindLiteRT.cmake b/Source/cmake/FindLiteRT.cmake
 new file mode 100644
 index 00000000000..a1b2c3d4e5f
 --- /dev/null
-+++ b/Source/cmake/FindONNXRuntime.cmake
-@@ -0,0 +1,48 @@
-+# FindONNXRuntime.cmake
++++ b/Source/cmake/FindLiteRT.cmake
+@@ -0,0 +1,71 @@
++# FindLiteRT.cmake
 +#
-+# Finds the ONNX Runtime library for WebNN backend support.
++# Finds the LiteRT-LM library for WebNN backend support.
++# LiteRT-LM is Google's production-ready C++ inference framework
++# (successor to TFLite) that provides unified cross-platform ML inference.
 +#
-+# This will define the following variables:
-+#   ONNXRuntime_FOUND        - True if the system has ONNX Runtime
-+#   ONNXRuntime_INCLUDE_DIRS - The ONNX Runtime include directories
-+#   ONNXRuntime_LIBRARIES    - The libraries needed to use ONNX Runtime
-+#   ONNXRuntime_VERSION      - The version of ONNX Runtime found
++# This will define:
++#   LiteRT_FOUND        - True if LiteRT-LM is available
++#   LiteRT_INCLUDE_DIRS - Include directories
++#   LiteRT_LIBRARIES    - Libraries to link
++#   LiteRT_VERSION      - Version string
 +
 +include(FindPackageHandleStandardArgs)
 +
-+find_path(ONNXRuntime_INCLUDE_DIR
-+    NAMES onnxruntime_c_api.h
-+    PATH_SUFFIXES onnxruntime
++# Try pre-built library first
++find_path(LiteRT_INCLUDE_DIR
++    NAMES runtime/engine/engine.h
++    PATH_SUFFIXES litert-lm litert_lm
 +)
 +
-+if (NOT ONNXRuntime_INCLUDE_DIR)
-+    find_path(ONNXRuntime_INCLUDE_DIR
-+        NAMES onnxruntime/onnxruntime_c_api.h
++# Fall back to TFLite header path (LiteRT core)
++if (NOT LiteRT_INCLUDE_DIR)
++    find_path(LiteRT_INCLUDE_DIR
++        NAMES tensorflow/lite/interpreter.h
++        PATH_SUFFIXES tflite litert
 +    )
 +endif ()
 +
-+find_library(ONNXRuntime_LIBRARY
-+    NAMES onnxruntime
++# LiteRT-LM library
++find_library(LiteRT_LIBRARY
++    NAMES litert_lm litert-lm
 +)
 +
-+if (NOT ONNXRuntime_LIBRARY)
-+    find_library(ONNXRuntime_LIBRARY
-+        NAMES onnxruntime.dll.lib onnxruntime.lib
++# Fall back to TFLite core library
++if (NOT LiteRT_LIBRARY)
++    find_library(LiteRT_LIBRARY
++        NAMES tensorflow-lite tflite tensorflowlite
 +    )
 +endif ()
 +
-+if (ONNXRuntime_INCLUDE_DIR AND EXISTS "${ONNXRuntime_INCLUDE_DIR}/onnxruntime_c_api.h")
-+    file(STRINGS "${ONNXRuntime_INCLUDE_DIR}/onnxruntime_c_api.h" _ort_version_str
-+         REGEX "^#define ORT_API_VERSION[ \t]+[0-9]+")
-+    if (_ort_version_str MATCHES "^#define ORT_API_VERSION[ \t]+([0-9]+)")
-+        set(ONNXRuntime_VERSION "${CMAKE_MATCH_1}")
++# XNNPACK delegate (CPU acceleration)
++find_library(LiteRT_XNNPACK_LIBRARY
++    NAMES xnnpack XNNPACK
++)
++
++find_package_handle_standard_args(LiteRT
++    REQUIRED_VARS LiteRT_LIBRARY LiteRT_INCLUDE_DIR
++)
++
++if (LiteRT_FOUND)
++    set(LiteRT_INCLUDE_DIRS ${LiteRT_INCLUDE_DIR})
++    set(LiteRT_LIBRARIES ${LiteRT_LIBRARY})
++    if (LiteRT_XNNPACK_LIBRARY)
++        list(APPEND LiteRT_LIBRARIES ${LiteRT_XNNPACK_LIBRARY})
 +    endif ()
 +endif ()
 +
-+find_package_handle_standard_args(ONNXRuntime
-+    REQUIRED_VARS ONNXRuntime_LIBRARY ONNXRuntime_INCLUDE_DIR
-+    VERSION_VAR ONNXRuntime_VERSION
-+)
++mark_as_advanced(LiteRT_INCLUDE_DIR LiteRT_LIBRARY LiteRT_XNNPACK_LIBRARY)
 +
-+if (ONNXRuntime_FOUND)
-+    set(ONNXRuntime_INCLUDE_DIRS ${ONNXRuntime_INCLUDE_DIR})
-+    set(ONNXRuntime_LIBRARIES ${ONNXRuntime_LIBRARY})
++# Option to build from source via ExternalProject
++option(LITERT_BUILD_FROM_SOURCE
++    "Build LiteRT-LM from source instead of using pre-built library" OFF)
++
++if (LITERT_BUILD_FROM_SOURCE AND NOT LiteRT_FOUND)
++    include(ExternalProject)
++    ExternalProject_Add(litert_lm_build
++        GIT_REPOSITORY https://github.com/google-ai-edge/LiteRT-LM.git
++        GIT_TAG v0.10.2
++        SOURCE_DIR ${CMAKE_BINARY_DIR}/litert-lm-src
++        BINARY_DIR ${CMAKE_BINARY_DIR}/litert-lm-build
++        CMAKE_ARGS
++            -DLITERTLM_PROJECT_ROOT=${CMAKE_BINARY_DIR}/litert-lm-src
++        INSTALL_COMMAND ""
++        BUILD_ALWAYS FALSE
++    )
++    set(LiteRT_INCLUDE_DIRS ${CMAKE_BINARY_DIR}/litert-lm-src)
++    set(LiteRT_LIBRARIES ${CMAKE_BINARY_DIR}/litert-lm-build/litert_lm)
++    set(LiteRT_FOUND TRUE)
 +endif ()
-+
-+mark_as_advanced(ONNXRuntime_INCLUDE_DIR ONNXRuntime_LIBRARY)
 diff --git a/Source/cmake/OptionsWin.cmake b/Source/cmake/OptionsWin.cmake
 index be254c9e980..f1a2b3c4d5e 100644
 --- a/Source/cmake/OptionsWin.cmake
@@ -72,7 +99,7 @@ index be254c9e980..f1a2b3c4d5e 100644
  endif ()
  
 +if (ENABLE_WEBNN)
-+    find_package(ONNXRuntime REQUIRED)
++    find_package(LiteRT REQUIRED)
 +    SET_AND_EXPOSE_TO_BUILD(HAVE_WEBNN_IMPLEMENTATION ON)
 +endif ()
 +
@@ -84,17 +111,17 @@ index 00000000001..00000000002 100644
 --- a/Source/WebCore/PlatformWin.cmake
 +++ b/Source/WebCore/PlatformWin.cmake
 @@ -0,0 +1,12 @@
-+# WebNN / ONNX Runtime sources (Windows)
-+if (ENABLE_WEBNN AND ONNXRuntime_FOUND)
++# WebNN / LiteRT-LM sources (all platforms — included from PlatformWin.cmake)
++if (ENABLE_WEBNN AND LiteRT_FOUND)
 +    list(APPEND WebCore_SOURCES
 +        Modules/WebNN/Implementation/WebNNContextImpl.cpp
 +        Modules/WebNN/Implementation/WebNNGraphImpl.cpp
-+        Modules/WebNN/Implementation/WebNNWindowsOnnxRT.cpp
-+        Modules/WebNN/Implementation/WebNNWindowsOnnxRTGraph.cpp
++        Modules/WebNN/Implementation/WebNNLiteRTContext.cpp
++        Modules/WebNN/Implementation/WebNNLiteRTGraph.cpp
 +    )
-+    list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES ${ONNXRuntime_INCLUDE_DIRS})
-+    list(APPEND WebCore_LIBRARIES ${ONNXRuntime_LIBRARIES})
-+    SET_AND_EXPOSE_TO_BUILD(HAVE_ONNXRUNTIME ON)
++    list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES ${LiteRT_INCLUDE_DIRS})
++    list(APPEND WebCore_LIBRARIES ${LiteRT_LIBRARIES})
++    SET_AND_EXPOSE_TO_BUILD(HAVE_LITERT ON)
 +endif ()
 diff --git a/Tools/Scripts/webkitperl/FeatureList.pm b/Tools/Scripts/webkitperl/FeatureList.pm
 index 2cdd50532f7..e3f4a5b6c7d 100644
@@ -151,14 +178,13 @@ diff --git a/vcpkg.json b/vcpkg.json
 index 59001efceec..c2d3e4f5a6b 100644
 --- a/vcpkg.json
 +++ b/vcpkg.json
-@@ -96,6 +96,12 @@
+@@ -96,6 +96,11 @@
          "dawn"
        ]
      },
 +    "webnn": {
-+      "description": "Build with WebNN support (ONNX Runtime backend)",
++      "description": "Build with WebNN support (LiteRT-LM backend)",
 +      "dependencies": [
-+        "onnxruntime"
 +      ]
 +    },
      "woff2": {

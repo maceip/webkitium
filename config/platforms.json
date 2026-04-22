@@ -60,8 +60,8 @@
             "Keeps sccache mandatory and verified"
           ]
         },
-        "webnn-onnxrt": {
-          "description": "Windows WebNN/ONNX Runtime build for ML inference acceleration.",
+        "webnn-litert": {
+          "description": "Windows WebNN/LiteRT-LM build for ML inference acceleration.",
           "env": {
             "NG_WINDOWS_SOURCE_PRESET": "iangrunert-win-gigacage-skia-fixes",
             "NG_WINDOWS_ENABLE_WEBNN": "1",
@@ -77,8 +77,8 @@
           ],
           "acceptance": [
             "CMakeCache contains ENABLE_WEBNN:BOOL=ON",
-            "onnxruntime.dll is packaged next to MiniBrowser.exe",
-            "onnxruntime.dll loads with LOAD_WITH_ALTERED_SEARCH_PATH",
+            "LiteRT-LM shared libraries are packaged next to MiniBrowser.exe",
+            "LiteRT-LM libraries load at runtime",
             "validation-report.json runtime smoke shows navigator.ml exists",
             "validation-report.json runtime smoke shows createContext succeeds",
             "BUILD_DONE.txt is written only after S3 sync succeeds"

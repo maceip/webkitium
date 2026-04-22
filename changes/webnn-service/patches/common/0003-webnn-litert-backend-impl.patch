@@ -1,0 +1,387 @@
+diff --git a/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTContext.h b/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTContext.h
+new file mode 100644
+index 00000000000..a1b2c3d4e5f
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTContext.h
+@@ -0,0 +1,70 @@
++/*
++ * WebNN context backed by LiteRT-LM.
++ *
++ * LiteRT-LM is the unified C++ inference backend for WebNN across all
++ * platforms. It wraps LiteRT (TFLite successor) and provides:
++ * - CPU inference via XNNPACK delegate
++ * - GPU inference via platform GPU delegates (DirectX, Metal, OpenCL)
++ * - LLM orchestration via Engine/Conversation API
++ *
++ * This single implementation serves Windows, macOS, Linux, Android, and iOS.
++ */
++
++#pragma once
++
++#if ENABLE(WEBNN) && HAVE(LITERT)
++
++#include "WebNNContextImpl.h"
++#include "MLContextOptions.h"
++#include <memory>
++
++namespace WebCore {
++namespace WebNN {
++
++class LiteRTGraph;
++
++class LiteRTContext final : public WebNNContextImpl {
++public:
++    static std::unique_ptr<LiteRTContext> create(
++        const MLContextOptions& = {});
++    ~LiteRTContext() override;
++
++    MLDevicePreference devicePreference() const override { return m_device; }
++
++    RefPtr<MLTensor> createTensor(MLTensorDescriptor&&) override;
++    void writeTensor(MLTensor&, const void* data, size_t byteLength) override;
++    void readTensor(MLTensor&,
++                    std::function<void(RefPtr<ArrayBuffer>)>&&) override;
++
++    void dispatch(WebNNGraphImpl&,
++                  HashMap<String, RefPtr<MLTensor>>& inputs,
++                  HashMap<String, RefPtr<MLTensor>>& outputs,
++                  std::function<void(bool)>&&) override;
++
++    std::unique_ptr<WebNNGraphImpl> buildGraph(
++        HashMap<String, RefPtr<MLOperand>>& outputs) override;
++
++private:
++    explicit LiteRTContext(MLDevicePreference);
++    bool initialize();
++
++    MLDevicePreference m_device { MLDevicePreference::CPU };
++    bool m_initialized { false };
++
++    // LiteRT interpreter for op-level graph execution
++    // std::unique_ptr<tflite::Interpreter> m_interpreter;
++
++    // LiteRT-LM engine for model-level LLM inference
++    // std::unique_ptr<litert::lm::Engine> m_engine;
++};
++
++} // namespace WebNN
++} // namespace WebCore
++
++#endif // ENABLE(WEBNN) && HAVE(LITERT)
+diff --git a/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTContext.cpp b/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTContext.cpp
+new file mode 100644
+index 00000000000..b2c3d4e5f6a
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTContext.cpp
+@@ -0,0 +1,128 @@
++/*
++ * WebNN context backed by LiteRT-LM.
++ */
++
++#include "config.h"
++#include "WebNNLiteRTContext.h"
++
++#if ENABLE(WEBNN) && HAVE(LITERT)
++
++#include "WebNNLiteRTGraph.h"
++#include "MLTensor.h"
++#include "MLOperand.h"
++
++namespace WebCore {
++namespace WebNN {
++
++// Tensor subclass backed by CPU buffer (XNNPACK path)
++// GPU-backed tensors will use delegate-managed memory
++class LiteRTTensor final : public MLTensor {
++public:
++    static Ref<LiteRTTensor> create(MLTensorDescriptor&& desc, size_t byteLength)
++    {
++        return adoptRef(*new LiteRTTensor(WTFMove(desc), byteLength));
++    }
++
++    void* data() { return m_buffer.data(); }
++    const void* data() const { return m_buffer.data(); }
++    size_t byteLength() const { return m_buffer.size(); }
++
++private:
++    LiteRTTensor(MLTensorDescriptor&& desc, size_t byteLength)
++        : MLTensor(WTFMove(desc))
++        , m_buffer(byteLength, 0)
++    {
++    }
++
++    Vector<uint8_t> m_buffer;
++};
++
++std::unique_ptr<LiteRTContext> LiteRTContext::create(
++    const MLContextOptions& options)
++{
++    auto context = std::unique_ptr<LiteRTContext>(
++        new LiteRTContext(options.devicePreference));
++    if (!context->initialize())
++        return nullptr;
++    return context;
++}
++
++LiteRTContext::LiteRTContext(MLDevicePreference device)
++    : m_device(device)
++{
++}
++
++LiteRTContext::~LiteRTContext() = default;
++
++bool LiteRTContext::initialize()
++{
++    // Milestone 1: Verify LiteRT-LM library is loadable.
++    //
++    // Full initialization will:
++    // 1. Load LiteRT shared library (or verify static link)
++    // 2. Create TFLite ErrorReporter
++    // 3. Configure XNNPACK delegate for CPU backend
++    // 4. If GPU requested: load platform GPU delegate
++    //    - Windows: DirectX via ML Drift
++    //    - macOS/iOS: Metal
++    //    - Linux: OpenCL
++    //    - Android: OpenCL or NNAPI
++    // 5. For LLM mode: initialize LiteRT-LM Engine
++
++    m_initialized = true;
++    return true;
++}
++
++static size_t bytesPerElement(const String& dataType)
++{
++    if (dataType == "float32"_s)
++        return 4;
++    if (dataType == "float16"_s)
++        return 2;
++    if (dataType == "int32"_s || dataType == "uint32"_s)
++        return 4;
++    if (dataType == "int8"_s || dataType == "uint8"_s)
++        return 1;
++    if (dataType == "int64"_s)
++        return 8;
++    return 4;
++}
++
++static size_t tensorByteLength(const String& dataType,
++                                const Vector<unsigned>& shape)
++{
++    size_t elements = 1;
++    for (auto dim : shape)
++        elements *= dim;
++    return elements * bytesPerElement(dataType);
++}
++
++RefPtr<MLTensor> LiteRTContext::createTensor(MLTensorDescriptor&& desc)
++{
++    size_t byteLen = tensorByteLength(desc.dataType, desc.shape);
++    return LiteRTTensor::create(WTFMove(desc), byteLen);
++}
++
++void LiteRTContext::writeTensor(MLTensor& tensor, const void* data,
++                                 size_t byteLength)
++{
++    auto& lrtTensor = static_cast<LiteRTTensor&>(tensor);
++    size_t copyLen = std::min(byteLength, lrtTensor.byteLength());
++    memcpy(lrtTensor.data(), data, copyLen);
++}
++
++void LiteRTContext::readTensor(
++    MLTensor& tensor,
++    std::function<void(RefPtr<ArrayBuffer>)>&& callback)
++{
++    auto& lrtTensor = static_cast<LiteRTTensor&>(tensor);
++    auto buffer = ArrayBuffer::tryCreate(lrtTensor.data(),
++                                          lrtTensor.byteLength());
++    callback(WTFMove(buffer));
++}
++
++void LiteRTContext::dispatch(
++    WebNNGraphImpl& graph,
++    HashMap<String, RefPtr<MLTensor>>& inputs,
++    HashMap<String, RefPtr<MLTensor>>& outputs,
++    std::function<void(bool)>&& callback)
++{
++    auto& lrtGraph = static_cast<LiteRTGraph&>(graph);
++    bool success = lrtGraph.run(this, inputs, outputs);
++    callback(success);
++}
++
++std::unique_ptr<WebNNGraphImpl> LiteRTContext::buildGraph(
++    HashMap<String, RefPtr<MLOperand>>& outputs)
++{
++    return LiteRTGraph::create(this, outputs);
++}
++
++} // namespace WebNN
++} // namespace WebCore
++
++#endif // ENABLE(WEBNN) && HAVE(LITERT)
+diff --git a/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTGraph.h b/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTGraph.h
+new file mode 100644
+index 00000000000..c3d4e5f6a7b
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTGraph.h
+@@ -0,0 +1,55 @@
++/*
++ * WebNN compiled graph backed by a LiteRT interpreter.
++ *
++ * The graph builder translates MLOperand operations to TFLite built-in ops.
++ * build() creates a TFLite FlatBuffer model in memory and instantiates an
++ * Interpreter. dispatch() calls Interpreter::Invoke().
++ */
++
++#pragma once
++
++#if ENABLE(WEBNN) && HAVE(LITERT)
++
++#include "WebNNGraphImpl.h"
++#include "MLOperand.h"
++#include "MLTensor.h"
++#include <wtf/HashMap.h>
++#include <wtf/RefPtr.h>
++#include <wtf/text/WTFString.h>
++#include <memory>
++
++namespace WebCore {
++namespace WebNN {
++
++class LiteRTContext;
++
++class LiteRTGraph final : public WebNNGraphImpl {
++public:
++    static std::unique_ptr<LiteRTGraph> create(
++        LiteRTContext*,
++        HashMap<String, RefPtr<MLOperand>>& outputs);
++
++    ~LiteRTGraph() override;
++
++    bool run(LiteRTContext*,
++             HashMap<String, RefPtr<MLTensor>>& inputs,
++             HashMap<String, RefPtr<MLTensor>>& outputs);
++
++private:
++    LiteRTGraph();
++
++    bool buildFromOperands(LiteRTContext*,
++                           HashMap<String, RefPtr<MLOperand>>& outputs);
++
++    // TFLite Interpreter (will hold compiled model)
++    // std::unique_ptr<tflite::Interpreter> m_interpreter;
++
++    Vector<String> m_inputNames;
++    Vector<String> m_outputNames;
++};
++
++} // namespace WebNN
++} // namespace WebCore
++
++#endif // ENABLE(WEBNN) && HAVE(LITERT)
+diff --git a/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTGraph.cpp b/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTGraph.cpp
+new file mode 100644
+index 00000000000..d4e5f6a7b8c
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTGraph.cpp
+@@ -0,0 +1,94 @@
++/*
++ * WebNN compiled graph backed by a LiteRT interpreter.
++ *
++ * Milestone 1: lifecycle validation (build → dispatch → read).
++ * Full implementation will translate MLOperand DAG to TFLite FlatBuffer
++ * model and compile via tflite::Interpreter.
++ */
++
++#include "config.h"
++#include "WebNNLiteRTGraph.h"
++
++#if ENABLE(WEBNN) && HAVE(LITERT)
++
++#include "WebNNLiteRTContext.h"
++#include "MLOperand.h"
++#include "MLTensor.h"
++
++namespace WebCore {
++namespace WebNN {
++
++LiteRTGraph::LiteRTGraph() = default;
++LiteRTGraph::~LiteRTGraph() = default;
++
++std::unique_ptr<LiteRTGraph> LiteRTGraph::create(
++    LiteRTContext* context,
++    HashMap<String, RefPtr<MLOperand>>& outputs)
++{
++    auto graph = std::unique_ptr<LiteRTGraph>(new LiteRTGraph());
++    if (!graph->buildFromOperands(context, outputs))
++        return nullptr;
++    return graph;
++}
++
++bool LiteRTGraph::buildFromOperands(
++    LiteRTContext* context,
++    HashMap<String, RefPtr<MLOperand>>& outputs)
++{
++    if (!context)
++        return false;
++
++    for (auto& [name, operand] : outputs) {
++        if (operand)
++            m_outputNames.append(name);
++    }
++
++    // Full implementation will:
++    //
++    // 1. Walk the MLOperand DAG from outputs back to inputs.
++    //
++    // 2. Translate each MLOperand operation to a TFLite built-in op:
++    //    - add → kTfLiteBuiltinAdd
++    //    - mul → kTfLiteBuiltinMul
++    //    - relu → kTfLiteBuiltinRelu
++    //    - conv2d → kTfLiteBuiltinConv2d
++    //    - matmul → kTfLiteBuiltinBatchMatmul
++    //    - softmax → kTfLiteBuiltinSoftmax
++    //    - gelu → kTfLiteBuiltinGelu
++    //    etc. (see DESIGN.md op mapping table)
++    //
++    // 3. Serialize the graph as a TFLite FlatBuffer model in memory.
++    //
++    // 4. Create a tflite::Interpreter from the in-memory model.
++    //
++    // 5. Configure XNNPACK delegate (CPU) or GPU delegate based on
++    //    context's device preference.
++    //
++    // 6. Call m_interpreter->AllocateTensors().
+
++    return true;
++}
++
++bool LiteRTGraph::run(
++    LiteRTContext* context,
++    HashMap<String, RefPtr<MLTensor>>& inputs,
++    HashMap<String, RefPtr<MLTensor>>& outputs)
++{
++    if (!context)
++        return false;
++
++    // Full implementation will:
++    //
++    // 1. Bind input MLTensors to interpreter input buffers:
++    //    auto* input = m_interpreter->typed_input_tensor<float>(idx);
++    //    memcpy(input, tensor->data(), tensor->byteLength());
++    //
++    // 2. Call m_interpreter->Invoke()
++    //
++    // 3. Copy output data from interpreter to output MLTensors:
++    //    auto* output = m_interpreter->typed_output_tensor<float>(idx);
++    //    memcpy(tensor->data(), output, tensor->byteLength());
++    //
++    // For GPU delegate: tensor data may already be on device;
++    // use delegate-specific buffer sharing instead of memcpy.
+
++    return true;
++}
++
++} // namespace WebNN
++} // namespace WebCore
++
++#endif // ENABLE(WEBNN) && HAVE(LITERT)

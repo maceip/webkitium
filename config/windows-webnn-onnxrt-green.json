@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "name": "windows-webnn-onnxrt-green",
-  "description": "Known-green baseline for Windows WebNN/ONNX Runtime build lane (pending first green build).",
+  "name": "windows-webnn-litert-green",
+  "description": "Known-green baseline for Windows WebNN/LiteRT-LM build lane (pending first green build).",
   "greenBuild": {
     "buildId": null,
     "artifactPrefix": null,
@@ -34,8 +34,8 @@
   "rootPatchDirectory": "webkit/patches/windows",
   "notes": [
     "This baseline is pending the first green build with ENABLE_WEBNN=ON.",
-    "WebNN requires ONNX Runtime as the inference backend on Windows.",
-    "ONNX Runtime is installed via vcpkg manifest feature 'onnxruntime'.",
+    "WebNN uses LiteRT-LM as the unified C++ inference backend across all platforms.",
+    "LiteRT-LM is built from source or resolved from pre-built libraries.",
     "Both ENABLE_WEBNN and ENABLE_WEBGPU are on for WebGPU interop testing.",
     "Populate greenBuild fields after the first successful build passes all acceptance criteria."
   ]

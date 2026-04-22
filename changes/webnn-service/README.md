@@ -1,17 +1,19 @@
 # WebNN Service Change
 
-This change lane owns the WebNN (`navigator.ml`) integration work.
+This change lane owns the WebNN (`navigator.ml`) integration work, using
+**LiteRT-LM** as the unified C++ inference backend across all platforms.
 
-See `DESIGN.md` for the platform backend runtime map.
+See `DESIGN.md` for the LiteRT-LM runtime architecture.
 See `docs/WEBNN_PROGRAM.md` for milestones and acceptance criteria.
 
 ## Scope
 
 Allowed here:
 
-- Platform-specific WebKit patches required for the WebNN service.
-- Cross-platform WebKit interface patches required by the ML context and graph
-  builder boundaries.
+- Cross-platform WebKit patches required for the ML context and graph builder
+  boundaries.
+- Platform-specific patches where LiteRT-LM needs platform hooks (e.g. GPU
+  delegate loading).
 - Runtime validation changes that prove `navigator.ml.createContext()` succeeds.
 
 Not allowed here:
@@ -21,47 +23,51 @@ Not allowed here:
 - Generic platform compiler or dependency fixes.
 - WebGPU-only changes (use the `windows-webgpu-service` lane).
 
-## Platform Backends
+## Backend: LiteRT-LM
 
-| Platform | ML backend | Library | Status |
-|----------|-----------|---------|--------|
-| Windows | ONNX Runtime | `onnxruntime.dll` | Phase A (lead) |
-| macOS | Core ML | `CoreML.framework` | Future |
-| Linux | TFLite + XNNPACK | `libtensorflowlite.so` | Future |
-| Android | TFLite + XNNPACK / NNAPI | `libtensorflowlite_jni.so` | Future |
-| iOS | Core ML | `CoreML.framework` | Future |
+LiteRT-LM (v0.10.2) is Google's production-ready C++ inference framework,
+successor to TFLite. It already powers on-device GenAI in Chrome and
+Chromebook Plus.
+
+| Platform | Hardware acceleration | Backend delegate |
+|----------|---------------------|-----------------|
+| Windows | CPU (XNNPACK), GPU (DirectX) | LiteRT-LM |
+| macOS | CPU (XNNPACK), GPU (Metal) | LiteRT-LM |
+| Linux | CPU (XNNPACK), GPU (OpenCL) | LiteRT-LM |
+| Android | CPU (XNNPACK), GPU (OpenCL), NPU (NNAPI) | LiteRT-LM |
+| iOS | CPU (XNNPACK), GPU (Metal/Core ML) | LiteRT-LM |
+
+One C++ library. All platforms. No per-platform backend switching needed.
 
 ## Build Wiring
 
-For Windows (lead platform):
-
 ```bash
-NG_WINDOWS_ENABLE_WEBNN=1 \
-NG_WINDOWS_ENABLE_WEBGPU=1 \
-./run-build.sh windows <build-id>
+NG_ENABLE_WEBNN=1 ./run-build.sh <platform> <build-id>
 ```
 
 CMake requirements:
 - `ENABLE_WEBNN:BOOL=ON`
-- `FindONNXRuntime.cmake` resolves vcpkg `onnxruntime` or system install.
-- ONNX Runtime DLLs present beside `MiniBrowser.exe`.
-- Windows-only WebNN source files appended from `PlatformWin.cmake` when
-  `ENABLE_WEBNN` is on.
+- LiteRT-LM resolved via `ExternalProject_Add` (source) or `FindLiteRT.cmake`
+  (pre-built).
+- LiteRT-LM shared libraries present beside the browser binary.
+- WebNN source files compiled when `ENABLE_WEBNN` is on.
+
+Build dependencies:
+- Bazel 7.6.1 (source builds) or pre-built libraries
+- protobuf, flatbuffers (fetched by LiteRT-LM)
+- Git LFS (for GPU prebuilt binaries)
+- Windows: VS 2022 + DirectXShaderCompiler (for GPU)
+- macOS: Xcode command line tools
+- Android: NDK r28b+
 
 ## Integration With WebGPU
 
 WebNN and WebGPU are complementary. The `MLTensor` API supports export to
 `GPUBuffer` for zero-copy interop. This means an inference result from WebNN
-can be rendered directly by a WebGPU pipeline without CPU round-trip.
+(via LiteRT-LM) can be rendered directly by a WebGPU pipeline (via Dawn)
+without CPU round-trip.
 
-For this interop to work, both `ENABLE_WEBGPU` and `ENABLE_WEBNN` must be on,
-and the WebNN context must be created with a `GPUDevice`:
-
-```javascript
-const gpuDevice = await navigator.gpu.requestAdapter()
-  .then(a => a.requestDevice());
-const mlContext = await navigator.ml.createContext(gpuDevice);
-```
+For this interop to work, both `ENABLE_WEBGPU` and `ENABLE_WEBNN` must be on.
 
 ## Acceptance
 
@@ -71,7 +77,7 @@ and exit criteria are in `docs/WEBNN_PROGRAM.md`.
 Minimum lane harness checks:
 
 - `ENABLE_WEBNN:BOOL=ON` in `CMakeCache.txt`.
-- ONNX Runtime DLLs present and loadable beside MiniBrowser.
+- LiteRT-LM libraries present and loadable beside MiniBrowser.
 - MiniBrowser launches.
 - Runtime probe reports `navigator.ml !== undefined`.
 - Runtime probe reports a non-null context from

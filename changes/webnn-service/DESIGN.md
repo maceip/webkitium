@@ -1,12 +1,35 @@
-# WebNN Runtime Design
+# WebNN Runtime Design — LiteRT-LM Backend
 
-This lane provides the ng-owned WebNN runtime path across platforms. The
-integration follows the same pattern as the Windows WebGPU/Dawn lane: platform
-backend implementations behind WebKit's spec-level interfaces.
+This lane provides the ng-owned WebNN runtime path across platforms, using
+**LiteRT-LM** as the unified C++ inference backend. The integration follows
+the same pattern as the Windows WebGPU/Dawn lane: a single library behind
+WebKit's spec-level interfaces, with platform hardware acceleration handled
+internally by the library.
+
+## Why LiteRT-LM
+
+LiteRT-LM (v0.10.2) is Google's production-ready inference framework built on
+LiteRT (successor to TFLite). It powers on-device GenAI in Chrome, Chromebook
+Plus, and Pixel Watch.
+
+Key properties for our use case:
+
+| Property | Detail |
+|----------|--------|
+| **Cross-platform** | Windows, macOS, Linux, Android, iOS, IoT |
+| **Hardware acceleration** | CPU (XNNPACK), GPU (ML Drift, OpenCL, DirectX), NPU (NNAPI) |
+| **Chromium alignment** | TFLite/LiteRT is Chromium's WebNN backend on most platforms |
+| **LLM-native** | KV-cache, tokenization, multi-turn, function calling, multi-modal |
+| **Build systems** | CMake (ExternalProject_Add) and Bazel |
+| **Model support** | Gemma, Llama, Phi-4, Qwen via `.litertlm` format |
+
+Compared to ONNX Runtime (Windows-only primary) or per-platform wiring
+(Core ML + TFLite + ONNX RT), LiteRT-LM gives us **one C++ integration for
+all platforms** — mirroring how Dawn is our single WebGPU library.
 
 ## Core API Surface
 
-WebNN exposes four primary interfaces to web content:
+WebNN exposes these interfaces to web content:
 
 ```
 navigator.ml                    Entry point (ML interface)
@@ -24,25 +47,18 @@ Do not add custom backend types to WebKit's spec-level WebNN IDL. The spec
 uses `MLDevicePreference` (`"cpu"`, `"gpu"`, `"npu"`) as hints, not backend
 selectors.
 
-If we need a repo-owned selector, keep it outside the spec:
+The repo-owned selector maps to LiteRT-LM's `Backend` enum:
 
 ```cpp
-enum class NGWebNNProvider {
-    OnnxRuntime,    // Windows (primary), Linux (fallback)
-    CoreML,         // macOS / iOS
-    TFLite,         // Linux / Android / ChromeOS
-};
+// Spec-level (WebIDL)
+enum MLDevicePreference { "cpu", "gpu", "npu" };
 
-enum class NGWebNNDevice {
-    Default,
-    CPU,
-    GPU,
-    NPU,
-};
+// LiteRT-LM (C++)
+litert::lm::Backend::CPU   // XNNPACK-accelerated
+litert::lm::Backend::GPU   // Platform GPU delegate
 ```
 
-The selector maps to spec-level `MLDevicePreference` only at the
-`createContext()` boundary.
+No platform switch needed — LiteRT-LM resolves the right delegate internally.
 
 ## Integration Shape
 
@@ -61,99 +77,234 @@ Source/WebCore/Modules/WebNN/
 Source/WebCore/Modules/WebNN/Implementation/
   WebNNContextImpl.{h,cpp}             Abstract context backend interface
   WebNNGraphImpl.{h,cpp}               Abstract graph backend interface
-
-  WebNNWindowsOnnxRT.{h,cpp}           Windows: ONNX Runtime context impl
-  WebNNWindowsOnnxRTGraph.{h,cpp}      Windows: ONNX Runtime graph impl
-  WebNNMacOSCoreML.{h,cpp}             macOS: Core ML context impl (future)
-  WebNNLinuxTFLite.{h,cpp}             Linux: TFLite context impl (future)
-  WebNNAndroidTFLite.{h,cpp}           Android: TFLite + NNAPI impl (future)
+  WebNNLiteRTContext.{h,cpp}           LiteRT-LM context impl
+  WebNNLiteRTGraph.{h,cpp}             LiteRT-LM graph impl
 ```
 
 ### Navigator Entry Point
 
-`Navigator::ml()` is the first platform switch:
+No platform switch — LiteRT-LM handles platform dispatch:
 
 ```cpp
 #if ENABLE(WEBNN)
 ML* Navigator::ml() {
     if (!m_ml) {
-#if PLATFORM(WIN) && HAVE(ONNXRUNTIME)
-        auto backend = WebNN::WindowsOnnxRTContext::create();
+        auto backend = WebNN::LiteRTContext::create();
         m_ml = ML::create(*this, WTFMove(backend));
-#elif PLATFORM(COCOA) && HAVE(COREML)
-        auto backend = WebNN::MacOSCoreMLContext::create();
-        m_ml = ML::create(*this, WTFMove(backend));
-#elif HAVE(TFLITE)
-        auto backend = WebNN::TFLiteContext::create();
-        m_ml = ML::create(*this, WTFMove(backend));
-#endif
     }
     return m_ml.get();
 }
 #endif
 ```
 
-### Context Implementation (Windows / ONNX Runtime)
-
-The Windows path loads ONNX Runtime and wraps its session/graph APIs:
+### LiteRT-LM Context Implementation
 
 ```cpp
-class WindowsOnnxRTContext : public WebNNContextImpl {
+class LiteRTContext final : public WebNNContextImpl {
 public:
-    static std::unique_ptr<WindowsOnnxRTContext> create(NGWebNNDevice);
+    static std::unique_ptr<LiteRTContext> create(const MLContextOptions&);
+    ~LiteRTContext() override;
 
-    // MLContext interface
-    void dispatch(MLGraph&, MLNamedTensors& inputs,
-                  MLNamedTensors& outputs, CompletionHandler&&) override;
-    RefPtr<MLTensor> createTensor(const MLTensorDescriptor&) override;
-    void readTensor(MLTensor&, CompletionHandler<void(RefPtr<ArrayBuffer>)>&&) override;
-    void writeTensor(MLTensor&, const ArrayBuffer&) override;
+    MLDevicePreference devicePreference() const override;
+
+    RefPtr<MLTensor> createTensor(MLTensorDescriptor&&) override;
+    void writeTensor(MLTensor&, const void* data, size_t byteLength) override;
+    void readTensor(MLTensor&,
+                    std::function<void(RefPtr<ArrayBuffer>)>&&) override;
+
+    void dispatch(WebNNGraphImpl&,
+                  HashMap<String, RefPtr<MLTensor>>& inputs,
+                  HashMap<String, RefPtr<MLTensor>>& outputs,
+                  std::function<void(bool)>&&) override;
+
+    std::unique_ptr<WebNNGraphImpl> buildGraph(
+        HashMap<String, RefPtr<MLOperand>>& outputs) override;
 
 private:
-    OrtEnv* m_env = nullptr;
-    OrtSession* m_session = nullptr;
-    OrtMemoryInfo* m_memoryInfo = nullptr;
+    litert::lm::Backend m_backend;
+
+    // For op-level graph execution (WebNN spec API):
+    // LiteRT interpreter instance for compiled graphs
+    std::unique_ptr<tflite::Interpreter> m_interpreter;
+
+    // For model-level inference (LiteRT-LM):
+    std::unique_ptr<litert::lm::Engine> m_engine;
 };
 ```
 
-### Graph Builder → ONNX Runtime Mapping
+### LiteRT-LM Engine for LLM Inference
 
-The `MLGraphBuilder` operations map to ONNX Runtime's graph construction:
-
-| WebNN Op | ONNX Op | Notes |
-|----------|---------|-------|
-| `add` | `Add` | Element-wise |
-| `mul` | `Mul` | Element-wise |
-| `conv2d` | `Conv` | With padding/stride translation |
-| `relu` | `Relu` | Activation |
-| `softmax` | `Softmax` | Along specified axis |
-| `matmul` | `MatMul` | Linear algebra |
-| `reshape` | `Reshape` | Tensor manipulation |
-| `sigmoid` | `Sigmoid` | Activation |
-| `tanh` | `Tanh` | Activation |
-| `gelu` | `Gelu` | Transformer activation (ONNX ≥ 20) |
-| `layerNormalization` | `LayerNormalization` | Normalization |
-
-The graph builder constructs an in-memory ONNX `ModelProto` (or uses ONNX
-Runtime's graph builder API). `build()` creates an `OrtSession` from the
-constructed graph. `dispatch()` calls `OrtRun`.
-
-### Tensor Management
-
-`MLTensor` wraps `OrtValue` on Windows:
+For higher-level LLM inference exposed through WebNN:
 
 ```cpp
-class WebNNOnnxRTTensor : public MLTensor {
-    OrtValue* m_ortValue = nullptr;
-    OrtAllocator* m_allocator = nullptr;
+// Initialize Engine with platform-appropriate backend
+auto model_assets = litert::lm::ModelAssets::Create(model_path);
+auto engine_settings = litert::lm::EngineSettings::CreateDefault(
+    model_assets,
+    devicePreference == MLDevicePreference::GPU
+        ? litert::lm::Backend::GPU
+        : litert::lm::Backend::CPU);
+auto engine = litert::lm::Engine::CreateEngine(engine_settings);
 
-    // For GPU tensors, may hold a D3D12/DirectML resource
-    // For CPU tensors, holds a raw buffer
-};
+// Create Conversation for multi-turn inference
+auto config = litert::lm::ConversationConfig::CreateDefault(**engine);
+auto conversation = litert::lm::Conversation::Create(**engine, *config);
+
+// Inference (blocking)
+auto result = (*conversation)->SendMessage(
+    litert::lm::JsonMessage{
+        {"role", "user"},
+        {"content", prompt}
+    });
+
+// Async inference (streaming)
+(*conversation)->SendMessageAsync(message,
+    [](const std::string& token) {
+        // Stream token to JS callback
+    });
 ```
 
-For GPU dispatch, ONNX Runtime's DirectML EP manages device memory. For CPU
-dispatch, tensors are plain host allocations.
+### Op-Level Graph Execution (WebNN Spec API)
+
+For the standard WebNN graph builder API, we use LiteRT's core runtime
+(not the LM orchestration layer):
+
+```cpp
+// MLGraphBuilder operations map to TFLite built-in ops
+// Graph builder constructs a TFLite FlatBuffer model in memory
+// build() creates a TFLite Interpreter from the model
+// dispatch() calls Interpreter::Invoke()
+
+bool LiteRTGraph::run(
+    HashMap<String, RefPtr<MLTensor>>& inputs,
+    HashMap<String, RefPtr<MLTensor>>& outputs)
+{
+    // 1. Bind input tensors to interpreter input buffers
+    for (auto& [name, tensor] : inputs) {
+        auto* input = m_interpreter->typed_input_tensor<float>(
+            m_inputIndices[name]);
+        memcpy(input, tensor->data(), tensor->byteLength());
+    }
+
+    // 2. Invoke
+    if (m_interpreter->Invoke() != kTfLiteOk)
+        return false;
+
+    // 3. Copy output tensors
+    for (auto& [name, tensor] : outputs) {
+        auto* output = m_interpreter->typed_output_tensor<float>(
+            m_outputIndices[name]);
+        memcpy(tensor->data(), output, tensor->byteLength());
+    }
+    return true;
+}
+```
+
+### WebNN Op → TFLite Built-in Op Mapping
+
+| WebNN Op | TFLite Built-in Op | Notes |
+|----------|-------------------|-------|
+| `add` | `kTfLiteBuiltinAdd` | Element-wise |
+| `mul` | `kTfLiteBuiltinMul` | Element-wise |
+| `sub` | `kTfLiteBuiltinSub` | Element-wise |
+| `div` | `kTfLiteBuiltinDiv` | Element-wise |
+| `relu` | `kTfLiteBuiltinRelu` | Activation |
+| `sigmoid` | `kTfLiteBuiltinLogistic` | Activation |
+| `tanh` | `kTfLiteBuiltinTanh` | Activation |
+| `softmax` | `kTfLiteBuiltinSoftmax` | Along axis |
+| `conv2d` | `kTfLiteBuiltinConv2d` | With padding/stride |
+| `matmul` | `kTfLiteBuiltinBatchMatmul` | Linear algebra |
+| `reshape` | `kTfLiteBuiltinReshape` | Tensor manipulation |
+| `transpose` | `kTfLiteBuiltinTranspose` | Tensor manipulation |
+| `concat` | `kTfLiteBuiltinConcatenation` | Along axis |
+| `averagePool2d` | `kTfLiteBuiltinAveragePool2d` | Pooling |
+| `maxPool2d` | `kTfLiteBuiltinMaxPool2d` | Pooling |
+| `batchNormalization` | Custom (decomposed) | mean/variance/scale/offset |
+| `layerNormalization` | Custom (decomposed) | Reduced + normalized |
+| `gelu` | `kTfLiteBuiltinGelu` | TFLite ≥ 2.12 |
+| `gemm` | `kTfLiteBuiltinFullyConnected` | With optional bias |
+
+## CMake Integration
+
+### LiteRT-LM as ExternalProject
+
+```cmake
+include(ExternalProject)
+
+if (ENABLE_WEBNN)
+    ExternalProject_Add(litert_lm
+        GIT_REPOSITORY https://github.com/google-ai-edge/LiteRT-LM.git
+        GIT_TAG v0.10.2
+        SOURCE_DIR ${CMAKE_BINARY_DIR}/litert-lm-src
+        BINARY_DIR ${CMAKE_BINARY_DIR}/litert-lm-build
+        CMAKE_ARGS
+            -DLITERTLM_PROJECT_ROOT=${CMAKE_BINARY_DIR}/litert-lm-src
+        INSTALL_COMMAND ""
+        BUILD_ALWAYS FALSE
+    )
+
+    set(LITERT_LM_INCLUDE_DIR ${CMAKE_BINARY_DIR}/litert-lm-src)
+    set(LITERT_LM_LIB_DIR ${CMAKE_BINARY_DIR}/litert-lm-build)
+endif()
+```
+
+### Pre-built library path
+
+For faster builds, pre-built LiteRT-LM libraries can be used:
+
+```cmake
+if (ENABLE_WEBNN)
+    find_path(LITERT_LM_INCLUDE_DIR
+        NAMES runtime/engine/engine.h
+        PATHS ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/include/litert-lm
+              /usr/local/include/litert-lm
+    )
+    find_library(LITERT_LM_LIBRARY
+        NAMES litert_lm litert-lm
+        PATHS ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib
+              /usr/local/lib
+    )
+endif()
+```
+
+### WebKit PlatformXxx.cmake
+
+```cmake
+if (ENABLE_WEBNN AND LITERT_LM_FOUND)
+    list(APPEND WebCore_SOURCES
+        Modules/WebNN/Implementation/WebNNContextImpl.cpp
+        Modules/WebNN/Implementation/WebNNGraphImpl.cpp
+        Modules/WebNN/Implementation/WebNNLiteRTContext.cpp
+        Modules/WebNN/Implementation/WebNNLiteRTGraph.cpp
+    )
+    list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
+        ${LITERT_LM_INCLUDE_DIR})
+    list(APPEND WebCore_LIBRARIES ${LITERT_LM_LIBRARY})
+    SET_AND_EXPOSE_TO_BUILD(HAVE_LITERT ON)
+endif()
+```
+
+## Build Dependencies
+
+| Dependency | Purpose | Source |
+|-----------|---------|--------|
+| LiteRT-LM v0.10.2 | Inference runtime | `ExternalProject` or pre-built |
+| protobuf | Model serialization | Fetched by LiteRT-LM build |
+| flatbuffers | TFLite model format | Fetched by LiteRT-LM build |
+| Git LFS | GPU prebuilt binaries | System install |
+| Bazel 7.6.1 | Source builds (optional) | System install |
+
+## Platform Build Notes
+
+| Platform | Build command | GPU libraries |
+|----------|--------------|---------------|
+| Windows | `bazel build --config=windows` | `prebuilt/windows_x64/*.dll` |
+| macOS | `bazel build` (Xcode clang) | `prebuilt/macos_arm64/*.dylib` |
+| Linux | `bazel build` (system clang) | `prebuilt/linux_x64/*.so` |
+| Android | `bazel build --config=android_arm64` | `prebuilt/android_arm64/*.so` |
+
+GPU prebuilt libraries must be placed beside the browser binary at runtime.
+Windows GPU requires DirectXShaderCompiler.
 
 ## WebGPU Interop
 
@@ -161,72 +312,12 @@ When both `ENABLE_WEBGPU` and `ENABLE_WEBNN` are on and the `MLContext` is
 created from a `GPUDevice`, `MLTensor` export to `GPUBuffer` is possible:
 
 ```cpp
-// In WebNNWindowsOnnxRT.cpp
-RefPtr<GPUBuffer> WindowsOnnxRTContext::exportToGPU(MLTensor& tensor) {
-    // If using DirectML EP, the underlying D3D12 resource can be
-    // shared with Dawn's D3D12 backend via shared handle.
-    // If using CPU EP, copy to a Dawn-managed buffer.
+RefPtr<GPUBuffer> LiteRTContext::exportToGPU(MLTensor& tensor) {
+    // LiteRT GPU delegate may use the same underlying GPU device.
+    // If Dawn and LiteRT share a D3D12/Vulkan/Metal device, the
+    // tensor buffer can be shared via platform handle.
+    // Otherwise, copy from LiteRT output buffer to Dawn-managed buffer.
 }
-```
-
-This requires Dawn and ONNX Runtime to share D3D12 device or use fence-based
-synchronization. Implementation is Milestone 6.
-
-## CMake Integration
-
-### Windows
-
-```cmake
-# In Source/cmake/FindONNXRuntime.cmake
-find_path(ONNXRUNTIME_INCLUDE_DIR onnxruntime_c_api.h
-    PATHS ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/include
-)
-find_library(ONNXRUNTIME_LIBRARY onnxruntime
-    PATHS ${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/lib
-)
-set(ONNXRUNTIME_FOUND TRUE)
-```
-
-```cmake
-# In Source/WebCore/PlatformWin.cmake
-if (ENABLE_WEBNN AND ONNXRUNTIME_FOUND)
-    list(APPEND WebCore_SOURCES
-        Modules/WebNN/Implementation/WebNNWindowsOnnxRT.cpp
-        Modules/WebNN/Implementation/WebNNWindowsOnnxRTGraph.cpp
-    )
-    list(APPEND WebCore_LIBRARIES ${ONNXRUNTIME_LIBRARY})
-    list(APPEND WebCore_INCLUDE_DIRECTORIES ${ONNXRUNTIME_INCLUDE_DIR})
-    set(HAVE_ONNXRUNTIME ON)
-endif()
-```
-
-### macOS (future)
-
-Core ML is a system framework — no vcpkg needed:
-
-```cmake
-if (ENABLE_WEBNN AND PLATFORM_COCOA)
-    list(APPEND WebCore_SOURCES
-        Modules/WebNN/Implementation/WebNNMacOSCoreML.cpp
-    )
-    list(APPEND WebCore_FRAMEWORKS CoreML)
-    set(HAVE_COREML ON)
-endif()
-```
-
-### Linux (future)
-
-TFLite from system packages or vcpkg:
-
-```cmake
-if (ENABLE_WEBNN AND PLATFORM_LINUX)
-    find_package(TFLite REQUIRED)
-    list(APPEND WebCore_SOURCES
-        Modules/WebNN/Implementation/WebNNLinuxTFLite.cpp
-    )
-    list(APPEND WebCore_LIBRARIES TFLite::TFLite)
-    set(HAVE_TFLITE ON)
-endif()
 ```
 
 ## Acceptance Ladder
@@ -234,10 +325,11 @@ endif()
 1. `navigator.ml` exists.
 2. `navigator.ml.createContext()` returns non-null with CPU device.
 3. `MLGraphBuilder` constructs a simple graph (add, mul, relu).
-4. `builder.build()` compiles the graph.
+4. `builder.build()` compiles the graph via LiteRT interpreter.
 5. `context.dispatch()` executes and `readTensor()` returns correct results.
-6. GPU context works (ONNX Runtime GPU EP or DirectML).
-7. ONNX Runtime Web runs a real `.onnx` model through the WebNN EP.
+6. GPU context works via LiteRT GPU delegate.
+7. LiteRT-LM runs a `.litertlm` model from page JavaScript.
 8. `MLTensor` exports to `GPUBuffer` for WebGPU interop.
+9. Same integration verified on Windows + at least one other platform.
 
 ---

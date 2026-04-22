@@ -13,7 +13,7 @@ Browser-on-WebKit monorepo: **orchestrator**, **downstream WebKit** (single patc
 | Config | `config/` |
 | Docs | `docs/` |
 
-**Rule:** Patches against the **WebKit checkout** live under **`webkit/patches/`**. Optional **extra** layers (examples: Fluent/Mica MiniBrowser demo, future passkeys stubs) live in **`changes/<lane>/patches/`** and are off by default—see `config/changes.json` and `changes/README.md`. WebGPU/Dawn work was merged into `webkit/patches/windows/`. WebNN/ONNX Runtime integration lives in `changes/webnn-service/`.
+**Rule:** Patches against the **WebKit checkout** live under **`webkit/patches/`**. Optional **extra** layers (examples: Fluent/Mica MiniBrowser demo, future passkeys stubs) live in **`changes/<lane>/patches/`** and are off by default—see `config/changes.json` and `changes/README.md`. WebGPU/Dawn work was merged into `webkit/patches/windows/`. WebNN/LiteRT-LM integration lives in `changes/webnn-service/`.
 
 **Phases, guardrails, guiding light:** [`docs/DIRECTION.md`](./docs/DIRECTION.md).
 

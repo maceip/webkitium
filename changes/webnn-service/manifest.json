@@ -1,8 +1,8 @@
 {
   "id": "webnn-service",
-  "title": "WebNN inference service integration",
+  "title": "WebNN inference service integration (LiteRT-LM backend)",
   "enabledByDefault": false,
-  "description": "Repo-owned lane for WebNN (navigator.ml) integration using platform ML backends (ONNX Runtime on Windows, Core ML on macOS, TFLite on Linux/Android).",
+  "description": "Repo-owned lane for WebNN (navigator.ml) integration using LiteRT-LM as the unified C++ inference backend across all platforms.",
   "platforms": ["windows", "macos", "linux", "android", "ios"],
   "patchOrder": [
     "patches/common",
@@ -13,9 +13,10 @@
     "patches/ios"
   ],
   "notes": [
+    "LiteRT-LM is the single C++ backend for all platforms — no per-platform backend switching.",
     "Keep service/process integration here, not in generic platform build-fix patches.",
-    "Use patches/<platform> for platform-specific WebKit source changes.",
-    "Use patches/common for cross-platform WebNN WebKit interfaces.",
+    "Use patches/common for cross-platform WebNN WebKit interfaces (spec IDL, graph builder, etc.).",
+    "Use patches/<platform> only for platform-specific build hooks or GPU delegate loading.",
     "Acceptance requires MiniBrowser runtime validation where navigator.ml.createContext() succeeds."
   ]
 }
