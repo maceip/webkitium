@@ -79,13 +79,15 @@ jobs:
           echo "Source ready at $SRC_WIN"
           ls "$SRC" | head -20
 
-          # Apply patches
+          # Apply patches (strip CRLF — git apply requires LF in patches)
           applied=0
           for patch in webkit/patches/common/* webkit/patches/windows/*; do
             [[ -f "$patch" ]] || continue
             echo "Applying $(basename "$patch")"
-            git -C "$SRC" apply --check --whitespace=nowarn --unidiff-zero "$GITHUB_WORKSPACE/$patch"
-            git -C "$SRC" apply --whitespace=nowarn --unidiff-zero "$GITHUB_WORKSPACE/$patch"
+            clean="$RUNNER_TEMP/$(basename "$patch")"
+            sed 's/\r$//' "$GITHUB_WORKSPACE/$patch" > "$clean"
+            git -C "$SRC" apply --check --whitespace=nowarn --unidiff-zero "$clean"
+            git -C "$SRC" apply --whitespace=nowarn --unidiff-zero "$clean"
             applied=$((applied + 1))
           done
           echo "Applied $applied patches."
