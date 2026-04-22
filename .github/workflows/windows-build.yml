@@ -30,8 +30,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: "Bootstrap: Ensure pwsh"
+        shell: cmd
+        run: where pwsh >NUL 2>&1 || winget install --id Microsoft.PowerShell --accept-package-agreements --accept-source-agreements --silent
+
       - name: "Phase 0: Disk Check"
-        shell: powershell
+        shell: pwsh
         run: |
           Write-Host "Current Disk Status:"
           Get-PSDrive C | Select-Object Used, Free
@@ -105,7 +109,7 @@ jobs:
           echo "Applied $applied patches."
 
       - name: "Phase 3: Configure vcpkg Binary Cache"
-        shell: powershell
+        shell: pwsh
         run: |
           $url = "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
           $nuget = $(vcpkg fetch nuget | Select-Object -Last 1)
