@@ -3,7 +3,7 @@ new file mode 100644
 index 0000000..6006fdd
 --- /dev/null
 +++ b/Source/WebCore/html/canvas/GPUCanvasContextWin.cpp
-@@ -0,0 +1,131 @@
+@@ -0,0 +1,130 @@
 +/*
 + * Copyright (C) 2026 The WebKit Authors. All rights reserved.
 + */
@@ -21,7 +21,6 @@ index 0000000..6006fdd
 +#include "GPUPresentationContext.h"
 +#include "GPUTexture.h"
 +#include "HTMLCanvasElement.h"
-+#include <wtf/StdLibExtras.h>
 +#include <wtf/TZoneMallocInlines.h>
 +
 +namespace WebCore {
@@ -33,14 +32,14 @@ index 0000000..6006fdd
 +    auto presentationContext = gpu.createPresentationContextForHWND(nullptr, nullptr);
 +    if (!presentationContext)
 +        return nullptr;
-+    auto context = std::unique_ptr<GPUCanvasContextWin>(new GPUCanvasContextWin(canvas, WTFMove(presentationContext)));
++    auto context = std::unique_ptr<GPUCanvasContextWin>(new GPUCanvasContextWin(canvas, WTF::move(presentationContext)));
 +    context->m_gpu = &gpu;
 +    return context;
 +}
 +
 +GPUCanvasContextWin::GPUCanvasContextWin(CanvasBase& canvas, RefPtr<GPUPresentationContext>&& presentationContext)
 +    : GPUCanvasContext(canvas)
-+    , m_presentationContext(WTFMove(presentationContext))
++    , m_presentationContext(WTF::move(presentationContext))
 +{
 +}
 +
@@ -70,7 +69,7 @@ index 0000000..6006fdd
 +    if (!m_presentationContext->configure(cfg, m_width, m_height, /*reportValidationErrors*/ true))
 +        return Exception { ExceptionCode::InvalidStateError, "presentationContext.configure failed"_s };
 +
-+    m_configuration = WTFMove(cfg);
++    m_configuration = WTF::move(cfg);
 +    m_dirty = false;
 +    return { };
 +}
