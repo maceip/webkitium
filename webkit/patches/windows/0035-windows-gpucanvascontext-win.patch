@@ -148,6 +148,7 @@ index 0000000..57e1ca4
 +
 +#if PLATFORM(WIN) && ENABLE(WEBGPU)
 +
++#include "GPU.h"
 +#include "GPUCanvasConfiguration.h"
 +#include "GPUCanvasContext.h"
 +#include "GPUPresentationContext.h"
@@ -169,7 +170,6 @@ index 0000000..57e1ca4
 +namespace WebCore {
 +
 +class Document;
-+class GPU;
 +
 +class GPUCanvasContextWin final : public GPUCanvasContext {
 +    WTF_MAKE_TZONE_ALLOCATED(GPUCanvasContextWin);
