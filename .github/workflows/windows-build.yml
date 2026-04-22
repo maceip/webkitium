@@ -42,62 +42,119 @@ jobs:
           echo ERROR: pwsh not installed. Install via SSM first.
           exit /b 1
 
-      - name: "Phase 0: Disk Clean"
+      - name: "Phase 0a: Preflight (fail fast on missing deps)"
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $required = @{
+            'pwsh'          = 'C:\Program Files\PowerShell\7\pwsh.exe'
+            'gh'            = 'C:\Program Files\GitHub CLI\gh.exe'
+            'git'           = 'C:\Program Files\Git\cmd\git.exe'
+            'bash'          = 'C:\Program Files\Git\usr\bin\bash.exe'
+            'tar'           = 'C:\Program Files\Git\usr\bin\tar.exe'
+            'perl'          = 'C:\Strawberry\perl\bin\perl.exe'
+            'python'        = 'C:\Python314\python.exe'
+            'ruby'          = 'C:\Ruby34-x64\bin\ruby.exe'
+            'cmake'         = 'C:\Program Files\CMake\bin\cmake.exe'
+            'clang-cl'      = 'C:\Program Files\LLVM\bin\clang-cl.exe'
+            'lld-link'      = 'C:\Program Files\LLVM\bin\lld-link.exe'
+            'ninja'         = 'C:\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja\ninja.exe'
+            'VsDevCmd'      = 'C:\BuildTools\Common7\Tools\VsDevCmd.bat'
+            'vcpkg'         = 'C:\vcpkg\vcpkg.exe'
+            'vcpkg_root'    = 'C:\vcpkg'
+            'sccache'       = 'C:\Bootstrap\toolbin\sccache.exe'
+            'toolbin'       = 'C:\Bootstrap\toolbin'
+          }
+          $missing = @()
+          foreach ($k in $required.Keys | Sort-Object) {
+            $p = $required[$k]
+            if (Test-Path -LiteralPath $p) {
+              Write-Host ("OK       {0,-12} {1}" -f $k, $p)
+            } else {
+              Write-Host ("MISSING  {0,-12} {1}" -f $k, $p)
+              $missing += "$k ($p)"
+            }
+          }
+          if ($missing.Count -gt 0) {
+            Write-Host "::error::Preflight failed. Missing:"
+            $missing | ForEach-Object { Write-Host "::error::  $_" }
+            exit 1
+          }
+          Write-Host "Preflight OK."
+
+      - name: "Phase 0b: Disk Clean (fast, parallel)"
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Continue'
           $before = (Get-PSDrive C).Free
-          Write-Host ("Disk before cleanup: {0:N1} GB free" -f ($before/1GB))
-          $cutoff = (Get-Date).AddHours(-6)
-          $sw = [System.Diagnostics.Stopwatch]::StartNew()
+          Write-Host ("Before: {0:N1} GB free" -f ($before/1GB))
+          $budget  = [TimeSpan]::FromMinutes(3)
+          $sw      = [System.Diagnostics.Stopwatch]::StartNew()
+          $cutoff  = (Get-Date).AddHours(-2)
 
-          # Old scratch dirs under C:\Bootstrap (preserve essential caches & tools)
-          $keepBootstrap = @('toolbin','sccache','sccache-gh','installers','manual-install','gh-ci','baseline-vcpkg','baseline-vcpkg-probe')
-          Get-ChildItem 'C:\Bootstrap' -Directory -ErrorAction SilentlyContinue |
-            Where-Object { $keepBootstrap -notcontains $_.Name -and $_.LastWriteTime -lt $cutoff } |
-            ForEach-Object { Remove-Item -Recurse -Force $_.FullName -ErrorAction SilentlyContinue }
+          $empty = "$env:RUNNER_TEMP\__empty_$(Get-Random)"
+          New-Item -Path $empty -ItemType Directory -Force | Out-Null
 
-          # Old setup-deps logs
-          Get-ChildItem 'C:\Bootstrap' -File -Filter 'setup-deps-*.log' -ErrorAction SilentlyContinue |
-            Where-Object { $_.LastWriteTime -lt $cutoff } |
-            Remove-Item -Force -ErrorAction SilentlyContinue
+          $keep = @('toolbin','sccache','sccache-gh','installers','manual-install','gh-ci','baseline-vcpkg','baseline-vcpkg-probe','dawn-adapter-options-probe','dawn-device-probe','dawn-warp-probe')
 
-          # Old C:\W scratch (preserve active webkit-src)
-          Get-ChildItem 'C:\W' -Directory -ErrorAction SilentlyContinue |
+          $targets = @()
+          $targets += Get-ChildItem 'C:\Bootstrap' -Directory -ErrorAction SilentlyContinue |
+            Where-Object { $keep -notcontains $_.Name -and $_.LastWriteTime -lt $cutoff } |
+            Select-Object -ExpandProperty FullName
+          $targets += Get-ChildItem 'C:\W' -Directory -ErrorAction SilentlyContinue |
             Where-Object { $_.Name -ne 'webkit-src' -and $_.LastWriteTime -lt $cutoff } |
-            ForEach-Object { Remove-Item -Recurse -Force $_.FullName -ErrorAction SilentlyContinue }
+            Select-Object -ExpandProperty FullName
 
-          # TEMP sweeps
+          Write-Host "Nuking $($targets.Count) top-level dirs in parallel (robocopy /MIR + MT)..."
+          $targets | ForEach-Object -Parallel {
+            $empty = $using:empty
+            $p = $_
+            try {
+              $null = robocopy $empty $p /MIR /NFL /NDL /NJH /NJS /NP /NC /NS /R:0 /W:0 /MT:16
+              Remove-Item -LiteralPath $p -Force -Recurse -ErrorAction SilentlyContinue
+            } catch {}
+          } -ThrottleLimit 8
+
+          # Loose files in C:\Bootstrap (fast: File.Delete inline)
+          Get-ChildItem 'C:\Bootstrap' -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -match '^(setup-deps-.*\.log|.*\.patch|.*\.tar\.gz)$' } |
+            ForEach-Object { try { [System.IO.File]::Delete($_.FullName) } catch {} }
+
+          # TEMP (only items older than cutoff)
           foreach ($t in @($env:TEMP, 'C:\Windows\Temp')) {
+            if (-not (Test-Path $t)) { continue }
             Get-ChildItem $t -ErrorAction SilentlyContinue |
               Where-Object { $_.LastWriteTime -lt $cutoff } |
-              Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+              ForEach-Object -Parallel {
+                $empty = $using:empty
+                $p = $_.FullName
+                try {
+                  if ($_.PSIsContainer) {
+                    $null = robocopy $empty $p /MIR /NFL /NDL /NJH /NJS /NP /NC /NS /R:0 /W:0 /MT:8
+                    Remove-Item -LiteralPath $p -Force -Recurse -ErrorAction SilentlyContinue
+                  } else {
+                    [System.IO.File]::Delete($p)
+                  }
+                } catch {}
+              } -ThrottleLimit 8
           }
 
-          # Windows Update staging
+          # Windows Update staging (small, fast)
           Stop-Service wuauserv -Force -ErrorAction SilentlyContinue
           Remove-Item 'C:\Windows\SoftwareDistribution\Download\*' -Recurse -Force -ErrorAction SilentlyContinue
           Start-Service wuauserv -ErrorAction SilentlyContinue
 
-          # NuGet caches
-          foreach ($p in @("$env:LOCALAPPDATA\NuGet\v3-cache","$env:LOCALAPPDATA\NuGet\plugins-cache")) {
-            Get-ChildItem $p -ErrorAction SilentlyContinue |
-              Where-Object { $_.LastWriteTime -lt $cutoff } |
-              Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-          }
-
+          Remove-Item -LiteralPath $empty -Force -Recurse -ErrorAction SilentlyContinue
           $sw.Stop()
           $after = (Get-PSDrive C).Free
-          Write-Host ("Disk after cleanup: {0:N1} GB free — reclaimed {1:N1} GB in {2:N1}s" -f ($after/1GB), (($after-$before)/1GB), $sw.Elapsed.TotalSeconds)
+          Write-Host ("After : {0:N1} GB free — reclaimed {1:N1} GB in {2:N1}s" -f ($after/1GB), (($after-$before)/1GB), $sw.Elapsed.TotalSeconds)
 
-          # Emergency: if still tight, nuke bloatware
-          if ($after -lt 30GB) {
-            Write-Host "Still under 30GB — removing Android/bloatware..."
-            $targets = @("C:\Microsoft\AndroidSDK","C:\Program Files\Android","C:\usr\local\lib\android","$env:AGENT_TOOLSDIRECTORY")
-            foreach ($path in $targets) {
-              if ($path -and (Test-Path $path)) { Remove-Item -Recurse -Force $path -ErrorAction SilentlyContinue }
-            }
-            Get-PSDrive C | Select-Object Used, Free
+          if ($sw.Elapsed -gt $budget) {
+            Write-Host "::warning::Cleanup exceeded $($budget.TotalMinutes) min budget"
+          }
+          if ($after -lt 20GB) {
+            Write-Host "::error::Disk still under 20GB after cleanup ($([math]::Round($after/1GB,1)) GB free). Aborting."
+            exit 1
           }
 
       - name: "Phase 1: Fetch and Stitch Source"
