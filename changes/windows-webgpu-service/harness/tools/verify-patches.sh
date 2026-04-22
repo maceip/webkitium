@@ -1,77 +1,111 @@
 #!/usr/bin/env bash
-# Verify every patch in webkit/patches/windows/ applies cumulatively to the
-# pinned WebKit source tree.
+# Verify every patch applies cumulatively to the pinned WebKit source tree.
 #
-# Pin: iangrunert/WebKit@64f58084c78130b874d05dbcfb508147354095af
-#      (recorded in config/windows-webgpu-dawn-green.json; matched by
-#      webkit-pin.tar.gz at the repo root).
-#
-# Usage:
-#   bash changes/windows-webgpu-service/harness/tools/verify-patches.sh [workdir]
-#
-# The script extracts just the files the patches touch from webkit-pin.tar.gz
-# (not the whole 15GB tree), builds a throwaway git repo, and runs
-# `git apply --check` against every patch in order. Exits 0 iff all pass.
+# Extracts just the files the patches touch (not the whole tree), builds a
+# throwaway git repo, and runs git apply against every patch in order.
+# Exits 0 iff all pass.
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../../../.." && pwd)"
 PIN_TGZ="$REPO_ROOT/webkit-pin.tar.gz"
-PATCH_DIR="$REPO_ROOT/webkit/patches/windows"
 WORK="${1:-$REPO_ROOT/.tmp/pin-verify}"
 
 if [ ! -f "$PIN_TGZ" ]; then
-    echo "[verify] missing $PIN_TGZ — rebuild from the webkit-pin.tar.gz.part-* files first" >&2
-    exit 2
-fi
-if [ ! -d "$PATCH_DIR" ]; then
-    echo "[verify] missing $PATCH_DIR" >&2
+    echo "[verify] missing $PIN_TGZ" >&2
     exit 2
 fi
 
+# Detect the tarball prefix (e.g. "src/webkit-pin/")
+PREFIX="$(tar tzf "$PIN_TGZ" 2>/dev/null | head -1)"
+# Strip trailing slash and count components
+STRIP=$(echo "$PREFIX" | tr -cd '/' | wc -c)
+echo "[verify] tarball prefix: $PREFIX (strip-components=$STRIP)"
+
+# Collect all patch directories in apply order, matching the build workflow
+PATCH_DIRS=("$REPO_ROOT/webkit/patches/common" "$REPO_ROOT/webkit/patches/windows")
+
+# Add enabled change lanes (same logic as build workflow)
+if command -v python3 &>/dev/null; then
+    PYTHON=python3
+elif command -v python &>/dev/null; then
+    PYTHON=python
+else
+    PYTHON=""
+fi
+
+if [ -n "$PYTHON" ] && [ -f "$REPO_ROOT/config/changes.json" ]; then
+    readarray -t lanes < <($PYTHON -c "
+import json,sys
+cfg=json.load(open(sys.argv[1]))
+for c in cfg.get('activeChanges',[]):
+    if c.get('enabled') and 'windows' in c.get('platforms',[]):
+        print(c['id'])
+" "$REPO_ROOT/config/changes.json" 2>/dev/null || true)
+    for lane in "${lanes[@]}"; do
+        [ -d "$REPO_ROOT/changes/$lane/patches/common" ] && PATCH_DIRS+=("$REPO_ROOT/changes/$lane/patches/common")
+        [ -d "$REPO_ROOT/changes/$lane/patches/windows" ] && PATCH_DIRS+=("$REPO_ROOT/changes/$lane/patches/windows")
+    done
+fi
+
+# Build list of all patches
+ALL_PATCHES=()
+for dir in "${PATCH_DIRS[@]}"; do
+    [ -d "$dir" ] || continue
+    while IFS= read -r -d '' p; do
+        ALL_PATCHES+=("$p")
+    done < <(find "$dir" -maxdepth 1 -type f -name '*.patch' -print0 | sort -z)
+done
+
+echo "[verify] ${#ALL_PATCHES[@]} patches from ${#PATCH_DIRS[@]} directories"
+
+# Build file list from all patches
 mkdir -p "$WORK"
-cd "$WORK"
+> "$WORK/files.list"
+for p in "${ALL_PATCHES[@]}"; do
+    grep -h '^--- a/' "$p" 2>/dev/null | sed 's|^--- a/||' | awk '{print $1}'
+done | sort -u > "$WORK/files.list"
 
-echo "[verify] building file list from $(ls "$PATCH_DIR"/*.patch | wc -l) patches"
-grep -h '^--- a/' "$PATCH_DIR"/*.patch \
-    | sed 's|^--- a/||' | awk '{print $1}' | sort -u > files.list
-sed 's|^|src/webkit-pin/|' files.list > tar-paths.list
+# Prefix for tar extraction
+sed "s|^|${PREFIX}|" "$WORK/files.list" > "$WORK/tar-paths.list"
 
-if [ ! -d extracted ]; then
-    echo "[verify] extracting $(wc -l < tar-paths.list) files from $(basename "$PIN_TGZ")"
-    mkdir extracted
-    (cd extracted && tar xzf "$PIN_TGZ" -T "$WORK/tar-paths.list" 2>/dev/null || true)
-fi
+# Extract only the files patches touch
+TREE="$WORK/tree"
+rm -rf "$TREE"
+mkdir -p "$TREE"
+tar xzf "$PIN_TGZ" --strip-components="$STRIP" -C "$TREE" \
+    -T "$WORK/tar-paths.list" 2>/dev/null || true
 
-TREE="$WORK/extracted/src/webkit-pin"
+# Also extract new files that patches create (they won't be in the tarball)
+# — that's fine, git apply handles new files without needing them on disk.
+
 cd "$TREE"
-if [ ! -d .git ]; then
-    git init -q
-    git add -A
-    git -c user.email=verify@local -c user.name=verify commit -q -m "pin baseline"
-fi
+git init -q
+git add -A
+git -c user.email=verify@local -c user.name=verify commit -q -m "pin baseline" --allow-empty
 
-PASS=0 ; FAIL=0 ; FAILS=""
-BASE="$(git rev-parse HEAD)"
-git reset --hard "$BASE" -q
+PASS=0; FAIL=0; FAILS=""
 
-for p in "$PATCH_DIR"/*.patch; do
+for p in "${ALL_PATCHES[@]}"; do
     n="$(basename "$p")"
-    if git apply --check -p1 "$p" 2>/dev/null; then
+    # Strip CRLF from patches (same as build workflow)
+    clean="$WORK/clean-$n"
+    sed 's/\r$//' "$p" > "$clean"
+    if git apply --check --whitespace=nowarn --unidiff-zero "$clean" 2>/dev/null; then
         printf '  pass  %s\n' "$n"
-        git apply -p1 "$p" >/dev/null 2>&1
+        git apply --whitespace=nowarn --unidiff-zero "$clean" >/dev/null 2>&1
         git add -A
         git -c user.email=verify@local -c user.name=verify commit -q -m "$n" 2>/dev/null || true
-        PASS=$((PASS+1))
+        PASS=$((PASS + 1))
     else
         printf '  FAIL  %s\n' "$n"
         FAILS="$FAILS $n"
-        FAIL=$((FAIL+1))
+        FAIL=$((FAIL + 1))
     fi
 done
 
 echo
-echo "[verify] pass=$PASS fail=$FAIL"
+echo "[verify] pass=$PASS fail=$FAIL total=${#ALL_PATCHES[@]}"
 if [ $FAIL -gt 0 ]; then
     echo "[verify] failures:$FAILS"
     exit 1
