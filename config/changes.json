@@ -14,7 +14,12 @@
       "id": "windows-minibrowser-fluent-tabs",
       "enabled": false,
       "platforms": ["windows"]
+    },
+    {
+      "id": "webnn-service",
+      "enabled": true,
+      "platforms": ["windows"]
     }
   ],
-  "_comment": "Lane ids are stable names for changes/<id>/. The Windows WebGPU lane's engine patches live under webkit/patches/windows/ (webkit/patches/<os>/ is always applied), so the `enabled` flag here is a status indicator that the lane is in active development — builders and dashboards key on it, not the patch apply order. Flip back to false only to mute the lane in status reports, not to disable the patches."
+  "_comment": "Lane ids are stable names for changes/<id>/. WebGPU patches live under webkit/patches/windows/ and are always applied. webnn-service is the WebNN (navigator.ml) integration lane using LiteRT-LM as the unified C++ backend."
 }

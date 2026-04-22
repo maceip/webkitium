@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "name": "windows-webnn-litert-green",
+  "description": "Known-green baseline for Windows WebNN/LiteRT-LM build lane (pending first green build).",
+  "greenBuild": {
+    "buildId": null,
+    "artifactPrefix": null,
+    "amiId": null,
+    "amiName": null,
+    "snapshotId": null
+  },
+  "source": {
+    "preset": "iangrunert-win-gigacage-skia-fixes",
+    "url": "https://github.com/iangrunert/WebKit.git",
+    "commit": "64f58084c78130b874d05dbcfb508147354095af"
+  },
+  "environment": {
+    "NG_WINDOWS_ENABLE_WEBNN": "1",
+    "NG_WINDOWS_ENABLE_WEBGPU": "1",
+    "NG_WINDOWS_ENABLE_SCCACHE": "1",
+    "NG_WINDOWS_NINJA_JOBS": "8"
+  },
+  "cmakeAndBuild": {
+    "webnn": true,
+    "webgpu": true,
+    "experimentalFeatures": true,
+    "webxr": false,
+    "thinLto": true,
+    "linker": "lld-link",
+    "releaseDebugInfo": "embedded",
+    "msvcDebugInformationFormat": "Embedded"
+  },
+  "enabledChanges": ["webnn-service"],
+  "rootPatchDirectory": "webkit/patches/windows",
+  "notes": [
+    "This baseline is pending the first green build with ENABLE_WEBNN=ON.",
+    "WebNN uses LiteRT-LM as the unified C++ inference backend across all platforms.",
+    "LiteRT-LM is built from source or resolved from pre-built libraries.",
+    "Both ENABLE_WEBNN and ENABLE_WEBGPU are on for WebGPU interop testing.",
+    "Populate greenBuild fields after the first successful build passes all acceptance criteria."
+  ]
+}

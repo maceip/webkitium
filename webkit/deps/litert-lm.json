@@ -1,0 +1,118 @@
+{
+  "name": "litert-lm",
+  "version": "0.10.2",
+  "commit": "7aee34c5d0b7c97e813707f1d5e677f4749cdcd1",
+  "repository": "https://github.com/google-ai-edge/LiteRT-LM.git",
+  "tag": "v0.10.2",
+  "license": "Apache-2.0",
+  "description": "Google's production-ready C++ inference framework for LLMs on edge devices. Powers Chrome, Chromebook Plus, Pixel Watch.",
+  "build_system": "bazel",
+  "bazel_version": "7.6.1",
+  "dependencies": {
+    "litert": {
+      "name": "litert",
+      "version": "2.1.4",
+      "repository": "https://github.com/google-ai-edge/LiteRT.git",
+      "description": "LiteRT core runtime (successor to TFLite). Provides Interpreter, delegates (XNNPACK, GPU, NNAPI), FlatBuffer model format."
+    },
+    "abseil-cpp": {
+      "note": "Transitive via LiteRT-LM. Provides absl::StatusOr, absl::AnyInvocable, absl::Duration, etc."
+    },
+    "flatbuffers": {
+      "note": "Transitive via LiteRT. TFLite model serialization format."
+    },
+    "protobuf": {
+      "note": "Transitive via LiteRT-LM. Model metadata and engine config protos."
+    },
+    "xnnpack": {
+      "note": "Transitive via LiteRT. High-performance CPU inference library."
+    }
+  },
+  "platforms": {
+    "windows_x86_64": {
+      "build_config": "--config=windows",
+      "gpu_requires": "DirectXShaderCompiler",
+      "toolchain": "VS 2022 MSVC",
+      "prebuilt_libs": [
+        "libLiteRt.dll",
+        "libLiteRtWebGpuAccelerator.dll",
+        "libLiteRtTopKWebGpuSampler.dll",
+        "libGemmaModelConstraintProvider.dll"
+      ]
+    },
+    "macos_arm64": {
+      "build_config": "default (Xcode clang)",
+      "toolchain": "xcode-select --install",
+      "prebuilt_libs": [
+        "libLiteRt.dylib",
+        "libLiteRtMetalAccelerator.dylib",
+        "libLiteRtWebGpuAccelerator.dylib",
+        "libLiteRtTopKWebGpuSampler.dylib",
+        "libGemmaModelConstraintProvider.dylib"
+      ]
+    },
+    "linux_x86_64": {
+      "build_config": "default (system clang)",
+      "prebuilt_libs": [
+        "libLiteRt.so",
+        "libLiteRtWebGpuAccelerator.so",
+        "libLiteRtTopKWebGpuSampler.so",
+        "libGemmaModelConstraintProvider.so"
+      ]
+    },
+    "linux_arm64": {
+      "build_config": "default (system clang, aarch64)",
+      "prebuilt_libs": [
+        "libLiteRt.so",
+        "libLiteRtWebGpuAccelerator.so",
+        "libLiteRtTopKWebGpuSampler.so",
+        "libGemmaModelConstraintProvider.so"
+      ]
+    },
+    "android_arm64": {
+      "build_config": "--config=android_arm64",
+      "toolchain": "NDK r28b+",
+      "prebuilt_libs": [
+        "libLiteRtGpuAccelerator.so",
+        "libLiteRtOpenClAccelerator.so",
+        "libLiteRtTopKOpenClSampler.so",
+        "libLiteRtWebGpuAccelerator.so",
+        "libLiteRtTopKWebGpuSampler.so",
+        "libGemmaModelConstraintProvider.so"
+      ]
+    },
+    "android_x86_64": {
+      "build_config": "--config=android_x86_64",
+      "toolchain": "NDK r28b+",
+      "prebuilt_libs": [
+        "libLiteRtGpuAccelerator.so",
+        "libLiteRtOpenClAccelerator.so",
+        "libLiteRtTopKOpenClSampler.so",
+        "libLiteRtWebGpuAccelerator.so",
+        "libLiteRtTopKWebGpuSampler.so",
+        "libGemmaModelConstraintProvider.so"
+      ]
+    },
+    "ios_arm64": {
+      "build_config": "iOS device",
+      "prebuilt_libs": [
+        "libGemmaModelConstraintProvider.dylib"
+      ]
+    }
+  },
+  "prebuilt_gpu_accelerators": {
+    "android": "libLiteRtGpuAccelerator.so + libLiteRtOpenClAccelerator.so (native OpenCL/GPU, no WebGPU needed)",
+    "macos": "libLiteRtMetalAccelerator.dylib (native Metal, no WebGPU needed)",
+    "windows": "libLiteRt.dll contains DirectX GPU path",
+    "linux": "CPU via XNNPACK (bundled in libLiteRt.so); WebGpuAccelerator available for Dawn-backed path"
+  },
+  "cpp_api": {
+    "engine": "runtime/engine/engine.h",
+    "engine_settings": "runtime/engine/engine_settings.h",
+    "io_types": "runtime/engine/io_types.h",
+    "conversation": "runtime/conversation/conversation.h",
+    "conversation_io": "runtime/conversation/io_types.h",
+    "backend_enum": "runtime/executor/executor_settings_base.h",
+    "namespace": "litert::lm"
+  }
+}
