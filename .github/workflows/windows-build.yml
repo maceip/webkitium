@@ -37,7 +37,11 @@ jobs:
           SRC_WIN='C:/W/webkit-src'
           SRC="$(cygpath -u "$SRC_WIN")"
           ARCHIVE="$RUNNER_TEMP/webkit-pin.tar.gz"
-          cmd //c "rd /s /q $SRC_WIN" 2>/dev/null || true
+
+          # Rename old dir out of the way (instant), delete in background
+          if [ -d "$SRC" ]; then
+            mv "$SRC" "${SRC}-old-$$" 2>/dev/null && rm -rf "${SRC}-old-$$" &
+          fi
           mkdir -p "$SRC"
 
           # Download the four split parts from the webkit-pin release
