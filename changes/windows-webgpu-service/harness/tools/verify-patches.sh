@@ -16,10 +16,9 @@ if [ ! -f "$PIN_TGZ" ]; then
     exit 2
 fi
 
-# Detect the tarball prefix (e.g. "src/webkit-pin/")
-PREFIX="$(tar tzf "$PIN_TGZ" 2>/dev/null | head -1)"
-# Strip trailing slash and count components
-STRIP=$(echo "$PREFIX" | tr -cd '/' | wc -c)
+# Tarball layout: src/webkit-pin/<files> — 2 prefix components
+STRIP=2
+PREFIX="src/webkit-pin/"
 echo "[verify] tarball prefix: $PREFIX (strip-components=$STRIP)"
 
 # Collect all patch directories in apply order, matching the build workflow
