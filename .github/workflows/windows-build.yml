@@ -42,25 +42,60 @@ jobs:
           echo ERROR: pwsh not installed. Install via SSM first.
           exit /b 1
 
-      - name: "Phase 0: Disk Check"
+      - name: "Phase 0: Disk Clean"
         shell: pwsh
         run: |
-          Write-Host "Current Disk Status:"
-          Get-PSDrive C | Select-Object Used, Free
-          $free = (Get-PSDrive C).Free
-          if ($free -lt 30GB) {
-            Write-Host "WARNING: Less than 30GB free — cleaning bloatware..."
-            $targets = @(
-              "C:/Microsoft/AndroidSDK",
-              "C:/Program Files/Android",
-              "C:/usr/local/lib/android",
-              "$env:AGENT_TOOLSDIRECTORY"
-            )
+          $ErrorActionPreference = 'Continue'
+          $before = (Get-PSDrive C).Free
+          Write-Host ("Disk before cleanup: {0:N1} GB free" -f ($before/1GB))
+          $cutoff = (Get-Date).AddHours(-6)
+          $sw = [System.Diagnostics.Stopwatch]::StartNew()
+
+          # Old scratch dirs under C:\Bootstrap (preserve essential caches & tools)
+          $keepBootstrap = @('toolbin','sccache','sccache-gh','installers','manual-install','gh-ci','baseline-vcpkg','baseline-vcpkg-probe')
+          Get-ChildItem 'C:\Bootstrap' -Directory -ErrorAction SilentlyContinue |
+            Where-Object { $keepBootstrap -notcontains $_.Name -and $_.LastWriteTime -lt $cutoff } |
+            ForEach-Object { Remove-Item -Recurse -Force $_.FullName -ErrorAction SilentlyContinue }
+
+          # Old setup-deps logs
+          Get-ChildItem 'C:\Bootstrap' -File -Filter 'setup-deps-*.log' -ErrorAction SilentlyContinue |
+            Where-Object { $_.LastWriteTime -lt $cutoff } |
+            Remove-Item -Force -ErrorAction SilentlyContinue
+
+          # Old C:\W scratch (preserve active webkit-src)
+          Get-ChildItem 'C:\W' -Directory -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -ne 'webkit-src' -and $_.LastWriteTime -lt $cutoff } |
+            ForEach-Object { Remove-Item -Recurse -Force $_.FullName -ErrorAction SilentlyContinue }
+
+          # TEMP sweeps
+          foreach ($t in @($env:TEMP, 'C:\Windows\Temp')) {
+            Get-ChildItem $t -ErrorAction SilentlyContinue |
+              Where-Object { $_.LastWriteTime -lt $cutoff } |
+              Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
+          # Windows Update staging
+          Stop-Service wuauserv -Force -ErrorAction SilentlyContinue
+          Remove-Item 'C:\Windows\SoftwareDistribution\Download\*' -Recurse -Force -ErrorAction SilentlyContinue
+          Start-Service wuauserv -ErrorAction SilentlyContinue
+
+          # NuGet caches
+          foreach ($p in @("$env:LOCALAPPDATA\NuGet\v3-cache","$env:LOCALAPPDATA\NuGet\plugins-cache")) {
+            Get-ChildItem $p -ErrorAction SilentlyContinue |
+              Where-Object { $_.LastWriteTime -lt $cutoff } |
+              Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
+          $sw.Stop()
+          $after = (Get-PSDrive C).Free
+          Write-Host ("Disk after cleanup: {0:N1} GB free — reclaimed {1:N1} GB in {2:N1}s" -f ($after/1GB), (($after-$before)/1GB), $sw.Elapsed.TotalSeconds)
+
+          # Emergency: if still tight, nuke bloatware
+          if ($after -lt 30GB) {
+            Write-Host "Still under 30GB — removing Android/bloatware..."
+            $targets = @("C:\Microsoft\AndroidSDK","C:\Program Files\Android","C:\usr\local\lib\android","$env:AGENT_TOOLSDIRECTORY")
             foreach ($path in $targets) {
-              if (Test-Path $path) {
-                Write-Host "Deleting $path..."
-                Remove-Item -Recurse -Force $path -ErrorAction SilentlyContinue
-              }
+              if ($path -and (Test-Path $path)) { Remove-Item -Recurse -Force $path -ErrorAction SilentlyContinue }
             }
             Get-PSDrive C | Select-Object Used, Free
           }
@@ -84,8 +119,9 @@ jobs:
             --repo ${{ github.repository }} \
             --pattern "webkit-pin.tar.gz.part-*"
 
-          # Stitch parts back into single tarball (sorted glob)
-          cat $(ls webkit-pin.tar.gz.part-* | sort) > "$ARCHIVE"
+          # Stitch parts back into single tarball (shell glob sorts alphabetically)
+          shopt -s nullglob
+          cat webkit-pin.tar.gz.part-* > "$ARCHIVE"
           rm -f webkit-pin.tar.gz.part-*
 
           # Verify tarball integrity
