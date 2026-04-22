@@ -7,7 +7,7 @@
     },
     {
       "id": "windows-webgpu-service",
-      "enabled": false,
+      "enabled": true,
       "platforms": ["windows"]
     },
     {
@@ -16,5 +16,5 @@
       "platforms": ["windows"]
     }
   ],
-  "_comment": "Lane ids are stable names for changes/<id>/. windows-webgpu-service stays disabled when those patches live under webkit/patches/windows/. Enable only if you split them back into changes/windows-webgpu-service/patches/."
+  "_comment": "Lane ids are stable names for changes/<id>/. The Windows WebGPU lane's engine patches live under webkit/patches/windows/ (webkit/patches/<os>/ is always applied), so the `enabled` flag here is a status indicator that the lane is in active development — builders and dashboards key on it, not the patch apply order. Flip back to false only to mute the lane in status reports, not to disable the patches."
 }
