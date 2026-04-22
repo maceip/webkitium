@@ -193,7 +193,7 @@ index 0000000..57e1ca4
 +    void reconfigureIfNeeded();
 +
 +    RefPtr<GPUPresentationContext> m_presentationContext;
-+    RefPtr<GPU>                    m_gpu;
++    GPU*                           m_gpu { nullptr };
 +    std::optional<GPUCanvasConfiguration> m_configuration;
 +    HWND     m_hwnd { nullptr };
 +    HINSTANCE m_hinstance { nullptr };
