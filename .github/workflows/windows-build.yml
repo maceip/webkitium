@@ -21,6 +21,114 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # ── Preflight: fail in 10s instead of 10m ──────────────────────
+      # Validates every tool exists, runs, and has the permissions
+      # the build will need.  If this passes, the build environment
+      # is sound and any later failure is a real compile error.
+      - name: Preflight
+        shell: cmd
+        run: |
+          @echo off
+          setlocal enabledelayedexpansion
+          set "FAIL=0"
+
+          call "C:\BuildTools\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64
+          if errorlevel 1 (
+            echo ::error::VsDevCmd.bat failed
+            exit /b 1
+          )
+
+          set "PATH=C:\Bootstrap\toolbin;C:\Program Files\Git\cmd;C:\Ruby34-x64\bin;C:\Python314;C:\Python314\Scripts;C:\Program Files\LLVM\bin;C:\Program Files\CMake\bin;C:\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja;C:\Strawberry\perl\bin;%PATH%"
+
+          echo ── Checking tool binaries ──
+          for %%T in (
+            "git"   "C:\Program Files\Git\cmd\git.exe"
+            "bash"  "C:\Program Files\Git\usr\bin\bash.exe"
+            "perl"  "C:\Strawberry\perl\bin\perl.exe"
+            "ruby"  "C:\Ruby34-x64\bin\ruby.exe"
+            "python" "C:\Python314\python.exe"
+            "cmake" "C:\Program Files\CMake\bin\cmake.exe"
+            "ninja" "C:\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja\ninja.exe"
+            "clang-cl" "C:\Program Files\LLVM\bin\clang-cl.exe"
+            "lld-link" "C:\Program Files\LLVM\bin\lld-link.exe"
+            "sccache" "C:\Bootstrap\toolbin\sccache.exe"
+            "vcpkg" "C:\vcpkg\vcpkg.exe"
+          ) do (
+            if exist %%T (
+              echo OK    %%T
+            ) else (
+              echo MISS  %%T
+              set "FAIL=1"
+            )
+          )
+
+          echo.
+          echo ── Checking tool functionality ──
+          cmake --version >NUL 2>&1 || (echo ::error::cmake not functional & set "FAIL=1")
+          ninja --version >NUL 2>&1 || (echo ::error::ninja not functional & set "FAIL=1")
+          clang-cl --version >NUL 2>&1 || (echo ::error::clang-cl not functional & set "FAIL=1")
+          perl -v >NUL 2>&1 || (echo ::error::perl not functional & set "FAIL=1")
+          echo OK    tools respond to --version
+
+          echo.
+          echo ── Checking write permissions ──
+          set "VCPKG_ROOT=C:\vcpkg"
+
+          if not exist "C:\vcpkg\buildtrees" mkdir "C:\vcpkg\buildtrees"
+          echo test > "C:\vcpkg\buildtrees\_preflight_test.tmp" 2>NUL
+          if exist "C:\vcpkg\buildtrees\_preflight_test.tmp" (
+            del "C:\vcpkg\buildtrees\_preflight_test.tmp"
+            echo OK    vcpkg buildtrees writable
+          ) else (
+            echo ::error::Cannot write to C:\vcpkg\buildtrees
+            set "FAIL=1"
+          )
+
+          if not exist "C:\vcpkg\installed" mkdir "C:\vcpkg\installed"
+          echo test > "C:\vcpkg\installed\_preflight_test.tmp" 2>NUL
+          if exist "C:\vcpkg\installed\_preflight_test.tmp" (
+            del "C:\vcpkg\installed\_preflight_test.tmp"
+            echo OK    vcpkg installed writable
+          ) else (
+            echo ::error::Cannot write to C:\vcpkg\installed
+            set "FAIL=1"
+          )
+
+          set "SCCACHE_DIR=C:\Bootstrap\sccache-gh\windows-webgpu-dawn"
+          if not exist "%SCCACHE_DIR%" mkdir "%SCCACHE_DIR%"
+          echo test > "%SCCACHE_DIR%\_preflight_test.tmp" 2>NUL
+          if exist "%SCCACHE_DIR%\_preflight_test.tmp" (
+            del "%SCCACHE_DIR%\_preflight_test.tmp"
+            echo OK    sccache dir writable
+          ) else (
+            echo ::error::Cannot write to %SCCACHE_DIR%
+            set "FAIL=1"
+          )
+
+          if not exist "C:\W" mkdir "C:\W"
+          echo test > "C:\W\_preflight_test.tmp" 2>NUL
+          if exist "C:\W\_preflight_test.tmp" (
+            del "C:\W\_preflight_test.tmp"
+            echo OK    build root C:\W writable
+          ) else (
+            echo ::error::Cannot write to C:\W
+            set "FAIL=1"
+          )
+
+          echo.
+          echo ── Disk space ──
+          for /f "tokens=3" %%a in ('dir C:\ ^| findstr /C:"bytes free"') do (
+            echo Free: %%a bytes on C:
+          )
+
+          echo.
+          if "!FAIL!"=="1" (
+            echo ::error::Preflight failed. Fix the runner before retrying.
+            exit /b 1
+          )
+          echo Preflight OK.
+
+      # ── Download, extract, and patch ───────────────────────────────
       - name: Prepare Source
         shell: bash
         env:
@@ -79,7 +187,7 @@ jobs:
           echo "Source ready at $SRC_WIN"
           ls "$SRC" | head -20
 
-          # Apply patches (strip CRLF — git apply requires LF in patches)
+          # Apply patches (strip CRLF -- git apply requires LF in patches)
           applied=0
           for patch in "$GITHUB_WORKSPACE"/webkit/patches/common/* "$GITHUB_WORKSPACE"/webkit/patches/windows/*; do
             [[ -f "$patch" ]] || continue
@@ -92,6 +200,7 @@ jobs:
           done
           echo "Applied $applied patches."
 
+      # ── Build ──────────────────────────────────────────────────────
       - name: Build
         shell: cmd
         run: |
