@@ -89,15 +89,22 @@ jobs:
           echo "Source ready at $SRC_WIN"
           ls "$SRC" | head -20
 
+          # Fetch LiteRT-LM for WebNN backend
+          LITERT="$RUNNER_TEMP/litert-lm"
+          if [ ! -d "$LITERT/.git" ]; then
+            git clone --depth 1 --branch v0.10.2 \
+              https://github.com/google-ai-edge/LiteRT-LM.git "$LITERT"
+            (cd "$LITERT" && git lfs pull --include="prebuilt/windows_x86_64/*")
+          fi
+          echo "LiteRT-LM: $(ls "$LITERT/prebuilt/windows_x86_64/"*.dll 2>/dev/null | wc -l) DLLs"
+
           # Apply patches (strip CRLF -- git apply requires LF in patches)
           applied=0
-          # WebNN lane patches are staged but disabled until LiteRT-LM is
-          # installed on the runner (fetch-litert-lm.sh). Uncomment when ready:
-          #   "$GITHUB_WORKSPACE"/changes/webnn-service/patches/common/*.patch \
-          #   "$GITHUB_WORKSPACE"/changes/webnn-service/patches/windows/*.patch
           for patch in \
             "$GITHUB_WORKSPACE"/webkit/patches/common/*.patch \
-            "$GITHUB_WORKSPACE"/webkit/patches/windows/*.patch; do
+            "$GITHUB_WORKSPACE"/webkit/patches/windows/*.patch \
+            "$GITHUB_WORKSPACE"/changes/webnn-service/patches/common/*.patch \
+            "$GITHUB_WORKSPACE"/changes/webnn-service/patches/windows/*.patch; do
             [[ -f "$patch" ]] || continue
             echo "Applying $(basename "$patch")"
             clean="$RUNNER_TEMP/$(basename "$patch")"
@@ -127,6 +134,8 @@ jobs:
           set "CXX=C:\Program Files\LLVM\bin\clang-cl.exe"
           set "PATH=C:\Bootstrap\toolbin;C:\Program Files\Git\cmd;C:\Ruby34-x64\bin;C:\Python314;C:\Python314\Scripts;C:\Program Files\LLVM\bin;C:\Program Files\CMake\bin;C:\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja;C:\Strawberry\perl\bin;%PATH%"
           set "VCPKG_ROOT=C:\vcpkg"
+          REM LiteRT-LM for WebNN: headers at repo root, DLLs in prebuilt/windows_x86_64
+          set "CMAKE_PREFIX_PATH=%RUNNER_TEMP%\litert-lm;%RUNNER_TEMP%\litert-lm\prebuilt\windows_x86_64"
           set "SCCACHE_DIR=C:\Bootstrap\sccache-gh\windows-webgpu-dawn"
           if not exist "%SCCACHE_DIR%" mkdir "%SCCACHE_DIR%"
           set "SCCACHE_CACHE_SIZE=50G"
