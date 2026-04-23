@@ -25,21 +25,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          SRC="$HOME/wpe-android"
-          REPO="https://github.com/Igalia/wpe-android.git"
+          SRC="$HOME/webkit/wpe-android"
 
-          # WPE-Android is a separate repo — clone or update it
-          if [ -d "$SRC/.git" ]; then
-            echo "Updating existing WPE-Android checkout..."
-            cd "$SRC"
-            git fetch origin
-            git reset --hard origin/main || git reset --hard origin/master
-          else
-            echo "Cloning WPE-Android..."
-            rm -rf "$SRC"
-            git clone --depth 1 "$REPO" "$SRC"
+          if [ ! -d "$SRC" ]; then
+            echo "::error::Expected checkout at $SRC not found"
+            exit 1
           fi
-
           echo "Source ready at $SRC"
 
           # Apply patches
@@ -57,7 +48,7 @@ jobs:
       - name: Build
         run: |
           set -euo pipefail
-          SRC="$HOME/wpe-android"
+          SRC="$HOME/webkit/wpe-android"
           cd "$SRC"
 
           export ANDROID_HOME="${ANDROID_HOME:-$HOME/Android/Sdk}"
@@ -78,9 +69,5 @@ jobs:
         with:
           name: android-build-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            ~/wpe-android/build/outputs/
+            ~/webkit/wpe-android/*/build/outputs/
           if-no-files-found: warn
-
-      - name: Cleanup Source
-        if: always()
-        run: rm -rf "$HOME/wpe-android"
