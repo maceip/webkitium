@@ -121,7 +121,7 @@ diff --git a/Source/WebCore/PlatformWin.cmake b/Source/WebCore/PlatformWin.cmake
 index 00000000001..00000000002 100644
 --- a/Source/WebCore/PlatformWin.cmake
 +++ b/Source/WebCore/PlatformWin.cmake
-@@ -250,3 +250,15 @@
+@@ -250,3 +250,16 @@
  if (USE_SKIA)
      list(APPEND WebCore_PRIVATE_LIBRARIES ${SHARPYUV_LIBS})
  endif ()
