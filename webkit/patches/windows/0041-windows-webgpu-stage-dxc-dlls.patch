@@ -1,8 +1,8 @@
 diff --git a/Source/WebCore/PlatformWin.cmake b/Source/WebCore/PlatformWin.cmake
-index 736679d..3297859 100644
+index 736679d..668ec65 100644
 --- a/Source/WebCore/PlatformWin.cmake
 +++ b/Source/WebCore/PlatformWin.cmake
-@@ -39,6 +39,66 @@ if (ENABLE_WEBGPU)
+@@ -39,6 +39,62 @@ if (ENABLE_WEBGPU)
      list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
          html/canvas/GPUCanvasContextWin.h
      )
@@ -55,10 +55,6 @@ index 736679d..3297859 100644
 +        file(COPY "${_WEBKIT_DXC_DIR}/dxil.dll"
 +                  "${_WEBKIT_DXC_DIR}/dxcompiler.dll"
 +             DESTINATION "${_WEBKIT_DXC_DEST}")
-+        install(FILES "${_WEBKIT_DXC_DIR}/dxil.dll"
-+                      "${_WEBKIT_DXC_DIR}/dxcompiler.dll"
-+                DESTINATION "${CMAKE_INSTALL_BINDIR}"
-+                OPTIONAL)
 +    else ()
 +        message(WARNING
 +            "WebGPU: dxil.dll + dxcompiler.dll not found. "
