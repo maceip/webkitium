@@ -16,7 +16,7 @@ index 00000000000..a1b2c3d4e5f
 +#if ENABLE(WEBNN)
 +
 +#include "Navigator.h"
-+#include "Supplement.h"
++#include <WebCore/Supplementable.h>
 +#include <wtf/RefPtr.h>
 +
 +namespace WebCore {
@@ -160,7 +160,7 @@ index 00000000000..d4e5f6a7b8c
 +private:
 +    explicit ML(Navigator&);
 +
-+    Navigator& m_navigator;
++    [[maybe_unused]] Navigator& m_navigator;
 +};
 +
 +} // namespace WebCore
@@ -205,6 +205,7 @@ index 00000000000..e5f6a7b8c9d
 +
 +void ML::createContext(MLContextOptions&& options, Ref<DeferredPromise>&& promise)
 +{
++    UNUSED_PARAM(options);
 +#if HAVE(LITERT)
 +    auto context = WebNN::LiteRTContext::create(options);
 +    if (!context) {
