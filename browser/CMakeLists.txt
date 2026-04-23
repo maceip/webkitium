@@ -64,6 +64,11 @@ add_library(ng_browser_core STATIC
     tabs/BrowserCommandController.cpp
     tabs/BrowserStateModel.cpp
     webauthn/WebAuthnController.cpp
+    webnn/BackendSelector.cpp
+    webnn/InferenceSession.cpp
+    webnn/ModelDownloader.cpp
+    webnn/ModelStorage.cpp
+    webnn/WebNnController.cpp
 )
 
 target_compile_features(ng_browser_core PUBLIC cxx_std_17)
