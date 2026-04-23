@@ -130,36 +130,22 @@ jobs:
           echo "Source ready at $SRC_WIN"
           ls "$SRC" | head -20
 
-          # Apply patches. Always: webkit/patches/common + webkit/patches/<os>.
-          # In addition: for each activeChanges[] entry in config/changes.json
-          # with enabled=true that targets this platform, include its
-          # changes/<id>/patches/common and changes/<id>/patches/windows dirs.
-          # Flipping "enabled": true in config/changes.json is enough to opt a
-          # lane into the build -- no workflow edit needed.
-          patch_dirs=("webkit/patches/common" "webkit/patches/windows")
-          readarray -t lanes < <(python -c "import json,sys;cfg=json.load(open(sys.argv[1]));[print(c['id']) for c in cfg.get('activeChanges',[]) if c.get('enabled') and 'windows' in c.get('platforms',[])]" "$GITHUB_WORKSPACE/config/changes.json" 2>/dev/null || true)
-          for lane in "${lanes[@]}"; do
-            patch_dirs+=("changes/$lane/patches/common" "changes/$lane/patches/windows")
-          done
-          echo "Patch directories in apply order:"
-          printf '  %s\n' "${patch_dirs[@]}"
-
+          # Apply patches (strip CRLF -- git apply requires LF in patches)
           applied=0
-          for dir in "${patch_dirs[@]}"; do
-            abs="$GITHUB_WORKSPACE/$dir"
-            [[ -d "$abs" ]] || continue
-            # Deterministic order within each directory.
-            while IFS= read -r -d '' patch; do
-              [[ -f "$patch" ]] || continue
-              echo "Applying $dir/$(basename "$patch")"
-              clean="$RUNNER_TEMP/$(basename "$patch")"
-              sed 's/\r$//' "$patch" > "$clean"
-              git -C "$SRC" apply --check --whitespace=nowarn --unidiff-zero "$clean"
-              git -C "$SRC" apply --whitespace=nowarn --unidiff-zero "$clean"
-              applied=$((applied + 1))
-            done < <(find "$abs" -maxdepth 1 -type f -name '*.patch' -print0 | sort -z)
+          for patch in \
+            "$GITHUB_WORKSPACE"/webkit/patches/common/*.patch \
+            "$GITHUB_WORKSPACE"/webkit/patches/windows/*.patch \
+            "$GITHUB_WORKSPACE"/changes/webnn-service/patches/common/*.patch \
+            "$GITHUB_WORKSPACE"/changes/webnn-service/patches/windows/*.patch; do
+            [[ -f "$patch" ]] || continue
+            echo "Applying $(basename "$patch")"
+            clean="$RUNNER_TEMP/$(basename "$patch")"
+            sed 's/\r$//' "$patch" > "$clean"
+            git -C "$SRC" apply --check --whitespace=nowarn --unidiff-zero "$clean"
+            git -C "$SRC" apply --whitespace=nowarn --unidiff-zero "$clean"
+            applied=$((applied + 1))
           done
-          echo "Applied $applied patches from ${#patch_dirs[@]} directory/directories."
+          echo "Applied $applied patches."
 
       # ── Build ──────────────────────────────────────────────────────
       - name: Build
