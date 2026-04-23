@@ -3,7 +3,7 @@ new file mode 100644
 index 00000000000..a1b2c3d4e5f
 --- /dev/null
 +++ b/Source/cmake/FindLiteRT.cmake
-@@ -0,0 +1,88 @@
+@@ -0,0 +1,89 @@
 +# FindLiteRT.cmake
 +#
 +# Finds the LiteRT-LM library for WebNN backend support.
@@ -92,6 +92,7 @@ index 00000000000..a1b2c3d4e5f
 +    set(LiteRT_INCLUDE_DIRS ${CMAKE_BINARY_DIR}/litert-lm-src)
 +    set(LiteRT_LIBRARIES ${CMAKE_BINARY_DIR}/litert-lm-build/litert_lm)
 +    set(LiteRT_FOUND TRUE)
++endif ()
 +endif ()
 diff --git a/Source/cmake/OptionsWin.cmake b/Source/cmake/OptionsWin.cmake
 index be254c9e980..f1a2b3c4d5e 100644
