@@ -22,6 +22,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Ensure Metal Toolchain
+        run: |
+          sudo xcodebuild -license accept 2>/dev/null || true
+          if xcrun --find metal >/dev/null 2>&1; then
+            echo "Metal toolchain already installed"
+          else
+            echo "Installing Metal toolchain..."
+            sudo xcodebuild -downloadComponent MetalToolchain
+          fi
+
       - name: Prepare Source
         run: |
           set -euo pipefail
