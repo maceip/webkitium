@@ -1,12 +1,13 @@
 diff --git a/Source/WebCore/html/canvas/GPUCanvasContextWin.cpp b/Source/WebCore/html/canvas/GPUCanvasContextWin.cpp
-index 07eb31b..09352e9 100644
+index 07eb31b..9fd3b09 100644
 --- a/Source/WebCore/html/canvas/GPUCanvasContextWin.cpp
 +++ b/Source/WebCore/html/canvas/GPUCanvasContextWin.cpp
-@@ -14,13 +14,34 @@
+@@ -14,13 +14,35 @@
  #include "GPUCanvasConfiguration.h"
  #include "GPUPresentationContext.h"
  #include "GPUTexture.h"
 +#include "Chrome.h"
++#include "DocumentPage.h"
  #include "HTMLCanvasElement.h"
 +#include "Page.h"
  #include <wtf/TZoneMallocInlines.h>
@@ -37,7 +38,7 @@ index 07eb31b..09352e9 100644
  std::unique_ptr<GPUCanvasContextWin> GPUCanvasContextWin::create(CanvasBase& canvas, GPU& gpu, Document*)
  {
      auto presentationContext = gpu.createPresentationContextForHWND(nullptr, nullptr);
-@@ -28,6 +49,12 @@ std::unique_ptr<GPUCanvasContextWin> GPUCanvasContextWin::create(CanvasBase& can
+@@ -28,6 +50,12 @@ std::unique_ptr<GPUCanvasContextWin> GPUCanvasContextWin::create(CanvasBase& can
          return nullptr;
      auto context = std::unique_ptr<GPUCanvasContextWin>(new GPUCanvasContextWin(canvas, WTF::move(presentationContext)));
      context->m_gpu = &gpu;
@@ -50,7 +51,7 @@ index 07eb31b..09352e9 100644
      return context;
  }
  
-@@ -79,9 +106,14 @@ void GPUCanvasContextWin::didUpdateCanvasSizeProperties(bool sizeChanged)
+@@ -79,9 +107,14 @@ void GPUCanvasContextWin::didUpdateCanvasSizeProperties(bool sizeChanged)
  {
      if (!sizeChanged)
          return;
