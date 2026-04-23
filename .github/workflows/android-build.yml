@@ -1,0 +1,92 @@
+name: android-build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: webkitium-android-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Android WebKit Build
+    runs-on:
+      - self-hosted
+      - Linux
+      - ARM64
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare Source
+        run: |
+          set -euo pipefail
+
+          SRC="$HOME/webkit-src"
+          ARCHIVE="$RUNNER_TEMP/webkit-pin.tar.gz"
+
+          rm -rf "$SRC"
+          mkdir -p "$SRC"
+
+          # Download split parts from draft release
+          cd "$RUNNER_TEMP"
+          gh release download webkit-pin \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern "webkit-pin.tar.gz.part-*"
+
+          # Stitch parts
+          cat webkit-pin.tar.gz.part-* > "$ARCHIVE"
+          rm -f webkit-pin.tar.gz.part-*
+          echo "Tarball: $(du -h "$ARCHIVE" | cut -f1)"
+
+          # Extract
+          tar -xzf "$ARCHIVE" --strip-components=1 -C "$SRC"
+          rm -f "$ARCHIVE"
+
+          if [[ ! -d "$SRC/Source" ]]; then
+            echo "::error::Extraction failed -- Source/ directory missing"
+            exit 1
+          fi
+          echo "Source ready at $SRC"
+
+          # Apply patches
+          applied=0
+          for patch in "$GITHUB_WORKSPACE"/webkit/patches/common/*.patch "$GITHUB_WORKSPACE"/webkit/patches/android/*.patch; do
+            [[ -f "$patch" ]] || continue
+            echo "Applying $(basename "$patch")"
+            git -C "$SRC" apply --whitespace=nowarn --unidiff-zero "$patch"
+            applied=$((applied + 1))
+          done
+          echo "Applied $applied patches."
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Build
+        run: |
+          set -euo pipefail
+          SRC="$HOME/webkit-src"
+          cd "$SRC"
+
+          # WPE WebKit for Android (Flatpak/CMake based)
+          export ANDROID_HOME="${ANDROID_HOME:-$HOME/Android/Sdk}"
+          export ANDROID_NDK_HOME="${ANDROID_NDK_HOME:-$ANDROID_HOME/ndk/$(ls $ANDROID_HOME/ndk/ 2>/dev/null | sort -V | tail -1)}"
+
+          Tools/Scripts/build-webkit --wpe --release \
+            --cmakeargs="-DPORT=WPE -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-28"
+
+      - name: Upload Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ~/webkit-src/WebKitBuild/Release/bin
+            ~/webkit-src/WebKitBuild/Release/CMakeCache.txt
+          if-no-files-found: warn
+
+      - name: Cleanup Source
+        if: always()
+        run: rm -rf "$HOME/webkit-src"
