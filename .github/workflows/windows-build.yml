@@ -171,12 +171,13 @@ jobs:
           if errorlevel 1 exit /b %errorlevel%
 
           set "SRC=C:\W\webkit-src"
-          REM Strawberry Perl ships its own ccache + GCC in C:\Strawberry\c\bin
-          REM which confuses CMake into using GCC ABI flags. Strip it from PATH
-          REM and clear CC/CXX so build-webkit uses its own clang-cl detection.
+          REM Strawberry Perl ships its own ccache + GCC in C:\Strawberry\c\bin.
+          REM Strip it so CMake doesn't find its ccache or gcc.
           set "PATH=%PATH:C:\Strawberry\c\bin;=%"
-          set "CC="
-          set "CXX="
+          REM Force clang-cl so build-webkit skips its own detection
+          REM (latestVisualStudioCompilerPath can fail with bsd_glob on some runners).
+          set "CC=C:\Program Files\LLVM\bin\clang-cl.exe"
+          set "CXX=C:\Program Files\LLVM\bin\clang-cl.exe"
           set "PATH=C:\Bootstrap\toolbin;C:\Program Files\Git\cmd;C:\Ruby34-x64\bin;C:\Python314;C:\Python314\Scripts;C:\Program Files\LLVM\bin;C:\Program Files\CMake\bin;C:\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja;C:\Strawberry\perl\bin;%PATH%"
           set "VCPKG_ROOT=C:\vcpkg"
           set "SCCACHE_DIR=C:\Bootstrap\sccache-gh\windows-webgpu-dawn"
