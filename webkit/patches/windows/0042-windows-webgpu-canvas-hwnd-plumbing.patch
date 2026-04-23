@@ -1,0 +1,77 @@
+diff --git a/Source/WebCore/html/canvas/GPUCanvasContextWin.cpp b/Source/WebCore/html/canvas/GPUCanvasContextWin.cpp
+index 07eb31b..9d8ad12 100644
+--- a/Source/WebCore/html/canvas/GPUCanvasContextWin.cpp
++++ b/Source/WebCore/html/canvas/GPUCanvasContextWin.cpp
+@@ -14,13 +14,38 @@
+ #include "GPUCanvasConfiguration.h"
+ #include "GPUPresentationContext.h"
+ #include "GPUTexture.h"
++#include "Chrome.h"
+ #include "HTMLCanvasElement.h"
++#include "Page.h"
+ #include <wtf/TZoneMallocInlines.h>
+ 
+ namespace WebCore {
+ 
+ WTF_MAKE_TZONE_ALLOCATED_IMPL(GPUCanvasContextWin);
+ 
++static HWND resolveHostHWND(CanvasBase& canvasBase)
++{
++    // Walk canvas -> Document -> Page -> Chrome to find the native host
++    // window. Returns nullptr for OffscreenCanvas in a Worker (no Page),
++    // in which case the canvas stays in a pre-bound error state and
++    // getCurrentTexture() reports InvalidStateError until a host binds it.
++    RefPtr scriptCtx = canvasBase.scriptExecutionContext();
++    auto* document = dynamicDowncast<Document>(scriptCtx.get());
++    if (!document)
++        return nullptr;
++    RefPtr page = document->page();
++    if (!page)
++        return nullptr;
++    return static_cast<HWND>(page->chrome().platformPageClient());
++}
++
++static void resolveCanvasPixelSize(CanvasBase& canvasBase, uint32_t& width, uint32_t& height)
++{
++    auto size = canvasBase.size();
++    width  = std::max<uint32_t>(1, static_cast<uint32_t>(size.width()));
++    height = std::max<uint32_t>(1, static_cast<uint32_t>(size.height()));
++}
++
+ std::unique_ptr<GPUCanvasContextWin> GPUCanvasContextWin::create(CanvasBase& canvas, GPU& gpu, Document*)
+ {
+     auto presentationContext = gpu.createPresentationContextForHWND(nullptr, nullptr);
+@@ -28,6 +53,12 @@ std::unique_ptr<GPUCanvasContextWin> GPUCanvasContextWin::create(CanvasBase& can
+         return nullptr;
+     auto context = std::unique_ptr<GPUCanvasContextWin>(new GPUCanvasContextWin(canvas, WTF::move(presentationContext)));
+     context->m_gpu = &gpu;
++
++    if (HWND hwnd = resolveHostHWND(canvas)) {
++        uint32_t w = 0, h = 0;
++        resolveCanvasPixelSize(canvas, w, h);
++        context->setHostHWND(hwnd, w, h);
++    }
+     return context;
+ }
+ 
+@@ -79,9 +110,17 @@ void GPUCanvasContextWin::didUpdateCanvasSizeProperties(bool sizeChanged)
+ {
+     if (!sizeChanged)
+         return;
+-    if (RefPtr c = htmlCanvas()) {
+-        m_width  = std::max<uint32_t>(1, c->width());
+-        m_height = std::max<uint32_t>(1, c->height());
++    // Re-resolve HWND (rare reparenting) and refresh the tracked size so
++    // reconfigureIfNeeded() picks the new dimensions on the next
++    // getCurrentTexture() call.
++    HWND hwnd = resolveHostHWND(canvasBase());
++    uint32_t w = m_width, h = m_height;
++    resolveCanvasPixelSize(canvasBase(), w, h);
++    if (hwnd)
++        setHostHWND(hwnd, w, h);
++    else {
++        m_width = w;
++        m_height = h;
+         m_dirty = true;
+     }
+ }
