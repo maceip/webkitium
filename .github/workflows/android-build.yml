@@ -33,11 +33,12 @@ jobs:
 
           # Download split parts via GitHub API (no gh CLI needed)
           cd "$RUNNER_TEMP"
+          # Draft releases don't appear at /tags/ endpoint — list all and filter
           ASSETS=$(curl -sL \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/webkit-pin" \
-            | python3 -c "import json,sys; [print(a['id'],a['name']) for a in json.load(sys.stdin).get('assets',[])]")
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/releases" \
+            | python3 -c "import json,sys;[print(a['id'],a['name']) for r in json.load(sys.stdin) if r.get('tag_name')=='webkit-pin' for a in r.get('assets',[])]")
 
           while IFS=' ' read -r id name; do
             [[ "$name" == webkit-pin.tar.gz.part-* ]] || continue
