@@ -1,0 +1,127 @@
+name: ios-build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: webkitium-ios-build
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: iOS Simulator WebKit Build
+    runs-on:
+      - self-hosted
+      - macOS
+      - ARM64
+      - webkitium
+    timeout-minutes: 1440
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
+          GH_BIN="${GH_BIN:-}"
+          if [[ -z "$GH_BIN" ]]; then
+            for candidate in "$(command -v gh 2>/dev/null || true)" /opt/homebrew/bin/gh /usr/local/bin/gh /usr/bin/gh; do
+              [[ -n "$candidate" && -x "$candidate" ]] || continue
+              GH_BIN="$candidate"
+              break
+            done
+          fi
+          [[ -n "$GH_BIN" && -x "$GH_BIN" ]]
+
+          SRC="${NG_IOS_WEBKIT_PATH:-$HOME/W/webkit-ios-src}"
+          echo "WEBKIT_SRC=$SRC" >> "$GITHUB_ENV"
+          ARCHIVE="${RUNNER_TEMP}/webkit-pin.tar.gz"
+          rm -rf "$SRC"
+          mkdir -p "$SRC"
+
+          cd "$RUNNER_TEMP"
+          "$GH_BIN" release download webkit-pin \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern "webkit-pin.tar.gz.part-*"
+
+          cat webkit-pin.tar.gz.part-* > "$ARCHIVE"
+          rm -f webkit-pin.tar.gz.part-*
+          tar -xzf "$ARCHIVE" --strip-components=1 -C "$SRC"
+          rm -f "$ARCHIVE"
+
+          for patch in webkit/patches/common/* webkit/patches/ios/*; do
+            [[ -f "$patch" ]] || continue
+            echo "Applying $(basename "$patch")"
+            git -C "$SRC" apply --check --whitespace=nowarn --unidiff-zero "$GITHUB_WORKSPACE/$patch"
+            git -C "$SRC" apply --whitespace=nowarn --unidiff-zero "$GITHUB_WORKSPACE/$patch"
+          done
+
+          {
+            sw_vers || true
+            uname -a
+            xcodebuild -version || true
+            xcrun simctl list runtimes || true
+            printf 'gh=%s\n' "$GH_BIN"
+            command -v cmake ninja python3 ruby perl
+          } | tee "${RUNNER_TEMP}/ios-ci-environment.txt" || true
+
+      - name: Build
+        run: |
+          set -euo pipefail
+          export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
+
+          SRC="${WEBKIT_SRC:?WEBKIT_SRC missing}"
+          cd "$SRC"
+          JOBS="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
+
+          if command -v sccache >/dev/null 2>&1; then
+            export SCCACHE_DIR="${SCCACHE_DIR:-$HOME/webkit-sccache/ios-gh}"
+            mkdir -p "$SCCACHE_DIR"
+            export SCCACHE_CACHE_SIZE="${SCCACHE_CACHE_SIZE:-50G}"
+            export SCCACHE_IDLE_TIMEOUT=0
+            sccache --start-server 2>/dev/null || true
+            sccache --zero-stats
+            SCCACHE_CMAKE=(-DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache)
+          else
+            SCCACHE_CMAKE=()
+          fi
+
+          LOG="${RUNNER_TEMP}/build-webkit-ios.log"
+          set -o pipefail
+          perl Tools/Scripts/build-webkit --release --ios-simulator --makeargs="-j$JOBS" \
+            -DENABLE_EXPERIMENTAL_FEATURES=ON \
+            -DENABLE_WEBXR=OFF \
+            "${SCCACHE_CMAKE[@]}" \
+            2>&1 | tee "$LOG"
+          if command -v sccache >/dev/null 2>&1; then
+            sccache --show-stats
+          fi
+
+      - name: Post-build check
+        run: |
+          set -euo pipefail
+          SRC="${WEBKIT_SRC:?}"
+          OUT="$SRC/WebKitBuild"
+          find "$OUT" -maxdepth 3 \( -name 'MobileMiniBrowser.app' -o -name 'MobileSafari.app' -o -name 'JavaScriptCore.framework' -o -name 'WebKit.framework' \) -print | tee "${RUNNER_TEMP}/ios-products.txt"
+          test -s "${RUNNER_TEMP}/ios-products.txt"
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ env.WEBKIT_SRC }}/WebKitBuild
+            ${{ runner.temp }}/build-webkit-ios.log
+            ${{ runner.temp }}/ios-ci-environment.txt
+            ${{ runner.temp }}/ios-products.txt
+          if-no-files-found: warn
