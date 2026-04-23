@@ -197,8 +197,8 @@ jobs:
             -DCMAKE_MODULE_LINKER_FLAGS=-fuse-ld=lld ^
             -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON ^
             -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded ^
-            -DCMAKE_C_FLAGS="-D_CRT_SECURE_NO_WARNINGS -flto=thin" ^
-            -DCMAKE_CXX_FLAGS="-D_CRT_SECURE_NO_WARNINGS -flto=thin" ^
+            -DCMAKE_C_FLAGS="-D_CRT_SECURE_NO_WARNINGS -flto=thin -Wno-missing-format-attribute" ^
+            -DCMAKE_CXX_FLAGS="-D_CRT_SECURE_NO_WARNINGS -flto=thin -Wno-missing-format-attribute" ^
             -DCMAKE_C_COMPILER_LAUNCHER=C:/Bootstrap/toolbin/sccache.exe ^
             -DCMAKE_CXX_COMPILER_LAUNCHER=C:/Bootstrap/toolbin/sccache.exe ^
             -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake ^
