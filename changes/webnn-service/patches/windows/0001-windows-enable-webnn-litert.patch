@@ -121,7 +121,7 @@ diff --git a/Source/WebCore/PlatformWin.cmake b/Source/WebCore/PlatformWin.cmake
 index 00000000001..00000000002 100644
 --- a/Source/WebCore/PlatformWin.cmake
 +++ b/Source/WebCore/PlatformWin.cmake
-@@ -250,3 +250,16 @@
+@@ -250,3 +250,17 @@
  if (USE_SKIA)
      list(APPEND WebCore_PRIVATE_LIBRARIES ${SHARPYUV_LIBS})
  endif ()
@@ -135,7 +135,8 @@ index 00000000001..00000000002 100644
 +        Modules/WebNN/NavigatorML.cpp
 +    )
 +    list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES ${LiteRT_INCLUDE_DIRS})
-+    list(APPEND WebCore_LIBRARIES ${LiteRT_LIBRARIES})
++    # LiteRT prebuilt ships as DLL without import lib — load at runtime via dlopen/LoadLibrary.
++    # list(APPEND WebCore_LIBRARIES ${LiteRT_LIBRARIES})
 +    SET_AND_EXPOSE_TO_BUILD(HAVE_LITERT ON)
 +endif ()
 diff --git a/Tools/Scripts/webkitperl/FeatureList.pm b/Tools/Scripts/webkitperl/FeatureList.pm
