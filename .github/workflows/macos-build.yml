@@ -32,11 +32,22 @@ jobs:
           rm -rf "$SRC"
           mkdir -p "$SRC"
 
-          # Download split parts from draft release
+          # Download split parts via GitHub API (no gh CLI needed)
           cd "$RUNNER_TEMP"
-          gh release download webkit-pin \
-            --repo "$GITHUB_REPOSITORY" \
-            --pattern "webkit-pin.tar.gz.part-*"
+          ASSETS=$(curl -sL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/webkit-pin" \
+            | python3 -c "import json,sys; [print(a['id'],a['name']) for a in json.load(sys.stdin).get('assets',[])]")
+
+          while IFS=' ' read -r id name; do
+            [[ "$name" == webkit-pin.tar.gz.part-* ]] || continue
+            echo "Downloading $name..."
+            curl -sL -o "$name" \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/octet-stream" \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/assets/$id"
+          done <<< "$ASSETS"
 
           # Stitch parts
           cat webkit-pin.tar.gz.part-* > "$ARCHIVE"
