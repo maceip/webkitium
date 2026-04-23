@@ -3,12 +3,9 @@ new file mode 100644
 index 00000000000..a1b2c3d4e5f
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/NavigatorML.h
-@@ -0,0 +1,39 @@
+@@ -0,0 +1,37 @@
 +/*
-+ * Copyright (C) 2024–2026 Webkitium Contributors
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided the BSD license conditions are met.
++ * Copyright (C) 2024-2026 Webkitium Contributors
 + */
 +
 +#pragma once
@@ -16,18 +13,19 @@ index 00000000000..a1b2c3d4e5f
 +#if ENABLE(WEBNN)
 +
 +#include "Navigator.h"
-+#include <WebCore/Supplementable.h>
++#include "Supplementable.h"
++#include <wtf/TZoneMalloc.h>
 +#include <wtf/RefPtr.h>
 +
 +namespace WebCore {
 +
 +class ML;
 +
-+class NavigatorML final : public Supplement<Navigator> {
-+    WTF_MAKE_FAST_ALLOCATED;
++class NavigatorML : public Supplement<Navigator> {
++    WTF_MAKE_TZONE_ALLOCATED(NavigatorML);
 +public:
 +    explicit NavigatorML(Navigator&);
-+    ~NavigatorML();
++    virtual ~NavigatorML();
 +
 +    static NavigatorML* from(Navigator&);
 +    static ML* ml(Navigator&);
@@ -48,9 +46,9 @@ new file mode 100644
 index 00000000000..b2c3d4e5f6a
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/NavigatorML.cpp
-@@ -0,0 +1,58 @@
+@@ -0,0 +1,56 @@
 +/*
-+ * Copyright (C) 2024–2026 Webkitium Contributors
++ * Copyright (C) 2024-2026 Webkitium Contributors
 + */
 +
 +#include "config.h"
@@ -60,8 +58,11 @@ index 00000000000..b2c3d4e5f6a
 +
 +#include "ML.h"
 +#include "Navigator.h"
++#include <wtf/TZoneMallocInlines.h>
 +
 +namespace WebCore {
++
++WTF_MAKE_TZONE_ALLOCATED_IMPL(NavigatorML);
 +
 +NavigatorML::NavigatorML(Navigator& navigator)
 +    : m_navigator(navigator)
@@ -82,7 +83,7 @@ index 00000000000..b2c3d4e5f6a
 +    if (!supplement) {
 +        auto newSupplement = makeUnique<NavigatorML>(navigator);
 +        supplement = newSupplement.get();
-+        provideTo(&navigator, supplementName(), WTFMove(newSupplement));
++        provideTo(&navigator, supplementName(), WTF::move(newSupplement));
 +    }
 +    return supplement;
 +}
@@ -94,13 +95,8 @@ index 00000000000..b2c3d4e5f6a
 +
 +ML* NavigatorML::ml()
 +{
-+    if (!m_ml) {
-+#if HAVE(LITERT)
++    if (!m_ml)
 +        m_ml = ML::create(m_navigator);
-+#else
-+        m_ml = nullptr;
-+#endif
-+    }
 +    return m_ml.get();
 +}
 +
@@ -128,9 +124,9 @@ new file mode 100644
 index 00000000000..d4e5f6a7b8c
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/ML.h
-@@ -0,0 +1,37 @@
+@@ -0,0 +1,35 @@
 +/*
-+ * Copyright (C) 2024–2026 Webkitium Contributors
++ * Copyright (C) 2024-2026 Webkitium Contributors
 + *
 + * https://webmachinelearning.github.io/webnn/#api-ml
 + */
@@ -159,8 +155,6 @@ index 00000000000..d4e5f6a7b8c
 +
 +private:
 +    explicit ML(Navigator&);
-+
-+    [[maybe_unused]] Navigator& m_navigator;
 +};
 +
 +} // namespace WebCore
@@ -171,9 +165,9 @@ new file mode 100644
 index 00000000000..e5f6a7b8c9d
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/ML.cpp
-@@ -0,0 +1,50 @@
+@@ -0,0 +1,37 @@
 +/*
-+ * Copyright (C) 2024–2026 Webkitium Contributors
++ * Copyright (C) 2024-2026 Webkitium Contributors
 + */
 +
 +#include "config.h"
@@ -185,39 +179,25 @@ index 00000000000..e5f6a7b8c9d
 +#include "MLContextOptions.h"
 +#include "JSDOMPromiseDeferred.h"
 +
-+#if HAVE(LITERT)
-+#include "WebNNLiteRTContext.h"
-+#endif
-+
 +namespace WebCore {
 +
 +Ref<ML> ML::create(Navigator& navigator)
 +{
++    UNUSED_PARAM(navigator);
 +    return adoptRef(*new ML(navigator));
 +}
 +
-+ML::ML(Navigator& navigator)
-+    : m_navigator(navigator)
++ML::ML(Navigator&)
 +{
 +}
 +
 +ML::~ML() = default;
 +
-+void ML::createContext(MLContextOptions&& options, Ref<DeferredPromise>&& promise)
++void ML::createContext(MLContextOptions&&, Ref<DeferredPromise>&& promise)
 +{
-+    UNUSED_PARAM(options);
-+#if HAVE(LITERT)
-+    auto context = WebNN::LiteRTContext::create(options);
-+    if (!context) {
-+        promise->reject(Exception { ExceptionCode::NotSupportedError,
-+            "Failed to create WebNN context with LiteRT backend"_s });
-+        return;
-+    }
-+    promise->resolve<IDLInterface<MLContext>>(*context);
-+#else
++    // TODO: Create real LiteRT backend context when HAVE(LITERT)
 +    promise->reject(Exception { ExceptionCode::NotSupportedError,
-+        "WebNN is not supported on this platform"_s });
-+#endif
++        "WebNN backend not yet connected"_s });
 +}
 +
 +} // namespace WebCore
