@@ -3,7 +3,7 @@ new file mode 100644
 index 00000000000..a1b2c3d4e5f
 --- /dev/null
 +++ b/Source/cmake/FindLiteRT.cmake
-@@ -0,0 +1,81 @@
+@@ -0,0 +1,88 @@
 +# FindLiteRT.cmake
 +#
 +# Finds the LiteRT-LM library for WebNN backend support.
@@ -33,9 +33,17 @@ index 00000000000..a1b2c3d4e5f
 +endif ()
 +
 +# LiteRT core library (prebuilt name is libLiteRt on all platforms)
++if (WIN32)
++    # Prebuilt ships as libLiteRt.dll with no import lib; find the DLL directly
++    set(_litert_saved_suffixes ${CMAKE_FIND_LIBRARY_SUFFIXES})
++    set(CMAKE_FIND_LIBRARY_SUFFIXES .dll .lib)
++endif ()
 +find_library(LiteRT_LIBRARY
-+    NAMES LiteRt litert_lm litert-lm tensorflow-lite tflite
++    NAMES libLiteRt LiteRt litert_lm litert-lm tensorflow-lite tflite
 +)
++if (WIN32)
++    set(CMAKE_FIND_LIBRARY_SUFFIXES ${_litert_saved_suffixes})
++endif ()
 +
 +# GPU accelerator (platform-specific, optional)
 +find_library(LiteRT_GPU_LIBRARY
