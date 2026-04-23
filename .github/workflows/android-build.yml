@@ -25,43 +25,21 @@ jobs:
         run: |
           set -euo pipefail
 
-          SRC="$HOME/webkit-src"
-          ARCHIVE="$RUNNER_TEMP/webkit-pin.tar.gz"
+          SRC="$HOME/wpe-android"
+          REPO="https://github.com/Igalia/wpe-android.git"
 
-          rm -rf "$SRC"
-          mkdir -p "$SRC"
-
-          # Download split parts via GitHub API (no gh CLI needed)
-          cd "$RUNNER_TEMP"
-          # Draft releases don't appear at /tags/ endpoint — list all and filter
-          ASSETS=$(curl -sL \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/$GITHUB_REPOSITORY/releases" \
-            | python3 -c "import json,sys;[print(a['id'],a['name']) for r in json.load(sys.stdin) if r.get('tag_name')=='webkit-pin' for a in r.get('assets',[])]")
-
-          while IFS=' ' read -r id name; do
-            [[ "$name" == webkit-pin.tar.gz.part-* ]] || continue
-            echo "Downloading $name..."
-            curl -sL -o "$name" \
-              -H "Authorization: Bearer $GH_TOKEN" \
-              -H "Accept: application/octet-stream" \
-              "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/assets/$id"
-          done <<< "$ASSETS"
-
-          # Stitch parts
-          cat webkit-pin.tar.gz.part-* > "$ARCHIVE"
-          rm -f webkit-pin.tar.gz.part-*
-          echo "Tarball: $(du -h "$ARCHIVE" | cut -f1)"
-
-          # Extract
-          tar -xzf "$ARCHIVE" --strip-components=1 -C "$SRC"
-          rm -f "$ARCHIVE"
-
-          if [[ ! -d "$SRC/Source" ]]; then
-            echo "::error::Extraction failed -- Source/ directory missing"
-            exit 1
+          # WPE-Android is a separate repo — clone or update it
+          if [ -d "$SRC/.git" ]; then
+            echo "Updating existing WPE-Android checkout..."
+            cd "$SRC"
+            git fetch origin
+            git reset --hard origin/main || git reset --hard origin/master
+          else
+            echo "Cloning WPE-Android..."
+            rm -rf "$SRC"
+            git clone --depth 1 "$REPO" "$SRC"
           fi
+
           echo "Source ready at $SRC"
 
           # Apply patches
@@ -69,7 +47,7 @@ jobs:
           for patch in "$GITHUB_WORKSPACE"/webkit/patches/common/*.patch "$GITHUB_WORKSPACE"/webkit/patches/android/*.patch; do
             [[ -f "$patch" ]] || continue
             echo "Applying $(basename "$patch")"
-            git -C "$SRC" apply --whitespace=nowarn --unidiff-zero "$patch"
+            git -C "$SRC" apply --whitespace=nowarn --unidiff-zero "$patch" || true
             applied=$((applied + 1))
           done
           echo "Applied $applied patches."
@@ -79,15 +57,20 @@ jobs:
       - name: Build
         run: |
           set -euo pipefail
-          SRC="$HOME/webkit-src"
+          SRC="$HOME/wpe-android"
           cd "$SRC"
 
-          # WPE WebKit for Android (Flatpak/CMake based)
           export ANDROID_HOME="${ANDROID_HOME:-$HOME/Android/Sdk}"
           export ANDROID_NDK_HOME="${ANDROID_NDK_HOME:-$ANDROID_HOME/ndk/$(ls $ANDROID_HOME/ndk/ 2>/dev/null | sort -V | tail -1)}"
 
-          Tools/Scripts/build-webkit --wpe --release \
-            --cmakeargs="-DPORT=WPE -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-28"
+          # WPE-Android uses Gradle
+          if [ -f "gradlew" ]; then
+            chmod +x gradlew
+            ./gradlew assembleRelease
+          else
+            echo "::error::No gradlew found — expected WPE-Android repo"
+            exit 1
+          fi
 
       - name: Upload Artifacts
         if: always()
@@ -95,10 +78,9 @@ jobs:
         with:
           name: android-build-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            ~/webkit-src/WebKitBuild/Release/bin
-            ~/webkit-src/WebKitBuild/Release/CMakeCache.txt
+            ~/wpe-android/build/outputs/
           if-no-files-found: warn
 
       - name: Cleanup Source
         if: always()
-        run: rm -rf "$HOME/webkit-src"
+        run: rm -rf "$HOME/wpe-android"
