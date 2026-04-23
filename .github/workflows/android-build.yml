@@ -58,6 +58,8 @@ jobs:
           if [ -f "$TIDY" ]; then
             mv "$TIDY" "$TIDY.disabled"
           fi
+          # Clear CMake cache so it doesn't reference the old clang-tidy path
+          rm -rf "$SRC/wpeview/.cxx" 2>/dev/null || true
 
           # WPE-Android uses Gradle
           if [ -f "gradlew" ]; then
