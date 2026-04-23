@@ -23,7 +23,7 @@ index 00000000000..a1b2c3d4e5f
 +#include <cstddef>
 +#include <cstdint>
 +
-+#if PLATFORM(WIN)
++#ifdef _WIN32
 +#include <windows.h>
 +#else
 +#include <dlfcn.h>
@@ -124,7 +124,7 @@ index 00000000000..a1b2c3d4e5f
 +    bool m_loaded { false };
 +    LiteRTAPI m_api {};
 +
-+#if PLATFORM(WIN)
++#ifdef _WIN32
 +    HMODULE m_handle { nullptr };
 +#else
 +    void* m_handle { nullptr };
@@ -163,7 +163,7 @@ index 00000000000..b2c3d4e5f6a
 +LiteRTLoader::~LiteRTLoader()
 +{
 +    if (m_handle) {
-+#if PLATFORM(WIN)
++#ifdef _WIN32
 +        FreeLibrary(m_handle);
 +#else
 +        dlclose(m_handle);
@@ -175,7 +175,7 @@ index 00000000000..b2c3d4e5f6a
 +{
 +    if (!m_handle)
 +        return nullptr;
-+#if PLATFORM(WIN)
++#ifdef _WIN32
 +    return reinterpret_cast<void*>(GetProcAddress(m_handle, name));
 +#else
 +    return dlsym(m_handle, name);
@@ -184,8 +184,7 @@ index 00000000000..b2c3d4e5f6a
 +
 +bool LiteRTLoader::load()
 +{
-+#if PLATFORM(WIN)
-+    // Try beside the executable first (standard DLL search)
++#ifdef _WIN32
 +    const wchar_t* dllNames[] = {
 +        L"libLiteRt.dll",
 +        L"LiteRt.dll",
@@ -198,7 +197,7 @@ index 00000000000..b2c3d4e5f6a
 +        if (m_handle)
 +            break;
 +    }
-+#elif PLATFORM(MAC) || PLATFORM(IOS)
++#elif defined(__APPLE__)
 +    const char* soNames[] = {
 +        "libLiteRt.dylib",
 +        "libLiteRtMetalAccelerator.dylib",
