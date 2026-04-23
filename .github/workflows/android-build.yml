@@ -53,28 +53,26 @@ jobs:
 
           export ANDROID_HOME="${ANDROID_HOME:-$HOME/Android/Sdk}"
           export ANDROID_NDK_HOME="${ANDROID_NDK_HOME:-$ANDROID_HOME/ndk/$(ls $ANDROID_HOME/ndk/ 2>/dev/null | sort -V | tail -1)}"
-          # Disable clang-tidy — upstream WPE code triggers cognitive-complexity with -Werror
+
+          # Restore clang-tidy if previous run disabled it
           TIDY="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/clang-tidy"
-          if [ -f "$TIDY" ]; then
-            mv "$TIDY" "$TIDY.disabled"
-          fi
-          # Clear CMake cache so it doesn't reference the old clang-tidy path
+          [ -f "$TIDY.disabled" ] && mv "$TIDY.disabled" "$TIDY" || true
+
+          # Suppress cognitive-complexity clang-tidy check that fails with -Werror
+          cat > "$SRC/.clang-tidy" << 'TIDY'
+          Checks: '-readability-function-cognitive-complexity'
+          TIDY
+          # Clear CMake cache to pick up the new .clang-tidy
           rm -rf "$SRC/wpeview/.cxx" 2>/dev/null || true
 
           # WPE-Android uses Gradle
           if [ -f "gradlew" ]; then
             chmod +x gradlew
-            ./gradlew assembleRelease -PdisableClangTidy=true
+            ./gradlew assembleRelease
           else
             echo "::error::No gradlew found — expected WPE-Android repo"
             exit 1
           fi
-
-      - name: Restore clang-tidy
-        if: always()
-        run: |
-          TIDY="$HOME/Android/Sdk/ndk/$(ls $HOME/Android/Sdk/ndk/ 2>/dev/null | sort -V | tail -1)/toolchains/llvm/prebuilt/linux-x86_64/bin/clang-tidy"
-          [ -f "$TIDY.disabled" ] && mv "$TIDY.disabled" "$TIDY" || true
 
       - name: Upload Artifacts
         if: always()
