@@ -132,11 +132,13 @@ jobs:
 
           # Apply patches (strip CRLF -- git apply requires LF in patches)
           applied=0
+          # WebNN lane patches are staged but disabled until LiteRT-LM is
+          # installed on the runner (fetch-litert-lm.sh). Uncomment when ready:
+          #   "$GITHUB_WORKSPACE"/changes/webnn-service/patches/common/*.patch \
+          #   "$GITHUB_WORKSPACE"/changes/webnn-service/patches/windows/*.patch
           for patch in \
             "$GITHUB_WORKSPACE"/webkit/patches/common/*.patch \
-            "$GITHUB_WORKSPACE"/webkit/patches/windows/*.patch \
-            "$GITHUB_WORKSPACE"/changes/webnn-service/patches/common/*.patch \
-            "$GITHUB_WORKSPACE"/changes/webnn-service/patches/windows/*.patch; do
+            "$GITHUB_WORKSPACE"/webkit/patches/windows/*.patch; do
             [[ -f "$patch" ]] || continue
             echo "Applying $(basename "$patch")"
             clean="$RUNNER_TEMP/$(basename "$patch")"
