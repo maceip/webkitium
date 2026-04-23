@@ -129,10 +129,10 @@ index 00000000001..00000000002 100644
 +# WebNN / LiteRT-LM sources (all platforms — included from PlatformWin.cmake)
 +if (ENABLE_WEBNN AND LiteRT_FOUND)
 +    list(APPEND WebCore_SOURCES
-+        Modules/WebNN/Implementation/WebNNContextImpl.cpp
-+        Modules/WebNN/Implementation/WebNNGraphImpl.cpp
 +        Modules/WebNN/Implementation/WebNNLiteRTContext.cpp
 +        Modules/WebNN/Implementation/WebNNLiteRTGraph.cpp
++        Modules/WebNN/ML.cpp
++        Modules/WebNN/NavigatorML.cpp
 +    )
 +    list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES ${LiteRT_INCLUDE_DIRS})
 +    list(APPEND WebCore_LIBRARIES ${LiteRT_LIBRARIES})
