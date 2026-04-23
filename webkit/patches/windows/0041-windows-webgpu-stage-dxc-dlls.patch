@@ -1,0 +1,71 @@
+diff --git a/Source/WebCore/PlatformWin.cmake b/Source/WebCore/PlatformWin.cmake
+index 736679d..3297859 100644
+--- a/Source/WebCore/PlatformWin.cmake
++++ b/Source/WebCore/PlatformWin.cmake
+@@ -39,6 +39,66 @@ if (ENABLE_WEBGPU)
+     list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
+         html/canvas/GPUCanvasContextWin.h
+     )
++
++    # Stage DXC runtime DLLs (dxil.dll + dxcompiler.dll) beside every built
++    # exe/dll so Dawn's D3D12 backend can sign and compile HLSL at device-
++    # create time. Without these, navigator.gpu.requestDevice() fails with
++    # "DynamicLib.Open: dxil.dll Windows Error: 87" on the first WebGPU page.
++    #
++    # Lookup order:
++    #   1. -DDXC_ROOT=<dir>                               (explicit override)
++    #   2. vcpkg: VCPKG_ROOT/installed/x64-windows*/bin   (any vcpkg install,
++    #      including the directx-dxc port)
++    #   3. Windows Kits/10/bin/10.*/x64                   (Windows 10/11 SDK,
++    #      present on any builder with Visual Studio; newest SDK wins)
++    set(_WEBKIT_DXC_CANDIDATES "")
++    if (DXC_ROOT)
++        list(APPEND _WEBKIT_DXC_CANDIDATES "${DXC_ROOT}")
++    endif ()
++    if (DEFINED ENV{VCPKG_ROOT})
++        file(GLOB _webkit_vcpkg_dxil
++            "$ENV{VCPKG_ROOT}/installed/x64-windows*/bin/dxil.dll"
++            "$ENV{VCPKG_ROOT}/installed/x64-windows*/tools/directx-dxc/dxil.dll")
++        foreach (_hit ${_webkit_vcpkg_dxil})
++            get_filename_component(_dir "${_hit}" DIRECTORY)
++            list(APPEND _WEBKIT_DXC_CANDIDATES "${_dir}")
++        endforeach ()
++    endif ()
++    file(GLOB _webkit_sdk_dxc
++        "$ENV{ProgramFiles\(x86\)}/Windows Kits/10/bin/10.*/x64"
++        "C:/Program Files (x86)/Windows Kits/10/bin/10.*/x64")
++    list(SORT _webkit_sdk_dxc ORDER DESCENDING)
++    list(APPEND _WEBKIT_DXC_CANDIDATES ${_webkit_sdk_dxc})
++
++    set(_WEBKIT_DXC_DIR "")
++    foreach (_cand ${_WEBKIT_DXC_CANDIDATES})
++        if (EXISTS "${_cand}/dxil.dll" AND EXISTS "${_cand}/dxcompiler.dll")
++            set(_WEBKIT_DXC_DIR "${_cand}")
++            break()
++        endif ()
++    endforeach ()
++
++    if (_WEBKIT_DXC_DIR)
++        message(STATUS "WebGPU: staging DXC runtime DLLs from ${_WEBKIT_DXC_DIR}")
++        set(_WEBKIT_DXC_DEST "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
++        if (NOT _WEBKIT_DXC_DEST)
++            set(_WEBKIT_DXC_DEST "${CMAKE_BINARY_DIR}/bin")
++        endif ()
++        file(MAKE_DIRECTORY "${_WEBKIT_DXC_DEST}")
++        file(COPY "${_WEBKIT_DXC_DIR}/dxil.dll"
++                  "${_WEBKIT_DXC_DIR}/dxcompiler.dll"
++             DESTINATION "${_WEBKIT_DXC_DEST}")
++        install(FILES "${_WEBKIT_DXC_DIR}/dxil.dll"
++                      "${_WEBKIT_DXC_DIR}/dxcompiler.dll"
++                DESTINATION "${CMAKE_INSTALL_BINDIR}"
++                OPTIONAL)
++    else ()
++        message(WARNING
++            "WebGPU: dxil.dll + dxcompiler.dll not found. "
++            "navigator.gpu.requestDevice() will fail at runtime. "
++            "Install the Windows 10/11 SDK, or pass "
++            "-DDXC_ROOT=<dir containing dxil.dll + dxcompiler.dll>.")
++    endif ()
+ endif ()
+ 
+ list(APPEND WebCore_SOURCES
