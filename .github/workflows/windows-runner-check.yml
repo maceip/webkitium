@@ -31,7 +31,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 "$GITHUB_WORKSPACE/config/verify_webkit_pin_commit.py" \
+          python "$GITHUB_WORKSPACE/config/verify_webkit_pin_commit.py" \
             --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" \
             --check-vcpkg --check-green-json
 

@@ -45,14 +45,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 "$GITHUB_WORKSPACE/config/ci_matrix_env.py" \
+          python "$GITHUB_WORKSPACE/config/ci_matrix_env.py" \
             --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" >> "$GITHUB_ENV"
 
       - name: Verify matrix, vcpkg (Dawn), and green JSON alignment
         shell: bash
         run: |
           set -euo pipefail
-          python3 "$GITHUB_WORKSPACE/config/verify_webkit_pin_commit.py" \
+          python "$GITHUB_WORKSPACE/config/verify_webkit_pin_commit.py" \
             --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" \
             --check-vcpkg --check-green-json
 
@@ -124,7 +124,7 @@ jobs:
             echo "::error::Extraction failed -- Source/ directory missing"
             exit 1
           fi
-          python3 "$GITHUB_WORKSPACE/config/verify_webkit_pin_commit.py" \
+          python "$GITHUB_WORKSPACE/config/verify_webkit_pin_commit.py" \
             --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" \
             --webkit-root "$SRC"
           echo "Source ready at $SRC_WIN"
@@ -132,10 +132,10 @@ jobs:
 
           # Fetch LiteRT-LM for WebNN backend (ref from config/webkit-build-matrix.json)
           LITERT_REF="$(
-            python3 -c "import json, pathlib; print(json.load(pathlib.Path('$GITHUB_WORKSPACE/config/webkit-build-matrix.json').open())['webnn']['litertLm']['gitRef'])"
+            python -c "import json, pathlib; print(json.load(pathlib.Path('$GITHUB_WORKSPACE/config/webkit-build-matrix.json').open())['webnn']['litertLm']['gitRef'])"
           )"
           LITERT_URL="$(
-            python3 -c "import json, pathlib; print(json.load(pathlib.Path('$GITHUB_WORKSPACE/config/webkit-build-matrix.json').open())['webnn']['litertLm']['gitUrl'])"
+            python -c "import json, pathlib; print(json.load(pathlib.Path('$GITHUB_WORKSPACE/config/webkit-build-matrix.json').open())['webnn']['litertLm']['gitUrl'])"
           )"
           LITERT="$RUNNER_TEMP/litert-lm"
           if [ ! -d "$LITERT/.git" ]; then
@@ -243,7 +243,7 @@ jobs:
           export BASELINE_ZIP="$(basename "$ZIP")"
           export BASELINE_MSI="$(basename "$MSI")"
           export BASELINE_CREATED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          python3 <<'PY'
+          python <<'PY'
           import json, os, pathlib
           out = pathlib.Path(os.environ["BASELINE_JSON_DIR"]) / f"baseline-{os.environ['BASELINE_PLATFORM']}-{os.environ['BASELINE_RUN_ID']}.json"
           doc = {
