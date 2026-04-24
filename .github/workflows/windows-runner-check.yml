@@ -19,6 +19,14 @@ jobs:
       # Checkout so we can read the build workflow and patches
       - uses: actions/checkout@v4
 
+      # Runner's git-bash PATH does not include C:\Python314 by default —
+      # surface python3 for subsequent bash steps.
+      - name: Prepend Python to PATH
+        shell: bash
+        run: |
+          echo "C:\Python314" >> "$GITHUB_PATH"
+          echo "C:\Python314\Scripts" >> "$GITHUB_PATH"
+
       - name: Verify CI matrix pins (vcpkg / Dawn / green JSON)
         shell: bash
         run: |
