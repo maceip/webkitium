@@ -96,6 +96,8 @@ jobs:
             echo "::error::Tools/gtk/install-dependencies not found and NG_SKIP_INSTALL_DEPS not set"
             exit 1
           fi
+          # OpenXR is required by OptionsGTK.cmake even with -DENABLE_WEBXR=OFF
+          sudo apt-get install -y --no-install-recommends libopenxr-dev 2>/dev/null || true
 
       - name: Build
         run: |
