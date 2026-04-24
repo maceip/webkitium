@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="webkitium.Omnibar"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        Omnibar — anatomy per design/components/omnibar/SPEC.md:
+
+        [lockmark] [origin chip] [input / inline suggestion] [actions]
+
+        At rest: origin chip visible in TextSecondary, input in chip style.
+        Focused: chip collapses, TextBox takes the full leading area.
+
+        This sketch implements rest + focus states; inline completion,
+        suggestion dropdown, and prefix routing come with the browser
+        command controller wiring.
+    -->
+
+    <Border x:Name="PART_Pill"
+            Background="{ThemeResource SurfaceSunken}"
+            BorderBrush="{ThemeResource BorderSubtle}"
+            BorderThickness="1"
+            CornerRadius="{StaticResource RadiusOmnibar, x:Double}"
+            Padding="8,4"
+            HorizontalAlignment="Stretch">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />   <!-- Lockmark -->
+                <ColumnDefinition Width="*" />      <!-- Input -->
+                <ColumnDefinition Width="Auto" />   <!-- Actions -->
+            </Grid.ColumnDefinitions>
+
+            <!--
+                Lockmark. Segoe Fluent Icons glyph E72E = Lock.
+                Color is the AccentFill brush so it picks up the user's
+                brand hue once theming is live. Anti-spoof: on the real
+                webkitium address bar the glyph never changes to a custom
+                graphic — web content cannot paint outside its viewport
+                and extensions cannot substitute this glyph.
+            -->
+            <FontIcon Grid.Column="0"
+                      x:Name="PART_Lockmark"
+                      Glyph="&#xE72E;"
+                      FontFamily="Segoe Fluent Icons"
+                      FontSize="14"
+                      Foreground="{ThemeResource AccentFill}"
+                      Margin="4,0,8,0"
+                      VerticalAlignment="Center" />
+
+            <!--
+                Input. Borderless, transparent — the outer pill owns the
+                visual. PlaceholderText is the rest-state cue; once a tab
+                is loaded we swap it for the live origin via code-behind.
+            -->
+            <TextBox Grid.Column="1"
+                     x:Name="PART_Input"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     PlaceholderText="Search or enter address"
+                     Foreground="{ThemeResource TextPrimary}"
+                     FontFamily="{StaticResource FontFamilyUI}"
+                     FontSize="{StaticResource FontSizeBody, x:Double}"
+                     VerticalAlignment="Center"
+                     VerticalContentAlignment="Center"
+                     GotFocus="OnInputGotFocus"
+                     LostFocus="OnInputLostFocus"
+                     KeyDown="OnInputKeyDown" />
+
+            <!--
+                Trailing action cluster. Reload + extension affordance +
+                overflow. All use SubtleButtonStyle so only hover tint
+                appears; rest-state reads as part of the pill.
+            -->
+            <StackPanel Grid.Column="2"
+                        Orientation="Horizontal"
+                        Spacing="0">
+                <Button x:Name="PART_Reload"
+                        Style="{StaticResource SubtleButtonStyle}"
+                        Padding="8"
+                        ToolTipService.ToolTip="Reload (Ctrl+R)">
+                    <FontIcon Glyph="&#xE72C;"
+                              FontFamily="Segoe Fluent Icons"
+                              FontSize="14" />
+                </Button>
+                <Button x:Name="PART_Extensions"
+                        Style="{StaticResource SubtleButtonStyle}"
+                        Padding="8"
+                        ToolTipService.ToolTip="Extensions">
+                    <FontIcon Glyph="&#xECAA;"
+                              FontFamily="Segoe Fluent Icons"
+                              FontSize="14" />
+                </Button>
+                <Button x:Name="PART_Overflow"
+                        Style="{StaticResource SubtleButtonStyle}"
+                        Padding="8"
+                        ToolTipService.ToolTip="More">
+                    <FontIcon Glyph="&#xE712;"
+                              FontFamily="Segoe Fluent Icons"
+                              FontSize="14" />
+                </Button>
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>

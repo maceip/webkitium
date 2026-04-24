@@ -52,6 +52,8 @@ else()
 endif()
 
 add_library(ng_browser_core STATIC
+    color/ColorRamp.cpp
+    color/OklchColor.cpp
     core/Origin.cpp
     extensions/ExtensionManifest.cpp
     extensions/ExtensionRegistry.cpp
@@ -106,3 +108,10 @@ add_executable(ng_chromium_sync_wire_test
 
 target_link_libraries(ng_chromium_sync_wire_test PRIVATE ng_browser_core)
 add_test(NAME ng_chromium_sync_wire_test COMMAND ng_chromium_sync_wire_test)
+
+add_executable(ng_color_test
+    tests/ColorTest.cpp
+)
+
+target_link_libraries(ng_color_test PRIVATE ng_browser_core)
+add_test(NAME ng_color_test COMMAND ng_color_test)
