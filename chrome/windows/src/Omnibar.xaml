@@ -12,11 +12,11 @@
         The pill owns the visual (Background, Border, CornerRadius).
         The nested TextBox is forced transparent and has its
         TextControl* theme resources overridden so that our Foreground
-        brushes actually apply -- without those overrides the default
+        brushes actually apply.  Without those overrides the default
         TextBox template wins and the text is invisible on our pill.
 
         MaxWidth lives on the Border, not the UserControl, so the
-        parent's Stretch layout is bounded at the pill level.
+        parent Stretch layout is bounded at the pill level.
     -->
 
     <Border x:Name="PART_Pill"
