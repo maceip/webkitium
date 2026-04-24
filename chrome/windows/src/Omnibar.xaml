@@ -76,7 +76,6 @@
                         Orientation="Horizontal"
                         Spacing="0">
                 <Button x:Name="PART_Reload"
-                        Style="{StaticResource SubtleButtonStyle}"
                         Padding="8"
                         ToolTipService.ToolTip="Reload (Ctrl+R)">
                     <FontIcon Glyph="&#xE72C;"
@@ -84,7 +83,6 @@
                               FontSize="14" />
                 </Button>
                 <Button x:Name="PART_Extensions"
-                        Style="{StaticResource SubtleButtonStyle}"
                         Padding="8"
                         ToolTipService.ToolTip="Extensions">
                     <FontIcon Glyph="&#xECAA;"
@@ -92,7 +90,6 @@
                               FontSize="14" />
                 </Button>
                 <Button x:Name="PART_Overflow"
-                        Style="{StaticResource SubtleButtonStyle}"
                         Padding="8"
                         ToolTipService.ToolTip="More">
                     <FontIcon Glyph="&#xE712;"
