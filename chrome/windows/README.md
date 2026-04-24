@@ -11,12 +11,13 @@ This is a *seed*, not a complete browser. It demonstrates the pieces that matter
 - [x] **Omnibar** component following `design/components/omnibar/SPEC.md` — pill shape, `shape.omnibar` radius, leading lockmark, trailing actions
 - [x] Token consumption from a single **ResourceDictionary** (`Tokens.xaml`) that mirrors the output of `browser/color/ColorRamp.cpp` for webkitium's default seed
 - [x] Light / Dark `ThemeDictionaries` that automatically follow the system appearance
+- [x] **Runtime palette updates** — `PaletteProvider` mutates the `SolidColorBrush` DPs in place; every bound control repaints without tearing down the visual tree. Bound to a dev-only **Ctrl+Shift+T** shortcut that cycles four test seeds (blue → magenta → green → near-mono) so the end-to-end OKLCH pipeline is visually verifiable.
 - [ ] WebView2 content area — stubbed, to be wired when we integrate the WebKit Windows port
 - [ ] Tab strip — not started
 - [ ] Context menu component
-- [ ] Settings page
+- [ ] Settings window (stubbed sections planned: Paired devices, Theme, Passwords)
 - [ ] Authenticator window
-- [ ] `browser.theme` extension API wiring (the `Tokens.xaml` values are static for now; runtime palette updates land when the extension API is ported)
+- [ ] `browser.theme` extension API wiring — `PaletteProvider::ApplySeed` is the implementation target, exposed through the extension API host once that's ported
 
 ## File layout
 
