@@ -94,8 +94,10 @@
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <PrecompiledHeaderOutputFile>$(IntDir)pch.pch</PrecompiledHeaderOutputFile>
       <WarningLevel>Level3</WarningLevel>
-      <LanguageStandard Condition="'$(VisualStudioVersion)' &gt;= '18.0'">stdcpp20</LanguageStandard>
-      <LanguageStandard Condition="'$(VisualStudioVersion)' &lt; '18.0'">stdcpp17</LanguageStandard>
+      <!-- C++17 keeps CppWinRT 2.0.240405.15 happy (the pinned version
+           has a known C2555 regression with stdcpp20 + IUnknown).  Our
+           portable browser/color/ code is already C++17, so no loss. -->
+      <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalOptions>%(AdditionalOptions) /bigobj</AdditionalOptions>
       <!-- Let chrome/windows/src/ + ../../browser/ headers resolve.
            The portable color library lives at $(SolutionDir)..\..\browser\ -->
