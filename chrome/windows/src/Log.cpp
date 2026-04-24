@@ -1,12 +1,8 @@
 #include "pch.h"
 #include "Log.h"
 
-#include <shlobj.h>
-
 #include <atomic>
-#include <cstdio>
 #include <cwchar>
-#include <filesystem>
 #include <mutex>
 #include <string>
 
@@ -14,18 +10,18 @@ namespace webkitium::log {
 namespace {
 
 std::mutex g_mu;
-FILE*      g_fp = nullptr;
+HANDLE g_file = INVALID_HANDLE_VALUE;
 std::atomic<bool> g_opened{false};
 std::wstring g_log_path;
 
-std::wstring LocalAppDataDir() {
-    PWSTR raw = nullptr;
-    if (SHGetKnownFolderPath(FOLDERID_LocalAppData, 0, nullptr, &raw) == S_OK) {
-        std::wstring dir = raw;
-        CoTaskMemFree(raw);
-        return dir;
-    }
-    return L"C:\\Users\\Public";  // fallback
+std::wstring ExeDir() {
+    wchar_t buf[MAX_PATH] = L"";
+    DWORD n = GetModuleFileNameW(nullptr, buf, MAX_PATH);
+    if (n == 0 || n == MAX_PATH) return {};
+    std::wstring s{ buf, n };
+    auto slash = s.find_last_of(L"\\/");
+    if (slash == std::wstring::npos) return {};
+    return s.substr(0, slash + 1);
 }
 
 std::wstring Widen(std::string_view s) {
@@ -41,9 +37,26 @@ const wchar_t* LevelTag(Level l) {
     return L"?    ";
 }
 
+void WriteUtf8(HANDLE h, std::wstring_view w) {
+    // Convert UTF-16 -> UTF-8 for the file; OutputDebugStringW separately
+    // takes the UTF-16 directly.
+    if (w.empty() || h == INVALID_HANDLE_VALUE) return;
+    int need = ::WideCharToMultiByte(
+        CP_UTF8, 0, w.data(), static_cast<int>(w.size()),
+        nullptr, 0, nullptr, nullptr);
+    if (need <= 0) return;
+    std::string bytes(static_cast<size_t>(need), '\0');
+    ::WideCharToMultiByte(
+        CP_UTF8, 0, w.data(), static_cast<int>(w.size()),
+        bytes.data(), need, nullptr, nullptr);
+    DWORD written = 0;
+    ::WriteFile(h, bytes.data(), static_cast<DWORD>(bytes.size()),
+                &written, nullptr);
+    ::FlushFileBuffers(h);
+}
+
 void WriteLineLocked(Level level, std::wstring_view where,
                      std::wstring_view message) {
-    // Timestamp prefix YYYY-MM-DD HH:MM:SS.mmm
     SYSTEMTIME st;
     GetLocalTime(&st);
     wchar_t ts[32];
@@ -52,7 +65,6 @@ void WriteLineLocked(Level level, std::wstring_view where,
                   st.wYear, st.wMonth, st.wDay,
                   st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
 
-    // Assemble full line (stack buffer with heap fallback).
     std::wstring line;
     line.reserve(128 + message.size() + where.size());
     line.append(ts).append(L"  ").append(LevelTag(level)).append(L"  ");
@@ -60,11 +72,7 @@ void WriteLineLocked(Level level, std::wstring_view where,
     line.append(message.data(), message.size()).append(L"\r\n");
 
     OutputDebugStringW(line.c_str());
-
-    if (g_fp) {
-        std::fputws(line.c_str(), g_fp);
-        std::fflush(g_fp);
-    }
+    WriteUtf8(g_file, line);
 }
 
 }  // namespace
@@ -75,33 +83,35 @@ void Initialize() {
 
     OutputDebugStringW(L"[webkitium] Log::Initialize entered\r\n");
 
-    // Open the log at %TEMP%\webkitium.log -- TEMP is guaranteed writable
-    // for any desktop app; no FOLDERID / create_directories fuss.
-    wchar_t temp[MAX_PATH] = L"";
-    DWORD n = GetTempPathW(MAX_PATH, temp);
-    if (n == 0 || n >= MAX_PATH) {
-        OutputDebugStringW(L"[webkitium] Log: GetTempPath failed\r\n");
+    // Log alongside the .exe -- guaranteed writable, no env vars involved.
+    std::wstring dir = ExeDir();
+    if (dir.empty()) {
+        OutputDebugStringW(L"[webkitium] Log: ExeDir() empty; logging disabled\r\n");
         return;
     }
-    g_log_path.assign(temp);
-    if (!g_log_path.empty() && g_log_path.back() != L'\\') g_log_path += L'\\';
-    g_log_path += L"webkitium.log";
+    g_log_path = dir + L"webkitium.log";
 
     {
-        std::wstring opening = L"[webkitium] Log: opening ";
-        opening += g_log_path;
-        opening += L"\r\n";
-        OutputDebugStringW(opening.c_str());
+        std::wstring line = L"[webkitium] Log: opening ";
+        line += g_log_path;
+        line += L"\r\n";
+        OutputDebugStringW(line.c_str());
     }
 
-    errno_t err = _wfopen_s(&g_fp, g_log_path.c_str(), L"w, ccs=UTF-8");
-    if (err != 0 || !g_fp) {
+    g_file = ::CreateFileW(
+        g_log_path.c_str(),
+        GENERIC_WRITE,
+        FILE_SHARE_READ,          // let other processes tail it
+        nullptr,
+        CREATE_ALWAYS,            // truncate on each launch
+        FILE_ATTRIBUTE_NORMAL,
+        nullptr);
+    if (g_file == INVALID_HANDLE_VALUE) {
+        DWORD err = ::GetLastError();
         wchar_t msg[128];
         std::swprintf(msg, 128,
-                      L"[webkitium] Log: _wfopen_s failed errno=%d fp=%p\r\n",
-                      err, reinterpret_cast<void*>(g_fp));
+                      L"[webkitium] Log: CreateFileW failed GLE=%lu\r\n", err);
         OutputDebugStringW(msg);
-        g_fp = nullptr;
         return;
     }
 
