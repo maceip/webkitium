@@ -77,7 +77,7 @@
                     <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
 
                     <!-- Hide the blue focus underline the default template
-                         would draw beneath the text -- our pill border
+                         would draw beneath the text; our pill border
                          already indicates focus. -->
                     <Thickness x:Key="TextControlBorderThemeThickness">0</Thickness>
                     <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
