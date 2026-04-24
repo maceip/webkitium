@@ -12,7 +12,7 @@
   "source": {
     "preset": "iangrunert-win-gigacage-skia-fixes",
     "url": "https://github.com/iangrunert/WebKit.git",
-    "commit": "64f58084c78130b874d05dbcfb508147354095af"
+    "commit": "1f41867848acbe98dd9a7680365eecc2945de48d"
   },
   "environment": {
     "NG_WINDOWS_ENABLE_WEBGPU": "1",
