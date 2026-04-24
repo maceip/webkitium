@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Minimal XML theme. Our ColorScheme is set in Compose code
+        (WebkitiumTheme), not here. The XML theme exists only to satisfy
+        AndroidManifest's android:theme requirement before Compose is up.
+        Colors are placeholders -- the Compose layer paints over them.
+    -->
+    <style name="Theme.Webkitium" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+
+    <style name="Theme.Webkitium.NoActionBar" parent="Theme.Webkitium" />
+</resources>
