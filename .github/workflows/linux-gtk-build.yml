@@ -114,8 +114,9 @@ jobs:
           # Downgrade to WARNING so configure continues with USE_LIBRICE=OFF.
           sed -i 's/message(FATAL_ERROR.*librice/message(WARNING "librice/' "$SRC/Source/cmake/GStreamerChecks.cmake"
           # GCC on ARM64 raises -Werror=stringop-overflow false positive in bmalloc.
-          export CFLAGS="${CFLAGS:-} -Wno-error=stringop-overflow"
-          export CXXFLAGS="${CXXFLAGS:-} -Wno-error=stringop-overflow"
+          # GCC on ARM64 raises -Werror false positives in WebKit internals
+          export CFLAGS="${CFLAGS:-} -Wno-error=stringop-overflow -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
+          export CXXFLAGS="${CXXFLAGS:-} -Wno-error=stringop-overflow -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
           perl Tools/Scripts/build-webkit --release --gtk --makeargs="-j$JOBS" \
             -DENABLE_EXPERIMENTAL_FEATURES="${WEBKIT_CMAKE_ENABLE_EXPERIMENTAL_FEATURES:-ON}" \
             -DENABLE_WEBXR="${WEBKIT_CMAKE_ENABLE_WEBXR:-OFF}" \
