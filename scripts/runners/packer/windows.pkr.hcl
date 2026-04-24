@@ -1,7 +1,9 @@
 # Webkitium Windows Runner AMI
 #
-# Builds a Windows Server 2022 AMI with everything needed to compile
-# WebKit (WebGPU/Dawn + WebNN) and build the native browser shell.
+# Single AMI that can build BOTH:
+#   1. WebKit port (clang-cl, vcpkg, Perl, Ruby, sccache)
+#   2. Native browser shell / chrome/windows (VS Community, MSBuild,
+#      Windows App SDK, .NET, protobuf)
 #
 # Usage:
 #   packer init windows.pkr.hcl
@@ -34,7 +36,6 @@ variable "instance_type" {
 variable "volume_size" {
   type    = number
   default = 2048
-  description = "Root volume size in GB. WebKit + vcpkg + sccache need ~500GB; 2TB gives headroom."
 }
 
 variable "ami_prefix" {
@@ -42,7 +43,7 @@ variable "ami_prefix" {
   default = "webkitium-windows"
 }
 
-# ── Tool versions (bump these when upgrading) ────────────────────────
+# ── Tool versions ────────────────────────────────────────────────────
 
 variable "llvm_version" {
   type    = string
@@ -136,18 +137,54 @@ source "amazon-ebs" "windows" {
 build {
   sources = ["source.amazon-ebs.windows"]
 
-  # ── 1. Visual Studio Build Tools + Desktop C++ workload ──────────
+  # ════════════════════════════════════════════════════════════════════
+  # TIER 1: Visual Studio Community (for native shell / chrome/windows)
+  # ════════════════════════════════════════════════════════════════════
+
+  # ── 1a. VS 2026 Community — full IDE with native desktop + app SDK
+  provisioner "powershell" {
+    inline = [
+      "$ErrorActionPreference = 'Stop'",
+      "New-Item -Path C:\\Bootstrap\\installers -ItemType Directory -Force | Out-Null",
+
+      "# VS Community bootstrapper",
+      "$bsUrl = 'https://aka.ms/vs/18/release/vs_Community.exe'",
+      "$bsPath = 'C:\\Bootstrap\\installers\\vs_Community.exe'",
+      "Invoke-WebRequest -Uri $bsUrl -OutFile $bsPath -UseBasicParsing",
+
+      "Start-Process -Wait -FilePath $bsPath -ArgumentList @(",
+      "  '--quiet', '--wait', '--norestart',",
+
+      "  # Native Desktop C++ workload",
+      "  '--add', 'Microsoft.VisualStudio.Workload.NativeDesktop',",
+
+      "  # Explicit components",
+      "  '--add', 'Microsoft.VisualStudio.Component.VC.Tools.x86.x64',",
+      "  '--add', 'Microsoft.VisualStudio.Component.VC.ATL',",
+      "  '--add', 'Microsoft.VisualStudio.Component.VC.ASAN',",
+      "  '--add', 'Microsoft.VisualStudio.Component.Windows11SDK.26100',",
+      "  '--add', 'Microsoft.VisualStudio.Component.Windows11SDK.22621',",
+      "  '--add', 'Microsoft.VisualStudio.Component.VC.CMake.Project',",
+      "  '--add', 'Microsoft.Component.MSBuild',",
+      "  '--add', 'Microsoft.NetCore.Component.SDK',",
+
+      "  # Windows App SDK (for native browser shell)",
+      "  '--add', 'Microsoft.VisualStudio.Component.WindowsAppSdkSupport.Cpp'",
+      ")",
+
+      "Write-Host 'VS 2026 Community installed'",
+    ]
+  }
+
+  # ── 1b. VS Build Tools (separate install at C:\BuildTools for WebKit CI)
   provisioner "powershell" {
     inline = [
       "$ErrorActionPreference = 'Stop'",
 
-      "# Download VS Build Tools bootstrapper",
       "$bsUrl = 'https://aka.ms/vs/18/release/vs_BuildTools.exe'",
       "$bsPath = 'C:\\Bootstrap\\installers\\vs_BuildTools.exe'",
-      "New-Item -Path C:\\Bootstrap\\installers -ItemType Directory -Force | Out-Null",
       "Invoke-WebRequest -Uri $bsUrl -OutFile $bsPath -UseBasicParsing",
 
-      "# Install Desktop C++ workload with MSVC, ATL, ASAN, Win SDK",
       "Start-Process -Wait -FilePath $bsPath -ArgumentList @(",
       "  '--quiet', '--wait', '--norestart',",
       "  '--installPath', 'C:\\BuildTools',",
@@ -162,15 +199,19 @@ build {
       "  '--add', 'Microsoft.NetCore.Component.SDK'",
       ")",
 
-      "Write-Host 'Visual Studio Build Tools installed'",
+      "Write-Host 'VS Build Tools installed at C:\\BuildTools'",
     ]
   }
 
-  # ── 2. LLVM / Clang toolchain ────────────────────────────────────
+  # ════════════════════════════════════════════════════════════════════
+  # TIER 2: WebKit port toolchain (LLVM, Perl, Ruby, sccache)
+  # ════════════════════════════════════════════════════════════════════
+
+  # ── 2a. LLVM / Clang (clang-cl + lld-link for WebKit) ───────────
   provisioner "powershell" {
     inline = [
       "$ErrorActionPreference = 'Stop'",
-      "$url = \"https://github.com/niccokunzmann/niccokunzmann.github.io/releases/download/llvmorg-${var.llvm_version}/LLVM-${var.llvm_version}-win64.exe\"",
+      "$url = \"https://github.com/llvm/llvm-project/releases/download/llvmorg-${var.llvm_version}/LLVM-${var.llvm_version}-win64.exe\"",
       "$out = 'C:\\Bootstrap\\installers\\llvm.exe'",
       "Invoke-WebRequest -Uri $url -OutFile $out -UseBasicParsing",
       "Start-Process -Wait -FilePath $out -ArgumentList '/S', '/D=C:\\Program Files\\LLVM'",
@@ -178,22 +219,59 @@ build {
     ]
   }
 
-  # ── 3. Git + Git LFS + GitHub CLI ────────────────────────────────
+  # ── 2b. Strawberry Perl (WebKit build system) ────────────────────
+  provisioner "powershell" {
+    inline = [
+      "$ErrorActionPreference = 'Stop'",
+      "$perlUrl = \"https://strawberryperl.com/download/${var.strawberry_perl_version}/strawberry-perl-${var.strawberry_perl_version}-64bit.msi\"",
+      "Invoke-WebRequest -Uri $perlUrl -OutFile C:\\Bootstrap\\installers\\perl.msi -UseBasicParsing",
+      "Start-Process -Wait msiexec.exe -ArgumentList '/i', 'C:\\Bootstrap\\installers\\perl.msi', '/quiet', '/norestart', 'INSTALLDIR=C:\\Strawberry'",
+      "Write-Host 'Strawberry Perl installed'",
+    ]
+  }
+
+  # ── 2c. Ruby (WebKit build system) ───────────────────────────────
+  provisioner "powershell" {
+    inline = [
+      "$ErrorActionPreference = 'Stop'",
+      "$rubyUrl = \"https://github.com/oneclick/rubyinstaller2/releases/download/RubyInstaller-${var.ruby_version}/rubyinstaller-${var.ruby_version}-x64.exe\"",
+      "Invoke-WebRequest -Uri $rubyUrl -OutFile C:\\Bootstrap\\installers\\ruby.exe -UseBasicParsing",
+      "Start-Process -Wait C:\\Bootstrap\\installers\\ruby.exe -ArgumentList '/verysilent', '/dir=C:\\Ruby34-x64'",
+      "Write-Host 'Ruby installed'",
+    ]
+  }
+
+  # ── 2d. sccache (compile cache) ──────────────────────────────────
+  provisioner "powershell" {
+    inline = [
+      "$ErrorActionPreference = 'Stop'",
+      "New-Item -Path C:\\Bootstrap\\toolbin -ItemType Directory -Force | Out-Null",
+      "$url = \"https://github.com/mozilla/sccache/releases/download/v${var.sccache_version}/sccache-v${var.sccache_version}-x86_64-pc-windows-msvc.tar.gz\"",
+      "Invoke-WebRequest -Uri $url -OutFile C:\\Bootstrap\\installers\\sccache.tar.gz -UseBasicParsing",
+      "tar -xzf C:\\Bootstrap\\installers\\sccache.tar.gz -C C:\\Bootstrap\\toolbin --strip-components=1 **/sccache.exe",
+      "New-Item -Path C:\\Bootstrap\\sccache-gh\\windows-webgpu-dawn -ItemType Directory -Force | Out-Null",
+      "Write-Host 'sccache installed'",
+    ]
+  }
+
+  # ════════════════════════════════════════════════════════════════════
+  # TIER 3: Shared tools (both tiers need these)
+  # ════════════════════════════════════════════════════════════════════
+
+  # ── 3a. Git + Git LFS + GitHub CLI ───────────────────────────────
   provisioner "powershell" {
     inline = [
       "$ErrorActionPreference = 'Stop'",
 
       "# Git",
-      "$gitUrl = \"https://github.com/niccokunzmann/niccokunzmann.github.io/releases/download/v${var.git_version}.windows.1/Git-${var.git_version}-64-bit.exe\"",
-      "$gitOut = 'C:\\Bootstrap\\installers\\git.exe'",
-      "Invoke-WebRequest -Uri $gitUrl -OutFile $gitOut -UseBasicParsing",
-      "Start-Process -Wait -FilePath $gitOut -ArgumentList '/VERYSILENT', '/NORESTART', '/DIR=C:\\Program Files\\Git'",
+      "$gitUrl = \"https://github.com/git-for-windows/git/releases/download/v${var.git_version}.windows.1/Git-${var.git_version}-64-bit.exe\"",
+      "Invoke-WebRequest -Uri $gitUrl -OutFile C:\\Bootstrap\\installers\\git.exe -UseBasicParsing",
+      "Start-Process -Wait C:\\Bootstrap\\installers\\git.exe -ArgumentList '/VERYSILENT', '/NORESTART', '/DIR=C:\\Program Files\\Git'",
 
       "# GitHub CLI",
       "$ghUrl = \"https://github.com/cli/cli/releases/download/v${var.gh_cli_version}/gh_${var.gh_cli_version}_windows_amd64.msi\"",
-      "$ghOut = 'C:\\Bootstrap\\installers\\gh.msi'",
-      "Invoke-WebRequest -Uri $ghUrl -OutFile $ghOut -UseBasicParsing",
-      "Start-Process -Wait msiexec.exe -ArgumentList '/i', $ghOut, '/quiet', '/norestart'",
+      "Invoke-WebRequest -Uri $ghUrl -OutFile C:\\Bootstrap\\installers\\gh.msi -UseBasicParsing",
+      "Start-Process -Wait msiexec.exe -ArgumentList '/i', 'C:\\Bootstrap\\installers\\gh.msi', '/quiet', '/norestart'",
 
       "# Git LFS",
       "& 'C:\\Program Files\\Git\\cmd\\git.exe' lfs install",
@@ -202,31 +280,18 @@ build {
     ]
   }
 
-  # ── 4. Scripting runtimes (Python, Ruby, Perl) ───────────────────
+  # ── 3b. Python ───────────────────────────────────────────────────
   provisioner "powershell" {
     inline = [
       "$ErrorActionPreference = 'Stop'",
-
-      "# Python",
       "$pyUrl = \"https://www.python.org/ftp/python/${var.python_version}/python-${var.python_version}-amd64.exe\"",
       "Invoke-WebRequest -Uri $pyUrl -OutFile C:\\Bootstrap\\installers\\python.exe -UseBasicParsing",
       "Start-Process -Wait C:\\Bootstrap\\installers\\python.exe -ArgumentList '/quiet', 'InstallAllUsers=1', 'TargetDir=C:\\Python314', 'PrependPath=1'",
-
-      "# Ruby",
-      "$rubyUrl = \"https://github.com/oneclick/rubyinstaller2/releases/download/RubyInstaller-${var.ruby_version}/rubyinstaller-${var.ruby_version}-x64.exe\"",
-      "Invoke-WebRequest -Uri $rubyUrl -OutFile C:\\Bootstrap\\installers\\ruby.exe -UseBasicParsing",
-      "Start-Process -Wait C:\\Bootstrap\\installers\\ruby.exe -ArgumentList '/verysilent', '/dir=C:\\Ruby34-x64'",
-
-      "# Strawberry Perl",
-      "$perlUrl = \"https://github.com/niccokunzmann/niccokunzmann.github.io/releases/download/Strawberry-perl-${var.strawberry_perl_version}/strawberry-perl-${var.strawberry_perl_version}-64bit.msi\"",
-      "Invoke-WebRequest -Uri $perlUrl -OutFile C:\\Bootstrap\\installers\\perl.msi -UseBasicParsing",
-      "Start-Process -Wait msiexec.exe -ArgumentList '/i', 'C:\\Bootstrap\\installers\\perl.msi', '/quiet', '/norestart', 'INSTALLDIR=C:\\Strawberry'",
-
-      "Write-Host 'Python, Ruby, Perl installed'",
+      "Write-Host 'Python installed'",
     ]
   }
 
-  # ── 5. CMake (standalone, not just VS-integrated) ────────────────
+  # ── 3c. CMake (standalone) ───────────────────────────────────────
   provisioner "powershell" {
     inline = [
       "$ErrorActionPreference = 'Stop'",
@@ -237,7 +302,7 @@ build {
     ]
   }
 
-  # ── 6. vcpkg ─────────────────────────────────────────────────────
+  # ── 3d. vcpkg (pinned baseline + protobuf) ──────────────────────
   provisioner "powershell" {
     inline = [
       "$ErrorActionPreference = 'Stop'",
@@ -246,29 +311,20 @@ build {
       "& 'C:\\Program Files\\Git\\cmd\\git.exe' checkout ${var.vcpkg_baseline}",
       ".\\bootstrap-vcpkg.bat -disableMetrics",
       "[Environment]::SetEnvironmentVariable('VCPKG_ROOT', 'C:\\vcpkg', 'Machine')",
-      "New-Item -Path C:\\vcpkg\\buildtrees -ItemType Directory -Force | Out-Null",
-      "New-Item -Path C:\\vcpkg\\installed -ItemType Directory -Force | Out-Null",
-      "New-Item -Path C:\\vcpkg\\packages -ItemType Directory -Force | Out-Null",
-      "New-Item -Path C:\\vcpkg\\downloads -ItemType Directory -Force | Out-Null",
-      "New-Item -Path C:\\vcpkg\\archives -ItemType Directory -Force | Out-Null",
-      "Write-Host 'vcpkg installed at baseline ${var.vcpkg_baseline}'",
+
+      "# Create cache directories",
+      "@('buildtrees','installed','packages','downloads','archives') | ForEach-Object {",
+      "  New-Item -Path C:\\vcpkg\\$_ -ItemType Directory -Force | Out-Null",
+      "}",
+
+      "# Pre-install protobuf (needed for shell builds)",
+      ".\\vcpkg.exe install protobuf:x64-windows",
+
+      "Write-Host 'vcpkg installed + protobuf pre-built'",
     ]
   }
 
-  # ── 7. sccache ───────────────────────────────────────────────────
-  provisioner "powershell" {
-    inline = [
-      "$ErrorActionPreference = 'Stop'",
-      "New-Item -Path C:\\Bootstrap\\toolbin -ItemType Directory -Force | Out-Null",
-      "$url = \"https://github.com/niccokunzmann/niccokunzmann.github.io/releases/download/v${var.sccache_version}/sccache-v${var.sccache_version}-x86_64-pc-windows-msvc.tar.gz\"",
-      "Invoke-WebRequest -Uri $url -OutFile C:\\Bootstrap\\installers\\sccache.tar.gz -UseBasicParsing",
-      "tar -xzf C:\\Bootstrap\\installers\\sccache.tar.gz -C C:\\Bootstrap\\toolbin --strip-components=1 sccache-v${var.sccache_version}-x86_64-pc-windows-msvc/sccache.exe",
-      "New-Item -Path C:\\Bootstrap\\sccache-gh\\windows-webgpu-dawn -ItemType Directory -Force | Out-Null",
-      "Write-Host 'sccache installed'",
-    ]
-  }
-
-  # ── 8. PowerShell 7 ──────────────────────────────────────────────
+  # ── 3e. PowerShell 7 ────────────────────────────────────────────
   provisioner "powershell" {
     inline = [
       "$ErrorActionPreference = 'Stop'",
@@ -281,23 +337,26 @@ build {
     ]
   }
 
-  # ── 9. protobuf (for WebNN / LiteRT-LM) ─────────────────────────
+  # ── 3f. LiteRT-LM prebuilts (WebNN) ─────────────────────────────
   provisioner "powershell" {
     inline = [
       "$ErrorActionPreference = 'Stop'",
       "& 'C:\\Program Files\\Git\\cmd\\git.exe' clone --depth 1 --branch v0.10.2 https://github.com/google-ai-edge/LiteRT-LM.git C:\\Bootstrap\\litert-lm",
       "Set-Location C:\\Bootstrap\\litert-lm",
       "& 'C:\\Program Files\\Git\\cmd\\git.exe' lfs pull --include='prebuilt/windows_x86_64/*'",
-      "Write-Host \"LiteRT-LM DLLs: $((Get-ChildItem C:\\Bootstrap\\litert-lm\\prebuilt\\windows_x86_64\\*.dll).Count)\"",
+      "Write-Host \"LiteRT-LM DLLs: $((Get-ChildItem C:\\Bootstrap\\litert-lm\\prebuilt\\windows_x86_64\\*.dll -ErrorAction SilentlyContinue).Count)\"",
     ]
   }
 
-  # ── 10. Build directories + PATH ─────────────────────────────────
+  # ════════════════════════════════════════════════════════════════════
+  # FINALIZE
+  # ════════════════════════════════════════════════════════════════════
+
+  # ── System PATH ──────────────────────────────────────────────────
   provisioner "powershell" {
     inline = [
       "New-Item -Path C:\\W -ItemType Directory -Force | Out-Null",
 
-      "# Set system PATH for the runner",
       "$additions = @(",
       "  'C:\\Bootstrap\\toolbin',",
       "  'C:\\Program Files\\Git\\cmd',",
@@ -318,7 +377,7 @@ build {
     ]
   }
 
-  # ── 11. GitHub Actions runner ────────────────────────────────────
+  # ── GitHub Actions runner ────────────────────────────────────────
   provisioner "powershell" {
     inline = [
       "$ErrorActionPreference = 'Stop'",
@@ -327,11 +386,11 @@ build {
       "Invoke-WebRequest -Uri $url -OutFile C:\\actions-runner\\runner.zip -UseBasicParsing",
       "Expand-Archive -Path C:\\actions-runner\\runner.zip -DestinationPath C:\\actions-runner -Force",
       "Remove-Item C:\\actions-runner\\runner.zip",
-      "Write-Host 'GitHub Actions runner extracted (configure with ./config.cmd after launch)'",
+      "Write-Host 'GitHub Actions runner extracted'",
     ]
   }
 
-  # ── 12. Cleanup installers to reduce AMI size ────────────────────
+  # ── Cleanup installers ───────────────────────────────────────────
   provisioner "powershell" {
     inline = [
       "Remove-Item -Recurse -Force C:\\Bootstrap\\installers -ErrorAction SilentlyContinue",
@@ -339,30 +398,45 @@ build {
     ]
   }
 
-  # ── 13. Validation ───────────────────────────────────────────────
+  # ── Validation ───────────────────────────────────────────────────
   provisioner "powershell" {
     inline = [
       "$ErrorActionPreference = 'Continue'",
       "$fail = $false",
       "$checks = @{",
-      "  'VsDevCmd'  = 'C:\\BuildTools\\Common7\\Tools\\VsDevCmd.bat'",
-      "  'clang-cl'  = 'C:\\Program Files\\LLVM\\bin\\clang-cl.exe'",
-      "  'lld-link'  = 'C:\\Program Files\\LLVM\\bin\\lld-link.exe'",
-      "  'cmake'     = 'C:\\Program Files\\CMake\\bin\\cmake.exe'",
-      "  'git'       = 'C:\\Program Files\\Git\\cmd\\git.exe'",
-      "  'gh'        = 'C:\\Program Files\\GitHub CLI\\gh.exe'",
-      "  'python'    = 'C:\\Python314\\python.exe'",
-      "  'ruby'      = 'C:\\Ruby34-x64\\bin\\ruby.exe'",
-      "  'perl'      = 'C:\\Strawberry\\perl\\bin\\perl.exe'",
-      "  'sccache'   = 'C:\\Bootstrap\\toolbin\\sccache.exe'",
-      "  'vcpkg'     = 'C:\\vcpkg\\vcpkg.exe'",
-      "  'pwsh'      = 'C:\\Program Files\\PowerShell\\7\\pwsh.exe'",
+      "  # Tier 1: Native shell",
+      "  'VS Community VsDevCmd' = 'C:\\Program Files\\Microsoft Visual Studio\\2026\\Community\\Common7\\Tools\\VsDevCmd.bat'",
+      "  'MSBuild'               = 'C:\\Program Files\\Microsoft Visual Studio\\2026\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe'",
+      "",
+      "  # Tier 2: WebKit port",
+      "  'VS BuildTools VsDevCmd' = 'C:\\BuildTools\\Common7\\Tools\\VsDevCmd.bat'",
+      "  'clang-cl'               = 'C:\\Program Files\\LLVM\\bin\\clang-cl.exe'",
+      "  'lld-link'               = 'C:\\Program Files\\LLVM\\bin\\lld-link.exe'",
+      "  'perl'                   = 'C:\\Strawberry\\perl\\bin\\perl.exe'",
+      "  'ruby'                   = 'C:\\Ruby34-x64\\bin\\ruby.exe'",
+      "  'sccache'                = 'C:\\Bootstrap\\toolbin\\sccache.exe'",
+      "",
+      "  # Tier 3: Shared",
+      "  'cmake'    = 'C:\\Program Files\\CMake\\bin\\cmake.exe'",
+      "  'git'      = 'C:\\Program Files\\Git\\cmd\\git.exe'",
+      "  'gh'       = 'C:\\Program Files\\GitHub CLI\\gh.exe'",
+      "  'python'   = 'C:\\Python314\\python.exe'",
+      "  'vcpkg'    = 'C:\\vcpkg\\vcpkg.exe'",
+      "  'pwsh'     = 'C:\\Program Files\\PowerShell\\7\\pwsh.exe'",
       "}",
       "foreach ($k in $checks.Keys | Sort-Object) {",
       "  if (Test-Path $checks[$k]) { Write-Host \"  OK    $k\" }",
       "  else { Write-Host \"  MISS  $k  ($($checks[$k]))\"; $fail = $true }",
       "}",
-      "if ($fail) { throw 'Validation failed — see MISS entries above' }",
+
+      "# Check protobuf was installed",
+      "if (Test-Path C:\\vcpkg\\installed\\x64-windows\\include\\google\\protobuf) {",
+      "  Write-Host '  OK    protobuf (vcpkg)'",
+      "} else {",
+      "  Write-Host '  MISS  protobuf'; $fail = $true",
+      "}",
+
+      "if ($fail) { throw 'Validation failed' }",
       "Write-Host 'All tools validated.'",
     ]
   }
