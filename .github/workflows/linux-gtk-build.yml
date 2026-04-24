@@ -110,6 +110,11 @@ jobs:
           # Overwrite Find modules for packages unavailable on standard Ubuntu
           cp "$GITHUB_WORKSPACE/config/cmake/FindThunder.cmake" "$SRC/Source/cmake/FindThunder.cmake"
           cp "$GITHUB_WORKSPACE/config/cmake/FindRice.cmake" "$SRC/Source/cmake/FindRice.cmake"
+          # Create dummy rice headers so #include <rice-proto.h> etc. don't fail
+          mkdir -p "$SRC/Source/ThirdParty/rice-stubs"
+          for h in rice-proto.h rice-io.h rice.h; do
+            echo "/* stub */" > "$SRC/Source/ThirdParty/rice-stubs/$h"
+          done
           # GStreamerChecks.cmake:67 emits FATAL_ERROR when librice is missing.
           # Downgrade to WARNING so configure continues with USE_LIBRICE=OFF.
           sed -i 's/message(FATAL_ERROR.*librice/message(WARNING "librice/' "$SRC/Source/cmake/GStreamerChecks.cmake"
