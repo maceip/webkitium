@@ -102,7 +102,7 @@
       <!-- Let chrome/windows/src/ + ../../browser/ headers resolve.
            The portable color library lives at $(SolutionDir)..\..\browser\ -->
       <AdditionalIncludeDirectories>
-        $(ProjectDir)src;$(ProjectDir)..\..\browser;%(AdditionalIncludeDirectories)
+        $(ProjectDir)src;$(ProjectDir)..\..\browser;$(GeneratedFilesDir)src;%(AdditionalIncludeDirectories)
       </AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
