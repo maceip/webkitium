@@ -231,10 +231,11 @@ jobs:
           [[ -d "$BIN" ]] || { echo "::error::Windows bin dir missing: $BIN" >&2; exit 1; }
           MSI="$OUT_ROOT/webkit-minibrowser-baseline-${RUN_ID}-${RUN_ATTEMPT}.msi"
           ZIP="$OUT_ROOT/webkit-minibrowser-baseline-${RUN_ID}-${RUN_ATTEMPT}.zip"
-          command -v zip >/dev/null 2>&1 || { echo "::error::zip not found in Git bash PATH"; exit 1; }
+          # Git-bash on Windows doesn't ship zip; use 7z which is on the runner PATH
           (
             cd "$BIN"
-            zip -qr "$ZIP" MiniBrowser.exe WebKit*.dll JavaScriptCore*.dll 2>/dev/null || zip -qr "$ZIP" .
+            7z a -tzip -mx1 "$ZIP" MiniBrowser.exe WebKit*.dll JavaScriptCore*.dll 2>/dev/null \
+              || 7z a -tzip -mx1 "$ZIP" . >/dev/null
           )
           [[ -s "$ZIP" ]] || { echo "::error::Baseline ZIP empty or missing: $ZIP"; exit 1; }
           printf '%s\n' "WiX/MSI not generated on runner yet; portable ZIP is the baseline payload." >"$MSI"
@@ -261,16 +262,26 @@ jobs:
           PY
           echo "BASELINE_OK platform=$PLATFORM zip=$ZIP"
 
+      - name: Stage artifacts
+        if: always()
+        shell: bash
+        run: |
+          STAGE="$RUNNER_TEMP/upload-stage"
+          mkdir -p "$STAGE"
+          SRC="$(cygpath -u 'C:/W/webkit-src/WebKitBuild/Release')"
+          # Copy build outputs (tolerate missing if build didn't reach link)
+          cp -r "$SRC/bin" "$STAGE/bin" 2>/dev/null || true
+          cp "$SRC/CMakeCache.txt" "$STAGE/" 2>/dev/null || true
+          cp "$SRC/vcpkg-manifest-install.log" "$STAGE/" 2>/dev/null || true
+          # Copy baseline packages if they exist
+          cp -r "$RUNNER_TEMP/baseline-packages" "$STAGE/baseline-packages" 2>/dev/null || true
+
       - name: Upload Artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: windows-build-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            C:\W\webkit-src\WebKitBuild\Release\bin
-            C:\W\webkit-src\WebKitBuild\Release\CMakeCache.txt
-            C:\W\webkit-src\WebKitBuild\Release\vcpkg-manifest-install.log
-            ${{ runner.temp }}/baseline-packages
+          path: ${{ runner.temp }}/upload-stage
           if-no-files-found: warn
 
       - name: Cleanup Source
