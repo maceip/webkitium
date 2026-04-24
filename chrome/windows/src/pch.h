@@ -5,7 +5,19 @@
 
 #pragma once
 
+// Disable win32 API cruft the WinUI stack does not need and which
+// collides with WinRT method names (e.g. GetCurrentTime on
+// IStoryboard).  Must precede <windows.h>.
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+
 #include <windows.h>
+
+// <winbase.h> defines GetCurrentTime as an alias for GetTickCount.
+// WinRT's Microsoft.UI.Xaml.Media.Animation.IStoryboard.GetCurrentTime
+// collides with that macro.  Undef here so the WinRT projection headers
+// that follow see the real identifier.
+#undef GetCurrentTime
 
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Foundation.Collections.h>
