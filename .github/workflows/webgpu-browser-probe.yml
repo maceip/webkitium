@@ -118,14 +118,15 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $bin = "$env:RUNNER_TEMP/artifact/$env:bin_dir"
-          $page = "file:///$($bin -replace '\\','/')/validate-probe.html"
+          $probeHtml = Join-Path $bin 'validate-probe.html'
           $out = Join-Path $env:RUNNER_TEMP 'probe-report.json'
           $port = 8787
           $harnessScript = "$env:GITHUB_WORKSPACE\changes\windows-webgpu-service\harness\tools\browser-probe-server.py"
 
-          # PS7 treats "?" as a valid identifier char in some contexts, so
-          # `$page?harness` interpolates to the empty string. Use ${page}.
-          $miniUrl = "${page}?harness=http://127.0.0.1:${port}/"
+          # Same-origin: harness server serves GET / -> probe HTML, POST /
+          # receives the report. file:// → http:// was being cross-scheme
+          # blocked and the POST never landed.
+          $miniUrl = "http://127.0.0.1:${port}/?harness=http://127.0.0.1:${port}/"
           Write-Host "[probe] harness: $harnessScript"
           Write-Host "[probe] page:    $miniUrl"
           Write-Host "[probe] output:  $out"
@@ -149,7 +150,7 @@ jobs:
           # Start the harness server; it exits when it receives one POST
           # (or after --timeout seconds).
           $server = Start-Process -FilePath $py `
-              -ArgumentList @($harnessScript, '--port', "$port", '--out', $out, '--timeout', '90') `
+              -ArgumentList @($harnessScript, '--port', "$port", '--out', $out, '--timeout', '90', '--html', $probeHtml) `
               -PassThru -NoNewWindow `
               -RedirectStandardOutput "$env:RUNNER_TEMP\harness-stdout.log" `
               -RedirectStandardError "$env:RUNNER_TEMP\harness-stderr.log"
