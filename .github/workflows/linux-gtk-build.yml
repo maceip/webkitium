@@ -98,7 +98,7 @@ jobs:
           fi
           # OptionsGTK.cmake requires these even when their features are disabled
           sudo apt-get install -y --no-install-recommends \
-            libopenxr-dev libbacktrace-dev 2>/dev/null || true
+            libopenxr-dev libbacktrace-dev xdg-dbus-proxy 2>/dev/null || true
 
       - name: Build
         run: |
@@ -113,7 +113,8 @@ jobs:
           perl Tools/Scripts/build-webkit --release --gtk --makeargs="-j$JOBS" \
             -DENABLE_EXPERIMENTAL_FEATURES="${WEBKIT_CMAKE_ENABLE_EXPERIMENTAL_FEATURES:-ON}" \
             -DENABLE_WEBXR="${WEBKIT_CMAKE_ENABLE_WEBXR:-OFF}" \
-            -DENABLE_THUNDER=OFF
+            -DENABLE_THUNDER=OFF \
+            -DENABLE_BUBBLEWRAP_SANDBOX=OFF
 
       - name: Baseline package
         run: |
