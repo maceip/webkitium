@@ -1,0 +1,206 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        Webkitium design tokens — Windows shell.
+
+        Values are the output of GeneratePalette(kDefaultBrandSeed) in
+        browser/color/ColorRamp.cpp. DO NOT HAND-EDIT these hex values.
+        If a palette change is needed, tune ColorRamp.cpp and re-emit.
+
+        Semantic tokens live at the top level; platform overrides live
+        under ThemeDictionaries so WinUI's built-in Light/Dark resolution
+        applies automatically.
+
+        Spec references:
+        - design/tokens/base/color.tokens.json
+        - design/tokens/base/foundation.tokens.json
+        - design/tokens/semantic/{light,dark}.tokens.json
+        - design/tokens/platform-overrides/windows.tokens.json
+    -->
+
+    <ResourceDictionary.ThemeDictionaries>
+
+        <!-- =================================================================
+             LIGHT
+             ================================================================= -->
+        <ResourceDictionary x:Key="Light">
+
+            <!-- Brand ramp (output of GenerateRamp, light) -->
+            <Color x:Key="Brand1">#FDFDFF</Color>
+            <Color x:Key="Brand2">#F3F7FF</Color>
+            <Color x:Key="Brand3">#E4EDFF</Color>
+            <Color x:Key="Brand4">#D0E0FF</Color>
+            <Color x:Key="Brand5">#B7D0FF</Color>
+            <Color x:Key="Brand6">#94B9FF</Color>
+            <Color x:Key="Brand7">#6A9BFF</Color>
+            <Color x:Key="Brand8">#3B78FF</Color>
+            <Color x:Key="Brand9">#0F58FF</Color>
+            <Color x:Key="Brand10">#0044E1</Color>
+            <Color x:Key="Brand11">#0033AF</Color>
+            <Color x:Key="Brand12">#00114D</Color>
+
+            <!-- Neutral ramp (output of GenerateRamp on neutral seed, light) -->
+            <Color x:Key="Neutral1">#FDFDFE</Color>
+            <Color x:Key="Neutral2">#F6F7F8</Color>
+            <Color x:Key="Neutral3">#EBEDF0</Color>
+            <Color x:Key="Neutral4">#DDE0E5</Color>
+            <Color x:Key="Neutral5">#CCCFD6</Color>
+            <Color x:Key="Neutral6">#B5B9C1</Color>
+            <Color x:Key="Neutral7">#9A9FA7</Color>
+            <Color x:Key="Neutral8">#7F838C</Color>
+            <Color x:Key="Neutral9">#6A6F77</Color>
+            <Color x:Key="Neutral10">#585C64</Color>
+            <Color x:Key="Neutral11">#43464D</Color>
+            <Color x:Key="Neutral12">#191B1E</Color>
+
+            <!-- Status -->
+            <Color x:Key="Danger9">#D83A2D</Color>
+            <Color x:Key="Success9">#2D9F5F</Color>
+            <Color x:Key="Warning9">#D88F2D</Color>
+
+            <!-- Semantic brushes — what components consume.
+                 Keep components from referencing the base ramp directly. -->
+            <SolidColorBrush x:Key="SurfaceCanvas"       Color="{StaticResource Neutral1}" />
+            <SolidColorBrush x:Key="SurfaceChrome"       Color="{StaticResource Neutral2}" />
+            <SolidColorBrush x:Key="SurfaceChromeRaised" Color="{StaticResource Neutral1}" />
+            <SolidColorBrush x:Key="SurfaceSunken"       Color="{StaticResource Neutral3}" />
+            <SolidColorBrush x:Key="SurfaceHover"        Color="{StaticResource Neutral4}" />
+            <SolidColorBrush x:Key="SurfacePressed"      Color="{StaticResource Neutral5}" />
+            <SolidColorBrush x:Key="SurfaceOverlay"      Color="{StaticResource Neutral1}" />
+            <SolidColorBrush x:Key="SurfaceSelected"     Color="{StaticResource Brand4}" />
+
+            <SolidColorBrush x:Key="TextPrimary"   Color="{StaticResource Neutral12}" />
+            <SolidColorBrush x:Key="TextSecondary" Color="{StaticResource Neutral11}" />
+            <SolidColorBrush x:Key="TextTertiary"  Color="{StaticResource Neutral9}" />
+            <SolidColorBrush x:Key="TextOnBrand"   Color="{StaticResource Neutral1}" />
+            <SolidColorBrush x:Key="TextDanger"    Color="{StaticResource Danger9}" />
+            <SolidColorBrush x:Key="TextLink"      Color="{StaticResource Brand11}" />
+
+            <SolidColorBrush x:Key="BorderSubtle"  Color="{StaticResource Neutral5}" />
+            <SolidColorBrush x:Key="BorderDefault" Color="{StaticResource Neutral6}" />
+            <SolidColorBrush x:Key="BorderStrong"  Color="{StaticResource Neutral8}" />
+            <SolidColorBrush x:Key="BorderFocus"   Color="{StaticResource Brand8}" />
+
+            <SolidColorBrush x:Key="AccentFill"        Color="{StaticResource Brand9}" />
+            <SolidColorBrush x:Key="AccentFillHover"   Color="{StaticResource Brand10}" />
+            <SolidColorBrush x:Key="AccentFillPressed" Color="{StaticResource Brand11}" />
+            <SolidColorBrush x:Key="AccentFillSubtle"  Color="{StaticResource Brand3}" />
+
+        </ResourceDictionary>
+
+        <!-- =================================================================
+             DARK
+             ================================================================= -->
+        <ResourceDictionary x:Key="Dark">
+
+            <!-- Brand ramp (output of GenerateRamp, dark) -->
+            <Color x:Key="Brand1">#000528</Color>
+            <Color x:Key="Brand2">#000B3B</Color>
+            <Color x:Key="Brand3">#001455</Color>
+            <Color x:Key="Brand4">#001E73</Color>
+            <Color x:Key="Brand5">#002B98</Color>
+            <Color x:Key="Brand6">#003BC5</Color>
+            <Color x:Key="Brand7">#034DF5</Color>
+            <Color x:Key="Brand8">#2D6EFF</Color>
+            <Color x:Key="Brand9">#4B84FF</Color>
+            <Color x:Key="Brand10">#6597FF</Color>
+            <Color x:Key="Brand11">#92B7FF</Color>
+            <Color x:Key="Brand12">#E9F0FF</Color>
+
+            <!-- Neutral ramp (output of GenerateRamp on neutral seed, dark) -->
+            <Color x:Key="Neutral1">#090A0D</Color>
+            <Color x:Key="Neutral2">#101317</Color>
+            <Color x:Key="Neutral3">#1B1E24</Color>
+            <Color x:Key="Neutral4">#282B32</Color>
+            <Color x:Key="Neutral5">#383C43</Color>
+            <Color x:Key="Neutral6">#4C5058</Color>
+            <Color x:Key="Neutral7">#62666F</Color>
+            <Color x:Key="Neutral8">#777C84</Color>
+            <Color x:Key="Neutral9">#888C94</Color>
+            <Color x:Key="Neutral10">#979BA3</Color>
+            <Color x:Key="Neutral11">#B4B7BD</Color>
+            <Color x:Key="Neutral12">#EFF0F2</Color>
+
+            <Color x:Key="Danger9">#D83A2D</Color>
+            <Color x:Key="Success9">#2D9F5F</Color>
+            <Color x:Key="Warning9">#D88F2D</Color>
+
+            <!-- Semantic brushes — dark variant -->
+            <SolidColorBrush x:Key="SurfaceCanvas"       Color="{StaticResource Neutral12}" />
+            <SolidColorBrush x:Key="SurfaceChrome"       Color="{StaticResource Neutral11}" />
+            <SolidColorBrush x:Key="SurfaceChromeRaised" Color="{StaticResource Neutral10}" />
+            <SolidColorBrush x:Key="SurfaceSunken"       Color="{StaticResource Neutral12}" />
+            <SolidColorBrush x:Key="SurfaceHover"        Color="{StaticResource Neutral9}" />
+            <SolidColorBrush x:Key="SurfacePressed"      Color="{StaticResource Neutral8}" />
+            <SolidColorBrush x:Key="SurfaceOverlay"      Color="{StaticResource Neutral10}" />
+            <SolidColorBrush x:Key="SurfaceSelected"     Color="{StaticResource Brand8}" />
+
+            <SolidColorBrush x:Key="TextPrimary"   Color="{StaticResource Neutral1}" />
+            <SolidColorBrush x:Key="TextSecondary" Color="{StaticResource Neutral3}" />
+            <SolidColorBrush x:Key="TextTertiary"  Color="{StaticResource Neutral6}" />
+            <SolidColorBrush x:Key="TextOnBrand"   Color="{StaticResource Neutral12}" />
+            <SolidColorBrush x:Key="TextDanger"    Color="{StaticResource Danger9}" />
+            <SolidColorBrush x:Key="TextLink"      Color="{StaticResource Brand6}" />
+
+            <SolidColorBrush x:Key="BorderSubtle"  Color="{StaticResource Neutral10}" />
+            <SolidColorBrush x:Key="BorderDefault" Color="{StaticResource Neutral9}" />
+            <SolidColorBrush x:Key="BorderStrong"  Color="{StaticResource Neutral7}" />
+            <SolidColorBrush x:Key="BorderFocus"   Color="{StaticResource Brand7}" />
+
+            <SolidColorBrush x:Key="AccentFill"        Color="{StaticResource Brand9}" />
+            <SolidColorBrush x:Key="AccentFillHover"   Color="{StaticResource Brand8}" />
+            <SolidColorBrush x:Key="AccentFillPressed" Color="{StaticResource Brand7}" />
+            <SolidColorBrush x:Key="AccentFillSubtle"  Color="{StaticResource Brand11}" />
+
+        </ResourceDictionary>
+
+    </ResourceDictionary.ThemeDictionaries>
+
+    <!-- ========================================================================
+         Theme-invariant tokens (foundation — spacing, radius, motion, type).
+         Hand-written, mirror design/tokens/base/foundation.tokens.json.
+         ======================================================================== -->
+
+    <!-- Radius — one ShapeOmnibar that components reference directly.
+         WinUI's CornerRadius is a typed struct, not a brush; keyed as x:Double. -->
+    <x:Double x:Key="RadiusXs">4</x:Double>
+    <x:Double x:Key="RadiusSm">6</x:Double>
+    <x:Double x:Key="RadiusMd">10</x:Double>
+    <x:Double x:Key="RadiusLg">14</x:Double>
+    <x:Double x:Key="RadiusXl">20</x:Double>
+    <x:Double x:Key="RadiusOmnibar">10</x:Double>
+    <x:Double x:Key="RadiusContextMenu">8</x:Double>
+
+    <!-- Spacing (4px grid) -->
+    <x:Double x:Key="Space1">4</x:Double>
+    <x:Double x:Key="Space2">8</x:Double>
+    <x:Double x:Key="Space3">12</x:Double>
+    <x:Double x:Key="Space4">16</x:Double>
+    <x:Double x:Key="Space5">20</x:Double>
+    <x:Double x:Key="Space6">24</x:Double>
+    <x:Double x:Key="Space8">32</x:Double>
+
+    <!-- Type. Segoe UI Variable is the Windows 11 system font.
+         Sizes match foundation.tokens.json; WinUI respects the
+         per-user text-size setting on top of these. -->
+    <x:String x:Key="FontFamilyUI">Segoe UI Variable</x:String>
+    <x:String x:Key="FontFamilyMono">Cascadia Code</x:String>
+
+    <x:Double x:Key="FontSizeCaption">11</x:Double>
+    <x:Double x:Key="FontSizeFootnote">12</x:Double>
+    <x:Double x:Key="FontSizeBody">14</x:Double>
+    <x:Double x:Key="FontSizeCallout">15</x:Double>
+    <x:Double x:Key="FontSizeTitle3">17</x:Double>
+    <x:Double x:Key="FontSizeTitle2">20</x:Double>
+    <x:Double x:Key="FontSizeTitle1">24</x:Double>
+
+    <!-- Motion — durations in milliseconds.
+         Windows App SDK's Storyboard/AnimationBuilder consumes TimeSpan;
+         these are the raw ms values, converted at call site. -->
+    <x:Double x:Key="DurationFastMs">120</x:Double>
+    <x:Double x:Key="DurationMediumMs">240</x:Double>
+    <x:Double x:Key="DurationSlowMs">360</x:Double>
+
+</ResourceDictionary>

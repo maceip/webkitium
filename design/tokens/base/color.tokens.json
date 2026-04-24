@@ -1,46 +1,87 @@
 {
-  "$version": "1.0.0",
-  "$description": "Webkitium default brand palette. This is the floor, not the ceiling — users may override any token marked themeable via browser.theme. All ramps follow Radix-style 12-step semantics (1=app bg, 9=solid brand, 12=highest contrast text).",
+  "$version": "2.0.0",
+  "$description": "Color tokens are derived from a single seed by browser/color/ColorRamp.cpp at runtime and at build time. The values below are the output of GeneratePalette(kDefaultBrandSeed) where kDefaultBrandSeed = #1F5AE0 (webkitium blue). See design/color/RAMP.md for the algorithm. No Material You, no HCT, no Google dependency.",
   "$extensions": {
-    "dev.webkitium.protection": "themeable"
+    "dev.webkitium.protection": "themeable",
+    "dev.webkitium.generator": "browser/color/ColorRamp.cpp:GeneratePalette",
+    "dev.webkitium.note": "Hand-edit this file only to record the shipped defaults after a deliberate seed or curve change. Normal palette tuning happens in ColorRamp.cpp, not here."
+  },
+  "seed": {
+    "brand": {
+      "$type": "color",
+      "$description": "The single themeable input. Users change only this; everything below regenerates.",
+      "$value": "#1F5AE0",
+      "$extensions": { "dev.webkitium.api-path": "color.brand" }
+    }
   },
   "brand": {
-    "$description": "Primary brand ramp. OKLCH for perceptual uniformity across monitors and OS color profiles. Users who theme the brand color replace ramp step 9; steps 1-8 and 10-12 are recomputed by the build pipeline.",
-    "1":  { "$type": "color", "$value": "oklch(0.99 0.005 260)" },
-    "2":  { "$type": "color", "$value": "oklch(0.97 0.010 260)" },
-    "3":  { "$type": "color", "$value": "oklch(0.94 0.020 260)" },
-    "4":  { "$type": "color", "$value": "oklch(0.90 0.040 260)" },
-    "5":  { "$type": "color", "$value": "oklch(0.84 0.080 260)" },
-    "6":  { "$type": "color", "$value": "oklch(0.76 0.120 260)" },
-    "7":  { "$type": "color", "$value": "oklch(0.68 0.150 260)" },
-    "8":  { "$type": "color", "$value": "oklch(0.60 0.170 260)" },
-    "9":  { "$type": "color", "$value": "oklch(0.54 0.190 260)", "$extensions": { "dev.webkitium.api-path": "color.brand" } },
-    "10": { "$type": "color", "$value": "oklch(0.48 0.180 260)" },
-    "11": { "$type": "color", "$value": "oklch(0.40 0.160 260)" },
-    "12": { "$type": "color", "$value": "oklch(0.22 0.080 260)" }
+    "$description": "Output of GenerateRamp(FromSrgb(seed.brand), dark=false).",
+    "1":  { "$type": "color", "$value": "#FDFDFF" },
+    "2":  { "$type": "color", "$value": "#F3F7FF" },
+    "3":  { "$type": "color", "$value": "#E4EDFF" },
+    "4":  { "$type": "color", "$value": "#D0E0FF" },
+    "5":  { "$type": "color", "$value": "#B7D0FF" },
+    "6":  { "$type": "color", "$value": "#94B9FF" },
+    "7":  { "$type": "color", "$value": "#6A9BFF" },
+    "8":  { "$type": "color", "$value": "#3B78FF" },
+    "9":  { "$type": "color", "$value": "#0F58FF" },
+    "10": { "$type": "color", "$value": "#0044E1" },
+    "11": { "$type": "color", "$value": "#0033AF" },
+    "12": { "$type": "color", "$value": "#00114D" }
+  },
+  "brandDark": {
+    "$description": "Output of GenerateRamp(FromSrgb(seed.brand), dark=true). Consumed by dark semantic layer.",
+    "1":  { "$type": "color", "$value": "#000528" },
+    "2":  { "$type": "color", "$value": "#000B3B" },
+    "3":  { "$type": "color", "$value": "#001455" },
+    "4":  { "$type": "color", "$value": "#001E73" },
+    "5":  { "$type": "color", "$value": "#002B98" },
+    "6":  { "$type": "color", "$value": "#003BC5" },
+    "7":  { "$type": "color", "$value": "#034DF5" },
+    "8":  { "$type": "color", "$value": "#2D6EFF" },
+    "9":  { "$type": "color", "$value": "#4B84FF" },
+    "10": { "$type": "color", "$value": "#6597FF" },
+    "11": { "$type": "color", "$value": "#92B7FF" },
+    "12": { "$type": "color", "$value": "#E9F0FF" }
   },
   "neutral": {
-    "$description": "Chromatic neutrals (slight hue of brand at low chroma). Used for most chrome surfaces.",
-    "1":  { "$type": "color", "$value": "oklch(0.995 0.002 260)" },
-    "2":  { "$type": "color", "$value": "oklch(0.98 0.004 260)" },
-    "3":  { "$type": "color", "$value": "oklch(0.95 0.006 260)" },
-    "4":  { "$type": "color", "$value": "oklch(0.92 0.008 260)" },
-    "5":  { "$type": "color", "$value": "oklch(0.88 0.010 260)" },
-    "6":  { "$type": "color", "$value": "oklch(0.82 0.012 260)" },
-    "7":  { "$type": "color", "$value": "oklch(0.72 0.014 260)" },
-    "8":  { "$type": "color", "$value": "oklch(0.60 0.016 260)" },
-    "9":  { "$type": "color", "$value": "oklch(0.48 0.014 260)" },
-    "10": { "$type": "color", "$value": "oklch(0.38 0.012 260)" },
-    "11": { "$type": "color", "$value": "oklch(0.28 0.010 260)" },
-    "12": { "$type": "color", "$value": "oklch(0.14 0.006 260)" }
+    "$description": "Output of GenerateRamp({brand.L, 0.012, brand.h}, dark=false). Low chroma, slight brand-hue coordination.",
+    "1":  { "$type": "color", "$value": "#FDFDFE" },
+    "2":  { "$type": "color", "$value": "#F6F7F8" },
+    "3":  { "$type": "color", "$value": "#EBEDF0" },
+    "4":  { "$type": "color", "$value": "#DDE0E5" },
+    "5":  { "$type": "color", "$value": "#CCCFD6" },
+    "6":  { "$type": "color", "$value": "#B5B9C1" },
+    "7":  { "$type": "color", "$value": "#9A9FA7" },
+    "8":  { "$type": "color", "$value": "#7F838C" },
+    "9":  { "$type": "color", "$value": "#6A6F77" },
+    "10": { "$type": "color", "$value": "#585C64" },
+    "11": { "$type": "color", "$value": "#43464D" },
+    "12": { "$type": "color", "$value": "#191B1E" }
+  },
+  "neutralDark": {
+    "$description": "Output of GenerateRamp(neutral_seed, dark=true).",
+    "1":  { "$type": "color", "$value": "#090A0D" },
+    "2":  { "$type": "color", "$value": "#101317" },
+    "3":  { "$type": "color", "$value": "#1B1E24" },
+    "4":  { "$type": "color", "$value": "#282B32" },
+    "5":  { "$type": "color", "$value": "#383C43" },
+    "6":  { "$type": "color", "$value": "#4C5058" },
+    "7":  { "$type": "color", "$value": "#62666F" },
+    "8":  { "$type": "color", "$value": "#777C84" },
+    "9":  { "$type": "color", "$value": "#888C94" },
+    "10": { "$type": "color", "$value": "#979BA3" },
+    "11": { "$type": "color", "$value": "#B4B7BD" },
+    "12": { "$type": "color", "$value": "#EFF0F2" }
   },
   "danger": {
-    "9": { "$type": "color", "$value": "oklch(0.58 0.22 25)" }
+    "$description": "Status color. Not ramped — users do not theme error red to match brand.",
+    "9": { "$type": "color", "$value": "#D83A2D" }
   },
   "success": {
-    "9": { "$type": "color", "$value": "oklch(0.60 0.18 155)" }
+    "9": { "$type": "color", "$value": "#2D9F5F" }
   },
   "warning": {
-    "9": { "$type": "color", "$value": "oklch(0.76 0.16 80)" }
+    "9": { "$type": "color", "$value": "#D88F2D" }
   }
 }

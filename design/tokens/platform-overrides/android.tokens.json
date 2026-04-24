@@ -1,16 +1,14 @@
 {
-  "$version": "1.0.0",
-  "$description": "Android 15+ overrides. Material You dynamic color is opt-in: if user has set a webkitium theme we ignore wallpaper-derived colors and use user brand instead. Edge-to-edge + predictive back are assumed.",
+  "$version": "2.0.0",
+  "$description": "Android 15+ overrides. We do NOT use Material You dynamic color, wallpaper-derived palettes, or any Material Color Utilities scheme. Our palette comes from browser/color/ColorRamp.cpp. Edge-to-edge and predictive back are assumed.",
   "$extensions": {
     "dev.webkitium.protection": "platform-only",
     "dev.webkitium.platform": ["android"]
   },
-  "dynamicColor": {
-    "source": {
-      "$description": "'user-theme' | 'wallpaper' | 'brand-default'. Runtime sets based on browser.theme state.",
-      "$type": "number",
-      "$value": 0
-    }
+  "colorSource": {
+    "$description": "Always 'webkitium'. No wallpaper extraction. No DynamicColors.applyToActivitiesIfAvailable().",
+    "$type": "number",
+    "$value": 0
   },
   "material": {
     "omnibar": {
@@ -25,7 +23,7 @@
     },
     "contextMenu": {
       "$type": "material",
-      "$description": "DropdownMenu with elevation=2. Material 3 does not support blur behind menus on Android without compositing tricks; we accept solid surface.",
+      "$description": "DropdownMenu with elevation=2. No blur; solid surface by design (avoids Material 3 default look).",
       "$value": { "kind": "Surface", "tonalElevation": 2, "color": "{surface.overlay}" }
     }
   },
@@ -36,7 +34,7 @@
     "contextMenuOpen": { "$type": "haptic", "$value": "CONTEXT_CLICK" }
   },
   "shape": {
-    "omnibar": { "$type": "dimension", "$value": "28px" },
+    "omnibar":     { "$type": "dimension", "$value": "28px" },
     "contextMenu": { "$type": "dimension", "$value": "12px" }
   },
   "predictiveBack": {
