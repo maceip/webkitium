@@ -320,7 +320,7 @@ diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU
 +    };
 +
 +    WGPURequestDeviceCallbackInfo callbackInfo { };
-+    callbackInfo.mode = WGPUCallbackMode_AllowProcessEvents;
++    callbackInfo.mode = WGPUCallbackMode_WaitAnyOnly;
 +    callbackInfo.callback = dawnRequestDeviceCallback;
 +    callbackInfo.userdata1 = userdata;
 +
@@ -530,7 +530,7 @@ diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU
 +#if PLATFORM(WIN)
 +    auto* userdata = new DawnBufferMapUserdata { WTF::move(callback), m_dawnInstance };
 +    WGPUBufferMapCallbackInfo callbackInfo { };
-+    callbackInfo.mode = WGPUCallbackMode_AllowProcessEvents;
++    callbackInfo.mode = WGPUCallbackMode_WaitAnyOnly;
 +    callbackInfo.callback = dawnBufferMapCallback;
 +    callbackInfo.userdata1 = userdata;
 +    auto future = wgpuBufferMapAsync(m_backing.get(), backingMapModeFlags, static_cast<size_t>(offset), static_cast<size_t>(usedSize), callbackInfo);
@@ -1878,7 +1878,7 @@ diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU
 +    convertToBacking(descriptor, m_convertToBackingContext, [backing = m_backing.copyRef(), convertToBackingContext = m_convertToBackingContext.copyRef(), callback = WTF::move(callback), instance = m_dawnInstance](const WGPUComputePipelineDescriptor& backingDescriptor) mutable {
 +        auto* userdata = new DawnComputePipelineAsyncUserdata { WTF::move(callback), convertToBackingContext.copyRef(), instance };
 +        WGPUCreateComputePipelineAsyncCallbackInfo callbackInfo { };
-+        callbackInfo.mode = WGPUCallbackMode_AllowProcessEvents;
++        callbackInfo.mode = WGPUCallbackMode_WaitAnyOnly;
 +        callbackInfo.callback = dawnComputePipelineAsyncCallback;
 +        callbackInfo.userdata1 = userdata;
 +        auto future = wgpuDeviceCreateComputePipelineAsync(backing.get(), &backingDescriptor, callbackInfo);
@@ -2010,7 +2010,7 @@ diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU
 +#if PLATFORM(WIN)
 +    auto* userdata = new DawnPopErrorScopeUserdata { WTF::move(callback) };
 +    WGPUPopErrorScopeCallbackInfo callbackInfo { };
-+    callbackInfo.mode = WGPUCallbackMode_AllowProcessEvents;
++    callbackInfo.mode = WGPUCallbackMode_WaitAnyOnly;
 +    callbackInfo.callback = dawnPopErrorScopeCallback;
 +    callbackInfo.userdata1 = userdata;
 +    auto future = wgpuDevicePopErrorScope(m_backing.get(), callbackInfo);
@@ -2311,7 +2311,7 @@ diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU
 +#if PLATFORM(WIN)
 +    auto* userdata = new DawnRequestAdapterUserdata { WTF::move(callback), convertToBackingContext.copyRef(), m_backing.get() };
 +    WGPURequestAdapterCallbackInfo callbackInfo { };
-+    callbackInfo.mode = WGPUCallbackMode_AllowProcessEvents;
++    callbackInfo.mode = WGPUCallbackMode_WaitAnyOnly;
 +    callbackInfo.callback = dawnRequestAdapterCallback;
 +    callbackInfo.userdata1 = userdata;
 +    auto future = wgpuInstanceRequestAdapter(m_backing.get(), &backingOptions, callbackInfo);
@@ -2583,7 +2583,7 @@ diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU
 +#if PLATFORM(WIN)
 +    auto* userdata = new DawnQueueWorkDoneUserdata { WTF::move(callback), m_dawnInstance };
 +    WGPUQueueWorkDoneCallbackInfo callbackInfo { };
-+    callbackInfo.mode = WGPUCallbackMode_AllowProcessEvents;
++    callbackInfo.mode = WGPUCallbackMode_WaitAnyOnly;
 +    callbackInfo.callback = dawnQueueWorkDoneCallback;
 +    callbackInfo.userdata1 = userdata;
 +    auto future = wgpuQueueOnSubmittedWorkDone(m_backing.get(), callbackInfo);
@@ -3045,7 +3045,7 @@ diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU
 +    userdata->callback = WTF::move(callback);
 +    userdata->instance = m_dawnInstance;
 +    WGPUCompilationInfoCallbackInfo callbackInfo { };
-+    callbackInfo.mode = WGPUCallbackMode_AllowProcessEvents;
++    callbackInfo.mode = WGPUCallbackMode_WaitAnyOnly;
 +    callbackInfo.callback = dawnCompilationInfoCallback;
 +    callbackInfo.userdata1 = userdata;
 +    auto future = wgpuShaderModuleGetCompilationInfo(m_backing.get(), callbackInfo);
