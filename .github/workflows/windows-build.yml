@@ -130,11 +130,14 @@ jobs:
           ls "$SRC" | head -20
 
           # Fetch LiteRT-LM for WebNN backend (ref from config/webkit-build-matrix.json)
+          # Use forward slashes — $GITHUB_WORKSPACE contains backslashes on
+          # Windows and Python interprets \a, \t etc. as escape sequences.
+          _MATRIX="${GITHUB_WORKSPACE//\\//}/config/webkit-build-matrix.json"
           LITERT_REF="$(
-            python -c "import json, pathlib; print(json.load(pathlib.Path('$GITHUB_WORKSPACE/config/webkit-build-matrix.json').open())['webnn']['litertLm']['gitRef'])"
+            python -c "import json, pathlib; print(json.load(pathlib.Path('$_MATRIX').open())['webnn']['litertLm']['gitRef'])"
           )"
           LITERT_URL="$(
-            python -c "import json, pathlib; print(json.load(pathlib.Path('$GITHUB_WORKSPACE/config/webkit-build-matrix.json').open())['webnn']['litertLm']['gitUrl'])"
+            python -c "import json, pathlib; print(json.load(pathlib.Path('$_MATRIX').open())['webnn']['litertLm']['gitUrl'])"
           )"
           LITERT="$RUNNER_TEMP/litert-lm"
           if [ ! -d "$LITERT/.git" ]; then
