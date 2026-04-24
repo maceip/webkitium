@@ -214,6 +214,23 @@
 
   report.runtime.uncapturedErrorDuringProbe = uncaptured;
   pubReport();
+
+  // Remote harness: if ?harness=http://127.0.0.1:PORT/ was passed, POST the
+  // report so a CI job can capture the result without a human scraping the
+  // DOM. The harness server only accepts one POST and exits. Fire-and-forget;
+  // errors during fetch should not affect the rendered page.
+  try {
+    const params = new URLSearchParams(location.search);
+    const harness = params.get('harness');
+    if (harness) {
+      await fetch(harness, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(report),
+      }).catch(() => { /* harness closed first; that's fine */ });
+    }
+  } catch (_) { /* never interfere with the main probe */ }
 })();
 </script>
 </body>

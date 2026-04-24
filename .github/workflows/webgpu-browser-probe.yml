@@ -1,0 +1,206 @@
+name: webgpu-browser-probe
+
+# Remote WebGPU probe: downloads the latest successful windows-build
+# artifact, launches MiniBrowser on the self-hosted Windows runner against
+# validate-probe.html, captures the JSON result via a localhost POST, and
+# fails the run if any probe failed. User-triggerable from the GitHub
+# mobile UI.
+#
+# The self-hosted runner must be able to host an interactive desktop
+# session — MiniBrowser needs a real HWND to create a WebGPU surface.
+# If the runner is session-0 / headless, the adapter/device/compute probes
+# will still pass (they don't need a window) but canvas-render/surface
+# probes will not. That's useful data either way.
+
+on:
+  workflow_dispatch:
+    inputs:
+      run-id:
+        description: 'Optional windows-build run id (defaults to latest successful)'
+        required: false
+        type: string
+  workflow_run:
+    workflows: [windows-build]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: webgpu-browser-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    name: Probe WebGPU via MiniBrowser
+    # Skip the workflow_run trigger if the upstream build failed.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on:
+      - self-hosted
+      - Windows
+      - X64
+      - webkitium
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve target run id
+        id: target
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+              echo "run_id=${{ github.event.workflow_run.id }}" >> "$GITHUB_OUTPUT"
+              exit 0
+          fi
+          if [ -n "${{ github.event.inputs.run-id }}" ]; then
+              echo "run_id=${{ github.event.inputs.run-id }}" >> "$GITHUB_OUTPUT"
+              exit 0
+          fi
+          # Latest successful windows-build run.
+          latest=$(gh run list --workflow=windows-build.yml --status=success \
+              --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+          if [ -z "$latest" ]; then
+              echo "::error::no successful windows-build run found"
+              exit 1
+          fi
+          echo "run_id=$latest" >> "$GITHUB_OUTPUT"
+          echo "Using windows-build run $latest"
+
+      - name: Download windows-build artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/artifact"
+          cd "$RUNNER_TEMP/artifact"
+          gh run download ${{ steps.target.outputs.run_id }} \
+              --repo "$GITHUB_REPOSITORY" \
+              --dir .
+          echo "Artifact contents:"
+          find . -maxdepth 3 -type d
+          # Find the bin dir (nested under windows-build-<id>-<n>/bin)
+          bin_dir=$(find . -type d -name bin | head -1)
+          if [ -z "$bin_dir" ]; then
+              echo "::error::no bin/ directory found in artifact"
+              exit 1
+          fi
+          echo "bin_dir=$bin_dir" >> "$GITHUB_ENV"
+          echo "Resolved bin dir: $bin_dir"
+          ls "$bin_dir" | head -20
+
+      - name: Stage probe page beside MiniBrowser
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp "$GITHUB_WORKSPACE/changes/windows-webgpu-service/harness/tools/validate-probe.html" \
+             "$RUNNER_TEMP/artifact/$bin_dir/"
+          ls "$RUNNER_TEMP/artifact/$bin_dir/validate-probe.html"
+
+      - name: Run MiniBrowser + capture probe JSON
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $bin = "$env:RUNNER_TEMP/artifact/$env:bin_dir"
+          $page = "file:///$($bin -replace '\\','/')/validate-probe.html"
+          $out = Join-Path $env:RUNNER_TEMP 'probe-report.json'
+          $port = 8787
+          $harnessScript = "$env:GITHUB_WORKSPACE\changes\windows-webgpu-service\harness\tools\browser-probe-server.js"
+
+          Write-Host "[probe] harness: $harnessScript"
+          Write-Host "[probe] page:    $page?harness=http://127.0.0.1:$port/"
+          Write-Host "[probe] output:  $out"
+
+          # Start the harness server; it exits when it receives one POST
+          # (or after --timeout seconds).
+          $server = Start-Process -FilePath node `
+              -ArgumentList @($harnessScript, '--port', "$port", '--out', $out, '--timeout', '90') `
+              -PassThru -NoNewWindow -RedirectStandardOutput "$env:RUNNER_TEMP\harness-stdout.log" `
+              -RedirectStandardError "$env:RUNNER_TEMP\harness-stderr.log"
+          Write-Host "[probe] harness server pid=$($server.Id)"
+          Start-Sleep -Seconds 2  # let it bind
+
+          # Launch MiniBrowser against the probe page.
+          $mbExe = Join-Path $bin 'MiniBrowser.exe'
+          if (-not (Test-Path $mbExe)) { throw "MiniBrowser.exe missing at $mbExe" }
+
+          $miniUrl = "$page" + "?harness=http://127.0.0.1:$port/"
+          # CWD must be the bin dir so LoadLibrary finds dxil.dll + dxcompiler.dll.
+          $mb = Start-Process -FilePath $mbExe -ArgumentList $miniUrl `
+              -WorkingDirectory $bin -PassThru
+
+          Write-Host "[probe] MiniBrowser pid=$($mb.Id); waiting up to 90s for report..."
+
+          # Wait for the harness to exit (report received) or timeout.
+          $ok = $server.WaitForExit(95 * 1000)
+          if (-not $ok) {
+              Write-Host "[probe] harness did not exit within 95s"
+              try { Stop-Process -Id $server.Id -Force } catch {}
+          }
+          try { Stop-Process -Id $mb.Id -Force } catch {}
+          # Give MiniBrowser a second to clean up.
+          Start-Sleep -Seconds 2
+
+          Write-Host "=== harness stdout ==="
+          if (Test-Path "$env:RUNNER_TEMP\harness-stdout.log") { Get-Content "$env:RUNNER_TEMP\harness-stdout.log" }
+          Write-Host "=== harness stderr ==="
+          if (Test-Path "$env:RUNNER_TEMP\harness-stderr.log") { Get-Content "$env:RUNNER_TEMP\harness-stderr.log" }
+
+          if (-not (Test-Path $out)) {
+              Write-Error "No probe JSON written at $out — MiniBrowser likely failed to launch or load the page. Check the runner's desktop session."
+              exit 2
+          }
+          Write-Host "=== probe JSON ==="
+          Get-Content $out
+          "probe_json=$out" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Upload probe report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webgpu-browser-probe-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/probe-report.json
+            ${{ runner.temp }}/harness-stdout.log
+            ${{ runner.temp }}/harness-stderr.log
+          if-no-files-found: warn
+
+      - name: Assert probe results
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $report = "$env:RUNNER_TEMP\probe-report.json"
+          if (-not (Test-Path $report)) {
+              Write-Error "No report file"
+              exit 1
+          }
+          $j = Get-Content $report -Raw | ConvertFrom-Json
+          $rt = $j.runtime
+          Write-Host ("gpuAvailable:   {0}" -f $rt.gpuAvailable)
+          Write-Host ("queueAvailable: {0}" -f $rt.queueAvailable)
+          if ($rt.probes) {
+              foreach ($p in $rt.probes.PSObject.Properties) {
+                  $v = $p.Value
+                  Write-Host ("  {0,-22} ok={1}  {2}" -f $p.Name, $v.ok, $v.detail)
+              }
+          }
+          if (-not $rt.gpuAvailable) { Write-Error "navigator.gpu missing"; exit 1 }
+
+          if ($rt.probes) {
+              $failed = @()
+              foreach ($p in $rt.probes.PSObject.Properties) {
+                  if ($p.Value.ok -ne $true) { $failed += $p.Name }
+              }
+              if ($failed.Count -gt 0) {
+                  Write-Error ("FAILED probes: " + ($failed -join ', '))
+                  exit 1
+              }
+          }
+          Write-Host "All probes passed."
