@@ -1,4 +1,4 @@
-name: windows-build
+name: windows-release
 
 on:
   workflow_dispatch:

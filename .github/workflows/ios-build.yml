@@ -1,4 +1,4 @@
-name: ios-build
+name: ios-release
 
 on:
   workflow_dispatch:

@@ -1,4 +1,4 @@
-name: webgpu-harness-probe
+name: windows-test-webgpu-harness
 
 # Builds the standalone Windows WebGPU harness against the pinned Dawn
 # (google/dawn v20260410.140140, matching config/vcpkg-configuration.json)

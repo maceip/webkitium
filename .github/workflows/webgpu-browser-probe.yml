@@ -1,4 +1,4 @@
-name: webgpu-browser-probe
+name: windows-test-webgpu-browser
 
 # Remote WebGPU probe: downloads the latest successful windows-build
 # artifact, launches MiniBrowser on the self-hosted Windows runner against
