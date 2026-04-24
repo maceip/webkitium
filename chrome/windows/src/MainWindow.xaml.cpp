@@ -66,48 +66,73 @@ void MainWindow::AttachPaletteProvider(std::shared_ptr<PaletteProvider> palette)
 }
 
 void MainWindow::InstallThemeCyclingShortcut() {
-    // KeyboardAccelerator attached to the root grid so it fires anywhere
-    // in the window. TODO(webkitium#dev-shortcuts): remove once the
-    // Settings -> Appearance -> Theme UI lands.
+    // KeyboardAccelerator on the root grid.  IsEnabled and ScopeOwner
+    // are both set explicitly -- without a scope owner the accelerator
+    // only fires when the specific element has focus, which never
+    // happens for the root Grid.  Logging on Invoked lets us confirm
+    // the event actually fires.
+    auto root = this->Content().try_as<FrameworkElement>();
+    if (!root) {
+        LOG_ERROR("InstallThemeCyclingShortcut: Content() is not FrameworkElement");
+        return;
+    }
+
     KeyboardAccelerator accel;
     accel.Modifiers(VirtualKeyModifiers::Control | VirtualKeyModifiers::Shift);
     accel.Key(VirtualKey::T);
+    accel.ScopeOwner(root);
     accel.Invoked({ this, &MainWindow::OnThemeCycleInvoked });
+    root.KeyboardAccelerators().Append(accel);
 
-    if (auto root = this->Content().try_as<FrameworkElement>()) {
-        root.KeyboardAccelerators().Append(accel);
-    }
+    LOG_INFO("Ctrl+Shift+T accelerator attached to root");
 }
 
 void MainWindow::OnThemeCycleInvoked(
     KeyboardAccelerator const&,
     KeyboardAcceleratorInvokedEventArgs const& args) {
+    LOG_INFO("OnThemeCycleInvoked fired");
     args.Handled(true);
-    if (!m_palette) return;
+    if (!m_palette) {
+        LOG_WARN("OnThemeCycleInvoked: m_palette is null");
+        return;
+    }
 
     m_test_seed_index = (m_test_seed_index + 1) % static_cast<int>(kTestSeeds.size());
-    m_palette->ApplySeed(kTestSeeds[m_test_seed_index]);
+    const uint32_t seed = kTestSeeds[m_test_seed_index];
+    wchar_t buf[64];
+    std::swprintf(buf, 64, L"cycling to seed #%d = 0x%08X",
+                  m_test_seed_index, seed);
+    LOG_INFO(std::wstring_view{ buf });
+    m_palette->ApplySeed(seed);
 }
 
 void MainWindow::InstallOpenSettingsShortcut() {
+    auto root = this->Content().try_as<FrameworkElement>();
+    if (!root) {
+        LOG_ERROR("InstallOpenSettingsShortcut: Content() is not FrameworkElement");
+        return;
+    }
     // Ctrl+, is the Windows convention for "open settings".  VK_OEM_COMMA
     // is 0xBC, not in the Windows.System.VirtualKey enum, so cast through.
     KeyboardAccelerator accel;
     accel.Modifiers(VirtualKeyModifiers::Control);
     accel.Key(static_cast<VirtualKey>(0xBC));
+    accel.ScopeOwner(root);
     accel.Invoked({ this, &MainWindow::OnOpenSettingsInvoked });
+    root.KeyboardAccelerators().Append(accel);
 
-    if (auto root = this->Content().try_as<FrameworkElement>()) {
-        root.KeyboardAccelerators().Append(accel);
-    }
+    LOG_INFO("Ctrl+, accelerator attached to root");
 }
 
 void MainWindow::OnOpenSettingsInvoked(
     KeyboardAccelerator const&,
     KeyboardAcceleratorInvokedEventArgs const& args) {
+    LOG_INFO("OnOpenSettingsInvoked fired");
     args.Handled(true);
     if (auto app = implementation::App::Instance()) {
         app->OpenSettings();
+    } else {
+        LOG_ERROR("OnOpenSettingsInvoked: App::Instance() returned null");
     }
 }
 

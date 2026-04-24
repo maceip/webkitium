@@ -5,16 +5,18 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!--
-        Omnibar — anatomy per design/components/omnibar/SPEC.md:
+        Omnibar per design/components/omnibar/SPEC.md:
 
-        [lockmark] [origin chip] [input / inline suggestion] [actions]
+            [lockmark] [origin chip] [input / inline suggestion] [actions]
 
-        At rest: origin chip visible in TextSecondary, input in chip style.
-        Focused: chip collapses, TextBox takes the full leading area.
+        The pill owns the visual (Background, Border, CornerRadius).
+        The nested TextBox is forced transparent and has its
+        TextControl* theme resources overridden so that our Foreground
+        brushes actually apply -- without those overrides the default
+        TextBox template wins and the text is invisible on our pill.
 
-        This sketch implements rest + focus states; inline completion,
-        suggestion dropdown, and prefix routing come with the browser
-        command controller wiring.
+        MaxWidth lives on the Border, not the UserControl, so the
+        parent's Stretch layout is bounded at the pill level.
     -->
 
     <Border x:Name="PART_Pill"
@@ -22,6 +24,7 @@
             BorderBrush="{ThemeResource BorderSubtle}"
             BorderThickness="1"
             CornerRadius="10"
+            MaxWidth="720"
             Padding="8,4"
             HorizontalAlignment="Stretch">
         <Grid>
@@ -31,14 +34,6 @@
                 <ColumnDefinition Width="Auto" />   <!-- Actions -->
             </Grid.ColumnDefinitions>
 
-            <!--
-                Lockmark. Segoe Fluent Icons glyph E72E = Lock.
-                Color is the AccentFill brush so it picks up the user's
-                brand hue once theming is live. Anti-spoof: on the real
-                webkitium address bar the glyph never changes to a custom
-                graphic — web content cannot paint outside its viewport
-                and extensions cannot substitute this glyph.
-            -->
             <FontIcon Grid.Column="0"
                       x:Name="PART_Lockmark"
                       Glyph="&#xE72E;"
@@ -48,53 +43,83 @@
                       Margin="4,0,8,0"
                       VerticalAlignment="Center" />
 
-            <!--
-                Input. Borderless, transparent — the outer pill owns the
-                visual. PlaceholderText is the rest-state cue; once a tab
-                is loaded we swap it for the live origin via code-behind.
-            -->
             <TextBox Grid.Column="1"
                      x:Name="PART_Input"
-                     Background="Transparent"
-                     BorderThickness="0"
                      PlaceholderText="Search or enter address"
-                     Foreground="{ThemeResource TextPrimary}"
                      FontFamily="{StaticResource FontFamilyUI}"
                      FontSize="{StaticResource FontSizeBody}"
                      VerticalAlignment="Center"
                      VerticalContentAlignment="Center"
+                     BorderThickness="0"
                      GotFocus="OnInputGotFocus"
                      LostFocus="OnInputLostFocus"
-                     KeyDown="OnInputKeyDown" />
+                     KeyDown="OnInputKeyDown">
+                <TextBox.Resources>
+                    <!-- Override every TextControl* brush so the default
+                         template never paints its own background or fills
+                         in its own foreground.  These override our outer
+                         Foreground= attribute (which TextBox ignores). -->
+                    <SolidColorBrush x:Key="TextControlForeground" Color="{ThemeResource Neutral12}" />
+                    <SolidColorBrush x:Key="TextControlForegroundPointerOver" Color="{ThemeResource Neutral12}" />
+                    <SolidColorBrush x:Key="TextControlForegroundFocused" Color="{ThemeResource Neutral12}" />
+                    <SolidColorBrush x:Key="TextControlForegroundDisabled" Color="{ThemeResource Neutral9}" />
+                    <SolidColorBrush x:Key="TextControlPlaceholderForeground" Color="{ThemeResource Neutral9}" />
+                    <SolidColorBrush x:Key="TextControlPlaceholderForegroundPointerOver" Color="{ThemeResource Neutral9}" />
+                    <SolidColorBrush x:Key="TextControlPlaceholderForegroundFocused" Color="{ThemeResource Neutral9}" />
 
-            <!--
-                Trailing action cluster. Reload + extension affordance +
-                overflow. All use SubtleButtonStyle so only hover tint
-                appears; rest-state reads as part of the pill.
-            -->
+                    <SolidColorBrush x:Key="TextControlBackground" Color="Transparent" />
+                    <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
+                    <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
+                    <SolidColorBrush x:Key="TextControlBackgroundDisabled" Color="Transparent" />
+
+                    <SolidColorBrush x:Key="TextControlBorderBrush" Color="Transparent" />
+                    <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
+                    <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
+
+                    <!-- Hide the blue focus underline the default template
+                         would draw beneath the text -- our pill border
+                         already indicates focus. -->
+                    <Thickness x:Key="TextControlBorderThemeThickness">0</Thickness>
+                    <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
+
+                    <SolidColorBrush x:Key="TextControlSelectionHighlightColor" Color="{ThemeResource AccentFill}" />
+                    <SolidColorBrush x:Key="TextControlButtonForeground" Color="{ThemeResource Neutral9}" />
+                    <SolidColorBrush x:Key="TextControlButtonForegroundPointerOver" Color="{ThemeResource Brand11}" />
+                </TextBox.Resources>
+            </TextBox>
+
             <StackPanel Grid.Column="2"
                         Orientation="Horizontal"
                         Spacing="0">
                 <Button x:Name="PART_Reload"
-                        Padding="8"
+                        Background="Transparent"
+                        BorderBrush="Transparent"
+                        Padding="6"
                         ToolTipService.ToolTip="Reload (Ctrl+R)">
                     <FontIcon Glyph="&#xE72C;"
                               FontFamily="Segoe Fluent Icons"
-                              FontSize="14" />
+                              FontSize="14"
+                              Foreground="{ThemeResource TextSecondary}" />
                 </Button>
                 <Button x:Name="PART_Extensions"
-                        Padding="8"
+                        Background="Transparent"
+                        BorderBrush="Transparent"
+                        Padding="6"
                         ToolTipService.ToolTip="Extensions">
                     <FontIcon Glyph="&#xECAA;"
                               FontFamily="Segoe Fluent Icons"
-                              FontSize="14" />
+                              FontSize="14"
+                              Foreground="{ThemeResource TextSecondary}" />
                 </Button>
                 <Button x:Name="PART_Overflow"
-                        Padding="8"
+                        Background="Transparent"
+                        BorderBrush="Transparent"
+                        Padding="6"
                         ToolTipService.ToolTip="More">
                     <FontIcon Glyph="&#xE712;"
                               FontFamily="Segoe Fluent Icons"
-                              FontSize="14" />
+                              FontSize="14"
+                              Foreground="{ThemeResource TextSecondary}" />
                 </Button>
             </StackPanel>
         </Grid>

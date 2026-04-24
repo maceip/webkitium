@@ -40,7 +40,6 @@
             </Grid.ColumnDefinitions>
 
             <local:Omnibar Grid.Column="1"
-                           MaxWidth="720"
                            HorizontalAlignment="Stretch"
                            VerticalAlignment="Center" />
         </Grid>
