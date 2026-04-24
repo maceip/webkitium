@@ -28,8 +28,8 @@ void App::OnLaunched(LaunchActivatedEventArgs const&) {
     m_palette->Initialize();
     m_palette->ApplySeed(PaletteProvider::kShippedDefaultSeedArgb);
 
-    m_window = make<MainWindow>();
-    if (auto impl = winrt::get_self<MainWindow>(m_window)) {
+    m_window = make<implementation::MainWindow>();
+    if (auto impl = winrt::get_self<implementation::MainWindow>(m_window)) {
         impl->AttachPaletteProvider(m_palette);
     }
     m_window.Activate();
@@ -37,8 +37,9 @@ void App::OnLaunched(LaunchActivatedEventArgs const&) {
 
 void App::OpenSettings() {
     if (!m_settings_window) {
-        m_settings_window = make<SettingsWindow>();
-        if (auto impl = winrt::get_self<SettingsWindow>(m_settings_window)) {
+        m_settings_window = make<implementation::SettingsWindow>();
+        if (auto impl =
+                winrt::get_self<implementation::SettingsWindow>(m_settings_window)) {
             impl->AttachPaletteProvider(m_palette);
         }
     }

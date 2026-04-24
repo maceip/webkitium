@@ -10,6 +10,10 @@
 #include "App.xaml.g.h"
 #include "PaletteProvider.h"
 
+// Projection types for the windows we own; needed so winrt::get_self
+// can resolve through the IDL-generated produce chain.
+#include <winrt/webkitium.h>
+
 #include <memory>
 
 namespace winrt::webkitium::implementation {
@@ -33,8 +37,11 @@ struct App : AppT<App> {
 private:
     static inline App* s_instance = nullptr;
 
-    Microsoft::UI::Xaml::Window      m_window{ nullptr };
-    Microsoft::UI::Xaml::Window      m_settings_window{ nullptr };
+    // Hold the projection types (not base Window) so winrt::get_self
+    // can recover the implementation pointer through the IDL-generated
+    // produce<> chain.
+    winrt::webkitium::MainWindow     m_window{ nullptr };
+    winrt::webkitium::SettingsWindow m_settings_window{ nullptr };
     std::shared_ptr<PaletteProvider> m_palette;
 };
 
