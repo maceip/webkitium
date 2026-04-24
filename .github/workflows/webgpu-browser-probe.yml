@@ -92,9 +92,11 @@ jobs:
               --repo "$GITHUB_REPOSITORY" \
               --dir .
           echo "Artifact contents:"
-          find . -maxdepth 3 -type d
-          # Find the bin dir (nested under windows-build-<id>-<n>/bin)
-          bin_dir=$(find . -type d -name bin | head -1)
+          /usr/bin/find . -maxdepth 3 -type d
+          # Locate the bin/ dir (nested under windows-build-<id>-<n>/bin).
+          # Use the full path to Unix find; plain `find` on PATH resolves to
+          # Windows FIND.exe on git-bash, which does not support -type / -name.
+          bin_dir=$(/usr/bin/find . -type d -name bin | head -1)
           if [ -z "$bin_dir" ]; then
               echo "::error::no bin/ directory found in artifact"
               exit 1
