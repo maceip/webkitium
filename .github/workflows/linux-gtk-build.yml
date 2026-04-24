@@ -106,8 +106,10 @@ jobs:
           cd "$SRC"
           JOBS="$(nproc 2>/dev/null || echo 4)"
           export WEBKITIUM_BROWSER_SHELL_TARGET=linux-gtk
+          # WebKit's FindThunder.cmake fails on standard Ubuntu (Thunder is
+          # WPE/RDK). Overwrite with our stub before configure runs.
+          cp "$GITHUB_WORKSPACE/config/cmake/FindThunder.cmake" "$SRC/Source/cmake/FindThunder.cmake"
           perl Tools/Scripts/build-webkit --release --gtk --makeargs="-j$JOBS" \
-            -DCMAKE_MODULE_PATH="$GITHUB_WORKSPACE/config/cmake" \
             -DENABLE_EXPERIMENTAL_FEATURES="${WEBKIT_CMAKE_ENABLE_EXPERIMENTAL_FEATURES:-ON}" \
             -DENABLE_WEBXR="${WEBKIT_CMAKE_ENABLE_WEBXR:-OFF}" \
             -DENABLE_THUNDER=OFF
