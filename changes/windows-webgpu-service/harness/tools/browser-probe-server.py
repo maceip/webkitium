@@ -22,11 +22,31 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def _cors(self):
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
 
     def do_OPTIONS(self):
         self.send_response(204)
+        self._cors()
+        self.end_headers()
+
+    def do_GET(self):
+        # Serve the probe page same-origin so fetch() to POST / doesn't hit
+        # a cross-scheme block (file:// -> http://127.0.0.1 is blocked by
+        # default in many browsers).
+        import os
+        html_path = getattr(self.server, "html_path", None)
+        if html_path and os.path.isfile(html_path):
+            with open(html_path, "rb") as f:
+                body = f.read()
+            self.send_response(200)
+            self._cors()
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        self.send_response(404)
         self._cors()
         self.end_headers()
 
@@ -57,15 +77,18 @@ def main() -> int:
     ap.add_argument("--port", type=int, default=8787)
     ap.add_argument("--out", default="report.json")
     ap.add_argument("--timeout", type=int, default=60)
+    ap.add_argument("--html", default="", help="Serve this HTML on GET /")
     args = ap.parse_args()
 
     out_path = pathlib.Path(args.out).resolve()
+    html_path = str(pathlib.Path(args.html).resolve()) if args.html else None
     if not (0 < args.port < 65536):
         print("invalid --port", file=sys.stderr)
         return 3
 
     server = http.server.HTTPServer(("127.0.0.1", args.port), Handler)
     server.out_path = out_path  # type: ignore[attr-defined]
+    server.html_path = html_path  # type: ignore[attr-defined]
     server.received = False  # type: ignore[attr-defined]
     print(f"[harness] listening on http://127.0.0.1:{args.port}/  "
           f"(timeout {args.timeout}s)", flush=True)

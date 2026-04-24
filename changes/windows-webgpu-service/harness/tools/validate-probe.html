@@ -51,7 +51,20 @@
   <pre id="validation-report">{"status":"pending"}</pre>
 
 <script>
+// Fire a beacon BEFORE any async work so the harness can distinguish
+// "JS didn't run at all" from "JS ran but fetch() blocked/returned late".
+(() => { try { new Image().src = '/beacon?phase=script-start&t=' + Date.now(); } catch (_) {} })();
+window.addEventListener('error', (e) => {
+  try { new Image().src = '/beacon?phase=error&msg=' + encodeURIComponent((e.message||'') + ' @ ' + (e.filename||'') + ':' + (e.lineno||'')); } catch (_) {}
+});
+window.addEventListener('unhandledrejection', (e) => {
+  try { new Image().src = '/beacon?phase=rejection&msg=' + encodeURIComponent((e.reason && e.reason.message) || String(e.reason)); } catch (_) {}
+});
+
+function beacon(p) { try { new Image().src = '/beacon?phase=' + encodeURIComponent(p) + '&t=' + Date.now(); } catch (_) {} }
+
 (async () => {
+  beacon('async-enter');
   const log = document.getElementById('log');
   const report = {
     runtime: {
@@ -74,25 +87,46 @@
     document.getElementById('validation-report').textContent = JSON.stringify(report, null, 2);
   }
 
-  if (!('gpu' in navigator)) {
+  beacon('pre-navigator-gpu');
+  const hasGpu = ('gpu' in navigator);
+  beacon('navigator-gpu=' + hasGpu);
+  if (!hasGpu) {
     line('navigatorGpu', false, 'navigator.gpu is undefined (is WebGPUEnabled pref set?)');
+    report.runtime.navigatorGpuMissing = true;
     pubReport();
+    await postReport(report);
     return;
   }
   report.runtime.gpuAvailable = true;
   line('navigatorGpu', true, 'navigator.gpu present');
 
-  let adapter;
-  try {
-    adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
-  } catch (e) {
-    line('requestAdapter', false, 'threw: ' + (e.message||e));
-    pubReport();
-    return;
+  // Try the plain request first, then low-power, then explicit software
+  // fallback. Headless EC2 instances only have WARP (D3D12 software), and
+  // WebGPU spec says a 'high-performance' request MAY refuse a software
+  // adapter. Without this ladder we stop at null + 15s on CPU-only hosts.
+  beacon('pre-requestAdapter');
+  const attempts = [
+    { label: 'default', opts: {} },
+    { label: 'low-power', opts: { powerPreference: 'low-power' } },
+    { label: 'force-fallback', opts: { forceFallbackAdapter: true } },
+  ];
+  let adapter = null;
+  let adapterAttempt = null;
+  for (const a of attempts) {
+    beacon('requestAdapter-' + a.label);
+    try {
+      const r = await navigator.gpu.requestAdapter(a.opts);
+      if (r) { adapter = r; adapterAttempt = a.label; break; }
+    } catch (e) {
+      beacon('requestAdapter-' + a.label + '-threw=' + encodeURIComponent((e && e.message) || String(e)));
+    }
   }
+  beacon('post-requestAdapter=' + (adapter ? adapterAttempt : 'null'));
+  report.runtime.adapterAttempt = adapterAttempt;
   if (!adapter) {
-    line('requestAdapter', false, 'returned null');
+    line('requestAdapter', false, 'all attempts returned null (default, low-power, force-fallback)');
     pubReport();
+    await postReport(report);
     return;
   }
   const info = adapter.info || {};
@@ -214,24 +248,27 @@
 
   report.runtime.uncapturedErrorDuringProbe = uncaptured;
   pubReport();
+  await postReport(report);
+})();
 
-  // Remote harness: if ?harness=http://127.0.0.1:PORT/ was passed, POST the
-  // report so a CI job can capture the result without a human scraping the
-  // DOM. The harness server only accepts one POST and exits. Fire-and-forget;
-  // errors during fetch should not affect the rendered page.
+async function postReport(report) {
+  beacon('postReport-enter');
   try {
     const params = new URLSearchParams(location.search);
-    const harness = params.get('harness');
-    if (harness) {
-      await fetch(harness, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(report),
-      }).catch(() => { /* harness closed first; that's fine */ });
-    }
-  } catch (_) { /* never interfere with the main probe */ }
-})();
+    const harness = params.get('harness') || '/';
+    const res = await fetch(harness, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(report),
+    }).catch((e) => {
+      beacon('postReport-fetch-failed=' + encodeURIComponent((e && e.message) || String(e)));
+      return null;
+    });
+    beacon('postReport-done=' + (res ? res.status : 'null'));
+  } catch (e) {
+    beacon('postReport-threw=' + encodeURIComponent((e && e.message) || String(e)));
+  }
+}
 </script>
 </body>
 </html>
