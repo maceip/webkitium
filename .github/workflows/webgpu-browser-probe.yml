@@ -55,6 +55,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          # Self-hosted runner: the workspace may be owned by a different
+          # Windows account than the one running gh/git (NETWORK SERVICE vs
+          # SYSTEM). Tell git to trust any directory so `gh` calls that
+          # shell out to git for repo detection don't fail.
+          git config --global --add safe.directory '*' || true
           if [ "${{ github.event_name }}" = "workflow_run" ]; then
               echo "run_id=${{ github.event.workflow_run.id }}" >> "$GITHUB_OUTPUT"
               exit 0
@@ -63,8 +68,10 @@ jobs:
               echo "run_id=${{ github.event.inputs.run-id }}" >> "$GITHUB_OUTPUT"
               exit 0
           fi
-          # Latest successful windows-build run.
-          latest=$(gh run list --workflow=windows-build.yml --status=success \
+          # Latest successful windows-build run. Pass --repo explicitly so gh
+          # does not need to infer it from the checkout dir.
+          latest=$(gh run list --repo "$GITHUB_REPOSITORY" \
+              --workflow=windows-build.yml --status=success \
               --limit 1 --json databaseId --jq '.[0].databaseId // empty')
           if [ -z "$latest" ]; then
               echo "::error::no successful windows-build run found"
