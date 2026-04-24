@@ -1,0 +1,52 @@
+{
+  "$version": "1.0.0",
+  "$description": "FIXED, non-themeable tokens for the WebAuthn authenticator and password manager UI. These values are baked into platform binaries at build time and signed. There is no runtime path to modify them — neither user-facing settings, nor the browser.theme API, nor sync. See components/authenticator/SECURITY_BOUNDARY.md for rationale.",
+  "$extensions": {
+    "dev.webkitium.protection": "secure-fixed",
+    "dev.webkitium.syncable": false
+  },
+  "brand": {
+    "$description": "A visually distinct palette the user cannot change. Chosen to be recognizable as 'the real authenticator' across OS vendors and to survive OS light/dark switches. Uses platform system colors where they provide anti-spoofing guarantees (system window chrome cannot be rendered by web content).",
+    "accent":      { "$type": "color", "$value": "oklch(0.62 0.16 240)" },
+    "accentHover": { "$type": "color", "$value": "oklch(0.56 0.18 240)" },
+    "warning":     { "$type": "color", "$value": "oklch(0.70 0.18 60)" },
+    "danger":      { "$type": "color", "$value": "oklch(0.55 0.22 25)" }
+  },
+  "surface": {
+    "$description": "Uses native system window materials via platform-specific references. These resolve at build time to NSVisualEffectView (macOS), SystemBackdrop.Mica (Windows), Theme.Material3 (Android), system chrome (iOS), GTK theme-bg (Linux). The authenticator window is drawn by the browser process, not a renderer, and cannot be iframed or overlaid by web content.",
+    "window": {
+      "$type": "material",
+      "$value": {
+        "macos":   { "material": "windowBackground", "blendingMode": "behindWindow" },
+        "ios":     { "style": "systemMaterial" },
+        "windows": { "kind": "Mica", "variant": "Base", "tintColor": null, "tintOpacity": 0, "fallbackColor": "SystemChromeMediumColor" },
+        "android": { "kind": "Surface", "tonalElevation": 0, "color": "ThemeAttr:colorSurface" },
+        "linux":   { "kind": "Solid", "color": "ThemeColor:theme_bg_color" }
+      }
+    }
+  },
+  "text": {
+    "primary":   { "$type": "color", "$value": "SystemLabelColor" },
+    "secondary": { "$type": "color", "$value": "SystemSecondaryLabelColor" }
+  },
+  "identity": {
+    "$description": "Visual anti-spoof markers. Every authenticator window MUST display the webkitium lockmark (an SVG with this fill) and the bound relying-party origin in a fixed location. The lockmark asset ID is referenced by binary, not by path, so it cannot be replaced without re-signing.",
+    "lockmarkFill":  { "$type": "color", "$value": "{brand.accent}" },
+    "lockmarkAsset": { "$type": "number", "$value": 1, "$description": "Asset bundle index. Do not change." }
+  },
+  "shape": {
+    "window":      { "$type": "dimension", "$value": "16px" },
+    "button":      { "$type": "dimension", "$value": "10px" }
+  },
+  "type": {
+    "$description": "Uses platform system font at fixed HIG-standard sizes. Dynamic Type respected for accessibility but no user override of family.",
+    "title":    { "$type": "dimension", "$value": "17pt" },
+    "body":     { "$type": "dimension", "$value": "13pt" },
+    "rpOrigin": { "$type": "dimension", "$value": "13pt", "$description": "Relying-party origin display size. Must be legible at minimum system font scale." }
+  },
+  "motion": {
+    "$description": "Fixed motion for the authenticator. No theme control — spoof attempts often use non-standard animation timing.",
+    "present":  { "$type": "duration", "$value": "220ms" },
+    "dismiss":  { "$type": "duration", "$value": "160ms" }
+  }
+}

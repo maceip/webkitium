@@ -1,0 +1,37 @@
+{
+  "$version": "1.0.0",
+  "$description": "Role-based tokens for dark appearance. Not a simple inversion — dark chrome pulls from deeper neutral steps and brand steps adjust toward the lighter half of the ramp for contrast.",
+  "$extensions": {
+    "dev.webkitium.protection": "themeable"
+  },
+  "surface": {
+    "canvas":      { "$type": "color", "$value": "{color.neutral.12}" },
+    "chrome":      { "$type": "color", "$value": "{color.neutral.11}" },
+    "chromeRaised":{ "$type": "color", "$value": "{color.neutral.10}" },
+    "sunken":      { "$type": "color", "$value": "{color.neutral.12}" },
+    "hover":       { "$type": "color", "$value": "{color.neutral.9}" },
+    "pressed":     { "$type": "color", "$value": "{color.neutral.8}" },
+    "overlay":     { "$type": "color", "$value": "{color.neutral.10}" },
+    "selected":    { "$type": "color", "$value": "{color.brand.8}" }
+  },
+  "text": {
+    "primary":   { "$type": "color", "$value": "{color.neutral.1}" },
+    "secondary": { "$type": "color", "$value": "{color.neutral.3}" },
+    "tertiary":  { "$type": "color", "$value": "{color.neutral.6}" },
+    "onBrand":   { "$type": "color", "$value": "{color.neutral.12}" },
+    "danger":    { "$type": "color", "$value": "{color.danger.9}" },
+    "link":      { "$type": "color", "$value": "{color.brand.6}" }
+  },
+  "border": {
+    "subtle": { "$type": "color", "$value": "{color.neutral.10}" },
+    "default":{ "$type": "color", "$value": "{color.neutral.9}" },
+    "strong": { "$type": "color", "$value": "{color.neutral.7}" },
+    "focus":  { "$type": "color", "$value": "{color.brand.7}" }
+  },
+  "accent": {
+    "fill":       { "$type": "color", "$value": "{color.brand.9}" },
+    "fillHover":  { "$type": "color", "$value": "{color.brand.8}" },
+    "fillPressed":{ "$type": "color", "$value": "{color.brand.7}" },
+    "fillSubtle": { "$type": "color", "$value": "{color.brand.11}" }
+  }
+}

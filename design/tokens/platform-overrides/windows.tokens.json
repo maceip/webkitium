@@ -1,0 +1,53 @@
+{
+  "$version": "1.0.0",
+  "$description": "Windows 11 / WinUI 3 overrides. Mica on the window root, Acrylic on flyouts, MicaAlt on settings pages. User brand color tints Mica via ResourceDictionary ThemeDictionaries.",
+  "$extensions": {
+    "dev.webkitium.protection": "platform-only",
+    "dev.webkitium.platform": ["windows"]
+  },
+  "material": {
+    "window": {
+      "$type": "material",
+      "$description": "Root window backdrop. MicaController with user brand as TintColor. Generator attaches via SystemBackdrop in App.xaml.cs.",
+      "$value": {
+        "kind": "Mica",
+        "variant": "Base",
+        "tintColor": "{accent.fill}",
+        "tintOpacity": 0.5,
+        "luminosityOpacity": 1.0,
+        "fallbackColor": "{surface.chrome}"
+      }
+    },
+    "omnibar": {
+      "$type": "material",
+      "$description": "Omnibar does NOT get its own material — it sits on Mica and uses a solid sunken fill so the edit affordance is unambiguous.",
+      "$value": { "kind": "Solid", "color": "{surface.sunken}" }
+    },
+    "contextMenu": {
+      "$type": "material",
+      "$value": {
+        "kind": "Acrylic",
+        "variant": "Default",
+        "tintColor": "{surface.overlay}",
+        "tintOpacity": 0.6,
+        "fallbackColor": "{surface.overlay}"
+      }
+    },
+    "settings": {
+      "$type": "material",
+      "$value": { "kind": "Mica", "variant": "Alt", "tintColor": "{accent.fill}", "tintOpacity": 0.3 }
+    }
+  },
+  "accent": {
+    "$description": "Pre-theme: follow Windows accent color (ColorHelper.FromArgb from UISettings). Post-theme: use user brand.",
+    "followSystem": { "$type": "number", "$value": 1 }
+  },
+  "shape": {
+    "$description": "WinUI corner radius conventions: ControlCornerRadius=4, OverlayCornerRadius=8. We override slightly larger for the omnibar.",
+    "omnibar": { "$type": "dimension", "$value": "{radius.md}" }
+  },
+  "reveal": {
+    "$description": "RevealBrush hover effect on omnibar buttons. Disabled by default (perceived as dated in 2026); re-enable via theme preset 'classic-windows'.",
+    "enabled": { "$type": "number", "$value": 0 }
+  }
+}

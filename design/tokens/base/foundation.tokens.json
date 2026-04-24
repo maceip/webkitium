@@ -1,0 +1,105 @@
+{
+  "$version": "1.0.0",
+  "$description": "Non-color foundations: typography, spacing, radius, motion, elevation, haptics. Most are themeable but tightly constrained (we accept user fontFamily overrides but not arbitrary dimensions — spacing scale is fixed to preserve rhythm).",
+  "$extensions": {
+    "dev.webkitium.protection": "themeable"
+  },
+  "font": {
+    "family": {
+      "ui": {
+        "$type": "fontFamily",
+        "$description": "Primary UI font. Platform defaults give the best rendering (SF on Apple, Segoe on Windows, Roboto on Android, system-ui on Linux). User theme may override with a single family name; we refuse fallback chains from extensions to prevent fingerprinting-via-font.",
+        "$value": ["system-ui"],
+        "$extensions": {
+          "dev.webkitium.platform-value": {
+            "macos": ".AppleSystemUIFont",
+            "ios": ".AppleSystemUIFont",
+            "windows": "Segoe UI Variable",
+            "android": "Roboto",
+            "linux": "Inter, system-ui, sans-serif"
+          }
+        }
+      },
+      "mono": {
+        "$type": "fontFamily",
+        "$value": ["ui-monospace", "SF Mono", "Cascadia Code", "Roboto Mono", "monospace"]
+      }
+    },
+    "weight": {
+      "regular": { "$type": "fontWeight", "$value": 400 },
+      "medium":  { "$type": "fontWeight", "$value": 500 },
+      "semibold":{ "$type": "fontWeight", "$value": 600 },
+      "bold":    { "$type": "fontWeight", "$value": 700 }
+    },
+    "size": {
+      "$description": "Type ramp. Honors platform Dynamic Type — emitted as relative values on iOS/macOS/Android; WinUI uses FontSize-adjusted resource.",
+      "caption":  { "$type": "dimension", "$value": "11px" },
+      "footnote": { "$type": "dimension", "$value": "12px" },
+      "body":     { "$type": "dimension", "$value": "14px" },
+      "callout":  { "$type": "dimension", "$value": "15px" },
+      "title3":   { "$type": "dimension", "$value": "17px" },
+      "title2":   { "$type": "dimension", "$value": "20px" },
+      "title1":   { "$type": "dimension", "$value": "24px" },
+      "display":  { "$type": "dimension", "$value": "32px" }
+    }
+  },
+  "space": {
+    "$description": "4px base grid. Fixed — not writable via API. Extensions cannot violate rhythm.",
+    "$extensions": { "dev.webkitium.protection": "platform-only" },
+    "0":  { "$type": "dimension", "$value": "0" },
+    "1":  { "$type": "dimension", "$value": "4px" },
+    "2":  { "$type": "dimension", "$value": "8px" },
+    "3":  { "$type": "dimension", "$value": "12px" },
+    "4":  { "$type": "dimension", "$value": "16px" },
+    "5":  { "$type": "dimension", "$value": "20px" },
+    "6":  { "$type": "dimension", "$value": "24px" },
+    "8":  { "$type": "dimension", "$value": "32px" },
+    "10": { "$type": "dimension", "$value": "40px" },
+    "12": { "$type": "dimension", "$value": "48px" },
+    "16": { "$type": "dimension", "$value": "64px" }
+  },
+  "radius": {
+    "$description": "Corner radii. Themeable globally (user can pick 'sharp' / 'soft' / 'pill' preset), not per-corner.",
+    "none":   { "$type": "dimension", "$value": "0" },
+    "xs":     { "$type": "dimension", "$value": "4px" },
+    "sm":     { "$type": "dimension", "$value": "6px" },
+    "md":     { "$type": "dimension", "$value": "10px" },
+    "lg":     { "$type": "dimension", "$value": "14px" },
+    "xl":     { "$type": "dimension", "$value": "20px" },
+    "pill":   { "$type": "dimension", "$value": "9999px" },
+    "omnibar":{ "$type": "dimension", "$value": "{radius.lg}", "$extensions": { "dev.webkitium.api-path": "shape.omnibar" } }
+  },
+  "motion": {
+    "$description": "Duration + easing pairs. Respects prefers-reduced-motion; platform generators emit a reduced variant that collapses durations to 0.",
+    "duration": {
+      "instant": { "$type": "duration", "$value": "0ms" },
+      "fast":    { "$type": "duration", "$value": "120ms" },
+      "medium":  { "$type": "duration", "$value": "240ms" },
+      "slow":    { "$type": "duration", "$value": "360ms" }
+    },
+    "easing": {
+      "standard":  { "$type": "cubicBezier", "$value": [0.2, 0.0, 0.0, 1.0] },
+      "decelerate":{ "$type": "cubicBezier", "$value": [0.0, 0.0, 0.2, 1.0] },
+      "accelerate":{ "$type": "cubicBezier", "$value": [0.4, 0.0, 1.0, 1.0] },
+      "emphasized":{ "$type": "cubicBezier", "$value": [0.2, 0.0, 0.0, 1.0], "$description": "Material 3 'emphasized' curve." }
+    }
+  },
+  "elevation": {
+    "$description": "Logical elevation levels. Each platform renders differently — macOS uses Liquid Glass materials, iOS uses blur layers, Windows uses Mica/Acrylic + shadow, Android uses tonalElevation + shadow, Linux uses solid fill + shadow.",
+    "$extensions": { "dev.webkitium.protection": "platform-only" },
+    "surface":  { "$type": "number", "$value": 0 },
+    "raised":   { "$type": "number", "$value": 1 },
+    "overlay":  { "$type": "number", "$value": 2 },
+    "modal":    { "$type": "number", "$value": 3 },
+    "toast":    { "$type": "number", "$value": 4 }
+  },
+  "haptic": {
+    "$description": "Semantic haptic events. Platforms map to native APIs (UIImpactFeedback on iOS, HapticFeedback on Android, no-op on Windows/Linux until supported). User may disable globally.",
+    "selection":    { "$type": "haptic", "$value": "selection" },
+    "lightImpact":  { "$type": "haptic", "$value": "impact.light" },
+    "mediumImpact": { "$type": "haptic", "$value": "impact.medium" },
+    "success":      { "$type": "haptic", "$value": "notification.success" },
+    "warning":      { "$type": "haptic", "$value": "notification.warning" },
+    "error":        { "$type": "haptic", "$value": "notification.error" }
+  }
+}
