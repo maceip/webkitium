@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "description": "Single source of truth for CI homogeneity: webkit-pin tarball must match webkit.expectedCommit; Dawn pin is dawn.vcpkgBaseline (must match config/vcpkg-configuration.json); shared CMake toggles are emitted by config/ci_matrix_env.py into GITHUB_ENV on each workflow run.",
+  "webkit": {
+    "pinReleaseTag": "webkit-pin",
+    "partGlob": "webkit-pin.tar.gz.part-*",
+    "expectedCommit": "64f58084c78130b874d05dbcfb508147354095af",
+    "upstream": {
+      "preset": "iangrunert-win-gigacage-skia-fixes",
+      "url": "https://github.com/iangrunert/WebKit.git"
+    }
+  },
+  "dawn": {
+    "vcpkgBaseline": "17e4940625388c7b893b6f3cb0bff43977da5a5f",
+    "versionTag": "v20260410.140140",
+    "commit": "493241c40dc94ca283c5e2b42a03911df870f359",
+    "vcpkgConfigPath": "config/vcpkg-configuration.json",
+    "notes": "Windows only: Dawn comes from vcpkg port 'webgpu_dawn' at the pinned registry baseline. macOS/iOS/Linux GTK builds use the WebKit port defaults unless you add port-specific WebGPU flags."
+  },
+  "cmake": {
+    "enableExperimentalFeatures": true,
+    "enableWebxr": false,
+    "windows": {
+      "enableWebgpuViaBuildWebkit": true,
+      "thinLto": true,
+      "linker": "lld-link"
+    }
+  },
+  "webnn": {
+    "litertLm": {
+      "gitUrl": "https://github.com/google-ai-edge/LiteRT-LM.git",
+      "gitRef": "v0.10.2"
+    }
+  }
+}

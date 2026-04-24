@@ -26,6 +26,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Load CI matrix into environment
+        run: |
+          set -euo pipefail
+          python3 "$GITHUB_WORKSPACE/config/ci_matrix_env.py" \
+            --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" >> "$GITHUB_ENV"
+
       - name: Prepare source
         env:
           GH_TOKEN: ${{ github.token }}
@@ -50,14 +56,14 @@ jobs:
           mkdir -p "$SRC"
 
           cd "$RUNNER_TEMP"
-          "$GH_BIN" release download webkit-pin \
+          "$GH_BIN" release download "${WEBKIT_PIN_RELEASE_TAG:?WEBKIT_PIN_RELEASE_TAG missing}" \
             --repo "$GITHUB_REPOSITORY" \
-            --pattern "webkit-pin.tar.gz.part-*"
+            --pattern "${WEBKIT_PIN_PART_GLOB:?WEBKIT_PIN_PART_GLOB missing}"
 
           shopt -s nullglob
-          parts=( webkit-pin.tar.gz.part-* )
+          parts=( ${WEBKIT_PIN_PART_GLOB} )
           if (( ${#parts[@]} == 0 )); then
-            echo "::error::No webkit-pin tarball parts after download"
+            echo "::error::No tarball parts matched WEBKIT_PIN_PART_GLOB after download"
             exit 1
           fi
           sorted=()
@@ -65,11 +71,15 @@ jobs:
             [[ -n "$line" ]] && sorted+=("$line")
           done < <(printf '%s\n' "${parts[@]}" | LC_ALL=C sort -V)
           cat "${sorted[@]}" > "$ARCHIVE"
-          rm -f webkit-pin.tar.gz.part-*
+          rm -f ${WEBKIT_PIN_PART_GLOB}
           shopt -u nullglob
           [[ -s "$ARCHIVE" ]] || { echo "::error::Stitched webkit-pin archive is empty"; exit 1; }
           tar -xzf "$ARCHIVE" --strip-components=1 -C "$SRC"
           rm -f "$ARCHIVE"
+
+          python3 "$GITHUB_WORKSPACE/config/verify_webkit_pin_commit.py" \
+            --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" \
+            --webkit-root "$SRC"
 
           for patch in webkit/patches/common/* webkit/patches/ios/*; do
             [[ -f "$patch" ]] || continue
@@ -112,8 +122,8 @@ jobs:
           LOG="${RUNNER_TEMP}/build-webkit-ios.log"
           set -o pipefail
           perl Tools/Scripts/build-webkit --release --ios-simulator --makeargs="-j$JOBS" \
-            -DENABLE_EXPERIMENTAL_FEATURES=ON \
-            -DENABLE_WEBXR=OFF \
+            -DENABLE_EXPERIMENTAL_FEATURES="${WEBKIT_CMAKE_ENABLE_EXPERIMENTAL_FEATURES:-ON}" \
+            -DENABLE_WEBXR="${WEBKIT_CMAKE_ENABLE_WEBXR:-OFF}" \
             "${SCCACHE_CMAKE[@]}" \
             2>&1 | tee "$LOG"
           if command -v sccache >/dev/null 2>&1; then

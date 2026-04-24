@@ -26,6 +26,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Load CI matrix into environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 "$GITHUB_WORKSPACE/config/ci_matrix_env.py" \
+            --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" >> "$GITHUB_ENV"
+
+      - name: Verify matrix, vcpkg (Dawn), and green JSON alignment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 "$GITHUB_WORKSPACE/config/verify_webkit_pin_commit.py" \
+            --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" \
+            --check-vcpkg --check-green-json
+
       # ── Download, extract, and patch ───────────────────────────────
       - name: Prepare Source
         shell: bash
@@ -49,18 +64,18 @@ jobs:
 
           # Download the four split parts from the webkit-pin release
           cd "$RUNNER_TEMP"
-          gh release download webkit-pin \
+          gh release download "${WEBKIT_PIN_RELEASE_TAG:?WEBKIT_PIN_RELEASE_TAG missing}" \
             --repo "$GITHUB_REPOSITORY" \
-            --pattern "webkit-pin.tar.gz.part-*"
+            --pattern "${WEBKIT_PIN_PART_GLOB:?WEBKIT_PIN_PART_GLOB missing}"
 
           # Strip stray \r from filenames (Windows gh can leave CRLF artefacts)
           shopt -s nullglob
-          for f in webkit-pin.tar.gz.part-*$'\r'; do
+          for f in ${WEBKIT_PIN_PART_GLOB}$'\r'; do
             [[ -e "$f" ]] && mv -- "$f" "${f%$'\r'}"
           done
 
           # Stitch parts into single tarball (nullglob already on from CRLF rename loop)
-          parts=( webkit-pin.tar.gz.part-* )
+          parts=( ${WEBKIT_PIN_PART_GLOB} )
           if (( ${#parts[@]} == 0 )); then
             echo "::error::No tarball parts found after download"
             exit 1
@@ -71,7 +86,7 @@ jobs:
             [[ -n "$line" ]] && sorted+=("$line")
           done < <(printf '%s\n' "${parts[@]}" | LC_ALL=C sort -V)
           cat "${sorted[@]}" > "$ARCHIVE"
-          rm -f webkit-pin.tar.gz.part-*
+          rm -f ${WEBKIT_PIN_PART_GLOB}
           shopt -u nullglob
           [[ -s "$ARCHIVE" ]] || { echo "::error::Stitched webkit-pin archive is empty"; exit 1; }
 
@@ -94,14 +109,22 @@ jobs:
             echo "::error::Extraction failed -- Source/ directory missing"
             exit 1
           fi
+          python3 "$GITHUB_WORKSPACE/config/verify_webkit_pin_commit.py" \
+            --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" \
+            --webkit-root "$SRC"
           echo "Source ready at $SRC_WIN"
           ls "$SRC" | head -20
 
-          # Fetch LiteRT-LM for WebNN backend
+          # Fetch LiteRT-LM for WebNN backend (ref from config/webkit-build-matrix.json)
+          LITERT_REF="$(
+            python3 -c "import json, pathlib; print(json.load(pathlib.Path('$GITHUB_WORKSPACE/config/webkit-build-matrix.json').open())['webnn']['litertLm']['gitRef'])"
+          )"
+          LITERT_URL="$(
+            python3 -c "import json, pathlib; print(json.load(pathlib.Path('$GITHUB_WORKSPACE/config/webkit-build-matrix.json').open())['webnn']['litertLm']['gitUrl'])"
+          )"
           LITERT="$RUNNER_TEMP/litert-lm"
           if [ ! -d "$LITERT/.git" ]; then
-            git clone --depth 1 --branch v0.10.2 \
-              https://github.com/google-ai-edge/LiteRT-LM.git "$LITERT"
+            git clone --depth 1 --branch "$LITERT_REF" "$LITERT_URL" "$LITERT"
             (cd "$LITERT" && git lfs pull --include="prebuilt/windows_x86_64/*")
           fi
           echo "LiteRT-LM: $(ls "$LITERT/prebuilt/windows_x86_64/"*.dll 2>/dev/null | wc -l) DLLs"
@@ -170,7 +193,7 @@ jobs:
             -DVCPKG_TARGET_TRIPLET=x64-windows-webkit ^
             -DVCPKG_INSTALLED_DIR=C:/vcpkg/installed ^
             -DVCPKG_MANIFEST_MODE=OFF ^
-            --webgpu -DENABLE_EXPERIMENTAL_FEATURES=ON -DENABLE_WEBXR=OFF
+            %WINDOWS_BUILD_WEBKIT_EXTRA% -DENABLE_EXPERIMENTAL_FEATURES=%WEBKIT_CMAKE_ENABLE_EXPERIMENTAL_FEATURES% -DENABLE_WEBXR=%WEBKIT_CMAKE_ENABLE_WEBXR%
           if errorlevel 1 exit /b %errorlevel%
 
           C:\Bootstrap\toolbin\sccache.exe --show-stats
