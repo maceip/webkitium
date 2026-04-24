@@ -110,9 +110,27 @@ jobs:
           # Overwrite Find modules for packages unavailable on standard Ubuntu
           cp "$GITHUB_WORKSPACE/config/cmake/FindThunder.cmake" "$SRC/Source/cmake/FindThunder.cmake"
           cp "$GITHUB_WORKSPACE/config/cmake/FindRice.cmake" "$SRC/Source/cmake/FindRice.cmake"
-          # Remove Rice/ICE source files — librice is not available on Ubuntu
-          # and ENABLE_WEB_RTC=OFF doesn't prevent them from being compiled
-          rm -rf "$SRC/Source/WebCore/platform/rice"
+          # librice is not available on Ubuntu. Create stub headers with
+          # enough type definitions to let the rice platform code compile
+          # (it will be dead code with ENABLE_WEB_RTC=OFF).
+          mkdir -p "$SRC/Source/ThirdParty/rice-stubs"
+          cat > "$SRC/Source/ThirdParty/rice-stubs/rice-proto.h" << 'STUB'
+          #pragma once
+          typedef struct _RiceAddress RiceAddress;
+          typedef struct _RiceCandidate RiceCandidate;
+          typedef struct _RiceCredentials RiceCredentials;
+          typedef struct _RiceComponent RiceComponent;
+          typedef struct _RiceStream RiceStream;
+          typedef struct _RiceAgent RiceAgent;
+          typedef struct _RiceGatheringState RiceGatheringState;
+          typedef struct _RiceConnectionState RiceConnectionState;
+          void rice_address_free(RiceAddress*);
+          void rice_candidate_free(RiceCandidate*);
+          void rice_credentials_free(RiceCredentials*);
+          STUB
+          cat > "$SRC/Source/ThirdParty/rice-stubs/rice-io.h" << 'STUB'
+          #pragma once
+          STUB
           # GStreamerChecks.cmake:67 emits FATAL_ERROR when librice is missing.
           # Downgrade to WARNING so configure continues with USE_LIBRICE=OFF.
           sed -i 's/message(FATAL_ERROR.*librice/message(WARNING "librice/' "$SRC/Source/cmake/GStreamerChecks.cmake"
