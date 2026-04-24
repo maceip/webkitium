@@ -1,0 +1,93 @@
+name: runner-identity
+
+# One-shot probe that queries the self-hosted runner's EC2 instance
+# metadata (IMDSv2) and prints instance-id / region / AZ / VPC / security
+# groups / IAM role. Pure read-only; no mutations. Used to bootstrap
+# other automation that needs to target the runner via SSM.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  identity:
+    name: Runner EC2 identity
+    runs-on:
+      - self-hosted
+      - Windows
+      - X64
+      - webkitium
+    timeout-minutes: 5
+    steps:
+      - name: Query IMDSv2
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+
+          function Get-IMDS {
+              param([string] $Path)
+              try {
+                  $tok = Invoke-RestMethod -Method Put `
+                      -Uri 'http://169.254.169.254/latest/api/token' `
+                      -Headers @{ 'X-aws-ec2-metadata-token-ttl-seconds' = '60' } `
+                      -TimeoutSec 5
+                  Invoke-RestMethod `
+                      -Uri "http://169.254.169.254/latest/meta-data/$Path" `
+                      -Headers @{ 'X-aws-ec2-metadata-token' = $tok } `
+                      -TimeoutSec 5
+              } catch {
+                  "ERROR: $($_.Exception.Message)"
+              }
+          }
+
+          $id       = Get-IMDS 'instance-id'
+          $region   = Get-IMDS 'placement/region'
+          $az       = Get-IMDS 'placement/availability-zone'
+          $itype    = Get-IMDS 'instance-type'
+          $vpc_mac  = Get-IMDS 'mac'
+          $vpc      = Get-IMDS "network/interfaces/macs/$vpc_mac/vpc-id"
+          $subnet   = Get-IMDS "network/interfaces/macs/$vpc_mac/subnet-id"
+          $sgIds    = Get-IMDS "network/interfaces/macs/$vpc_mac/security-group-ids"
+          $role     = Get-IMDS 'iam/info'
+          $hostname = [System.Net.Dns]::GetHostName()
+
+          Write-Host "================ Runner EC2 identity ================"
+          Write-Host "hostname:        $hostname"
+          Write-Host "instance-id:     $id"
+          Write-Host "instance-type:   $itype"
+          Write-Host "region:          $region"
+          Write-Host "availability-zone: $az"
+          Write-Host "vpc-id:          $vpc"
+          Write-Host "subnet-id:       $subnet"
+          Write-Host "security-group-ids:"
+          ($sgIds -split "`n") | ForEach-Object { Write-Host "  $_" }
+          Write-Host "iam/info:"
+          Write-Host $role
+          Write-Host "====================================================="
+
+          # Also emit as a compact JSON for any follow-up tooling.
+          $out = [ordered]@{
+              hostname           = $hostname
+              instance_id        = $id
+              instance_type      = $itype
+              region             = $region
+              availability_zone  = $az
+              vpc_id             = $vpc
+              subnet_id          = $subnet
+              security_group_ids = ($sgIds -split "`n")
+              iam_info           = $role
+          }
+          $json = $out | ConvertTo-Json -Depth 8
+          Write-Host "JSON:"
+          Write-Host $json
+          Set-Content -Path "$env:RUNNER_TEMP/runner-identity.json" -Value $json -Encoding utf8
+
+      - name: Upload identity JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runner-identity-${{ github.run_id }}
+          path: ${{ runner.temp }}/runner-identity.json
+          if-no-files-found: warn
