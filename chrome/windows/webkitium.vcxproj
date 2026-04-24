@@ -173,6 +173,7 @@
       <DependentUpon>src\SettingsPasswordsPage.xaml</DependentUpon>
     </ClCompile>
     <ClCompile Include="src\PaletteProvider.cpp" />
+    <ClCompile Include="src\Log.cpp" />
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
   </ItemGroup>
 
@@ -214,6 +215,7 @@
     </ClInclude>
     <ClInclude Include="src\Tokens.h" />
     <ClInclude Include="src\PaletteProvider.h" />
+    <ClInclude Include="src\Log.h" />
   </ItemGroup>
 
   <!-- MIDL .idl compilation for runtime class declarations. -->

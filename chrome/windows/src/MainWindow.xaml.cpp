@@ -5,6 +5,7 @@
 #endif
 
 #include "App.xaml.h"
+#include "Log.h"
 
 #include <winrt/Microsoft.UI.Windowing.h>
 #include <winrt/Windows.Graphics.h>
@@ -36,16 +37,23 @@ constexpr std::array<uint32_t, 4> kTestSeeds = {
 }  // namespace
 
 MainWindow::MainWindow() {
+    LOG_INFO("MainWindow::ctor entered");
     InitializeComponent();
+    LOG_INFO("MainWindow::InitializeComponent returned");
     InitializeTitleBar();
     InstallThemeCyclingShortcut();
     InstallOpenSettingsShortcut();
+    LOG_INFO("MainWindow shortcuts installed");
 
     auto appWindow = this->AppWindow();
     if (appWindow) {
         appWindow.Resize({ 1280, 800 });
+        LOG_INFO("MainWindow AppWindow resized to 1280x800");
+    } else {
+        LOG_WARN("MainWindow::AppWindow() returned null");
     }
     this->Title(L"Webkitium");
+    LOG_INFO("MainWindow::ctor exiting");
 }
 
 void MainWindow::InitializeTitleBar() {
