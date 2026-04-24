@@ -4,7 +4,7 @@
   "webkit": {
     "pinReleaseTag": "webkit-pin",
     "partGlob": "webkit-pin.tar.gz.part-*",
-    "expectedCommit": "64f58084c78130b874d05dbcfb508147354095af",
+    "expectedCommit": "1f41867848acbe98dd9a7680365eecc2945de48d",
     "upstream": {
       "preset": "iangrunert-win-gigacage-skia-fixes",
       "url": "https://github.com/iangrunert/WebKit.git"
