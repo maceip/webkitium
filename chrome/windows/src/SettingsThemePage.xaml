@@ -6,7 +6,7 @@
 
     <!--
         Theme page.  The ColorPicker is live-wired to
-        PaletteProvider::ApplySeed -- every color change regenerates the
+        PaletteProvider::ApplySeed; every color change regenerates the
         palette via browser/color/ColorRamp.cpp and repaints the app.
     -->
 

@@ -12,3 +12,18 @@ webkit-pin.tar.gz.part-*
 
 # Scratch pin-verification workspace created by verify-patches.sh.
 .tmp/
+
+# CMake / Ninja out-of-source builds (browser/ smoke build lives here).
+build/
+
+# Windows shell MSBuild intermediate + output directories.
+chrome/windows/packages/
+chrome/windows/webkitium/
+chrome/windows/x64/
+chrome/windows/ARM64/
+chrome/windows/Debug/
+chrome/windows/Release/
+chrome/windows/Generated Files/
+chrome/windows/*.user
+# C++/WinRT header stubs that MSBuild writes at project root during build.
+chrome/windows/*_h.h

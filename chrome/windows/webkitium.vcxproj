@@ -1,0 +1,271 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!--
+    Webkitium Windows shell project.
+    Unpackaged C++/WinRT + WinUI 3 app using Windows App SDK via NuGet.
+    Builds against the portable browser/color/ library from ../../browser/
+    (sources compiled inline; no separate static-lib intermediate).
+
+    To build from CLI:
+      msbuild chrome\windows\webkitium.sln -t:restore
+      msbuild chrome\windows\webkitium.sln -p:Configuration=Debug -p:Platform=x64
+  -->
+
+  <PropertyGroup Label="Globals">
+    <CppWinRTOptimized>true</CppWinRTOptimized>
+    <CppWinRTRootNamespaceAutoMerge>true</CppWinRTRootNamespaceAutoMerge>
+    <MinimalCoreWin>true</MinimalCoreWin>
+    <ProjectGuid>{AE01F2E9-9F87-4D4E-A48D-6C7A3E4A2F55}</ProjectGuid>
+    <ProjectName>webkitium</ProjectName>
+    <RootNamespace>webkitium</RootNamespace>
+    <TargetName>$(RootNamespace)</TargetName>
+    <DefaultLanguage>en-US</DefaultLanguage>
+    <MinimumVisualStudioVersion>16.0</MinimumVisualStudioVersion>
+    <AppContainerApplication>false</AppContainerApplication>
+    <AppxPackage>false</AppxPackage>
+    <ApplicationType>Windows Store</ApplicationType>
+    <ApplicationTypeRevision>10.0</ApplicationTypeRevision>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformMinVersion>10.0.22621.0</WindowsTargetPlatformMinVersion>
+    <UseWinUI>true</UseWinUI>
+    <WinUISDKReferences>false</WinUISDKReferences>
+  </PropertyGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|ARM64">
+      <Configuration>Debug</Configuration>
+      <Platform>ARM64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|ARM64">
+      <Configuration>Release</Configuration>
+      <Platform>ARM64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <PlatformToolset Condition="'$(VisualStudioVersion)' &gt;= '18.0'">v145</PlatformToolset>
+    <PlatformToolset Condition="'$(VisualStudioVersion)' &lt; '18.0'">v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+    <DesktopCompatible>true</DesktopCompatible>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)'=='Debug'" Label="Configuration">
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)'=='Release'" Label="Configuration">
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+
+  <ImportGroup Label="ExtensionSettings">
+    <Import Project="packages\Microsoft.Windows.CppWinRT.2.0.240405.15\build\native\Microsoft.Windows.CppWinRT.props"
+            Condition="Exists('packages\Microsoft.Windows.CppWinRT.2.0.240405.15\build\native\Microsoft.Windows.CppWinRT.props')" />
+    <Import Project="packages\Microsoft.WindowsAppSDK.1.6.250402001\build\native\Microsoft.WindowsAppSDK.props"
+            Condition="Exists('packages\Microsoft.WindowsAppSDK.1.6.250402001\build\native\Microsoft.WindowsAppSDK.props')" />
+  </ImportGroup>
+
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props"
+            Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')"
+            Label="LocalAppDataPlatform" />
+  </ImportGroup>
+
+  <PropertyGroup Label="UserMacros" />
+
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderOutputFile>$(IntDir)pch.pch</PrecompiledHeaderOutputFile>
+      <WarningLevel>Level3</WarningLevel>
+      <LanguageStandard Condition="'$(VisualStudioVersion)' &gt;= '18.0'">stdcpp20</LanguageStandard>
+      <LanguageStandard Condition="'$(VisualStudioVersion)' &lt; '18.0'">stdcpp17</LanguageStandard>
+      <AdditionalOptions>%(AdditionalOptions) /bigobj</AdditionalOptions>
+      <!-- Let chrome/windows/src/ + ../../browser/ headers resolve.
+           The portable color library lives at $(SolutionDir)..\..\browser\ -->
+      <AdditionalIncludeDirectories>
+        $(ProjectDir)src;$(ProjectDir)..\..\browser;%(AdditionalIncludeDirectories)
+      </AdditionalIncludeDirectories>
+    </ClCompile>
+  </ItemDefinitionGroup>
+
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">
+    <ClCompile>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">
+    <ClCompile>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+  </ItemDefinitionGroup>
+
+  <!-- Side-by-side manifest for dpi + OS compatibility. -->
+  <ItemGroup>
+    <Manifest Include="src\app.manifest" />
+  </ItemGroup>
+
+  <!-- PCH -->
+  <ItemGroup>
+    <ClInclude Include="src\pch.h" />
+    <ClCompile Include="src\pch.cpp">
+      <PrecompiledHeader>Create</PrecompiledHeader>
+    </ClCompile>
+  </ItemGroup>
+
+  <!-- XAML definitions.  App.xaml is the ApplicationDefinition;
+       every other .xaml is a Page. -->
+  <ItemGroup>
+    <ApplicationDefinition Include="src\App.xaml" />
+    <Page Include="src\MainWindow.xaml" />
+    <Page Include="src\Omnibar.xaml" />
+    <Page Include="src\Tokens.xaml" />
+    <Page Include="src\SettingsWindow.xaml" />
+    <Page Include="src\SettingsPairedDevicesPage.xaml" />
+    <Page Include="src\SettingsThemePage.xaml" />
+    <Page Include="src\SettingsPasswordsPage.xaml" />
+  </ItemGroup>
+
+  <!-- XAML code-behind + other .cpp. -->
+  <ItemGroup>
+    <ClCompile Include="src\App.xaml.cpp">
+      <DependentUpon>src\App.xaml</DependentUpon>
+    </ClCompile>
+    <ClCompile Include="src\MainWindow.xaml.cpp">
+      <DependentUpon>src\MainWindow.xaml</DependentUpon>
+    </ClCompile>
+    <ClCompile Include="src\Omnibar.xaml.cpp">
+      <DependentUpon>src\Omnibar.xaml</DependentUpon>
+    </ClCompile>
+    <ClCompile Include="src\SettingsWindow.xaml.cpp">
+      <DependentUpon>src\SettingsWindow.xaml</DependentUpon>
+    </ClCompile>
+    <ClCompile Include="src\SettingsPairedDevicesPage.xaml.cpp">
+      <DependentUpon>src\SettingsPairedDevicesPage.xaml</DependentUpon>
+    </ClCompile>
+    <ClCompile Include="src\SettingsThemePage.xaml.cpp">
+      <DependentUpon>src\SettingsThemePage.xaml</DependentUpon>
+    </ClCompile>
+    <ClCompile Include="src\SettingsPasswordsPage.xaml.cpp">
+      <DependentUpon>src\SettingsPasswordsPage.xaml</DependentUpon>
+    </ClCompile>
+    <ClCompile Include="src\PaletteProvider.cpp" />
+    <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
+  </ItemGroup>
+
+  <!-- Portable browser/color/ sources compiled inline. -->
+  <ItemGroup>
+    <ClCompile Include="..\..\browser\color\OklchColor.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\..\browser\color\ColorRamp.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\..\browser\color\SemanticPalette.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+  </ItemGroup>
+
+  <!-- ClInclude for XAML code-behind headers. -->
+  <ItemGroup>
+    <ClInclude Include="src\App.xaml.h">
+      <DependentUpon>src\App.xaml</DependentUpon>
+    </ClInclude>
+    <ClInclude Include="src\MainWindow.xaml.h">
+      <DependentUpon>src\MainWindow.xaml</DependentUpon>
+    </ClInclude>
+    <ClInclude Include="src\Omnibar.xaml.h">
+      <DependentUpon>src\Omnibar.xaml</DependentUpon>
+    </ClInclude>
+    <ClInclude Include="src\SettingsWindow.xaml.h">
+      <DependentUpon>src\SettingsWindow.xaml</DependentUpon>
+    </ClInclude>
+    <ClInclude Include="src\SettingsPairedDevicesPage.xaml.h">
+      <DependentUpon>src\SettingsPairedDevicesPage.xaml</DependentUpon>
+    </ClInclude>
+    <ClInclude Include="src\SettingsThemePage.xaml.h">
+      <DependentUpon>src\SettingsThemePage.xaml</DependentUpon>
+    </ClInclude>
+    <ClInclude Include="src\SettingsPasswordsPage.xaml.h">
+      <DependentUpon>src\SettingsPasswordsPage.xaml</DependentUpon>
+    </ClInclude>
+    <ClInclude Include="src\Tokens.h" />
+    <ClInclude Include="src\PaletteProvider.h" />
+  </ItemGroup>
+
+  <!-- MIDL .idl compilation for runtime class declarations. -->
+  <ItemGroup>
+    <Midl Include="src\App.idl">
+      <SubType>Code</SubType>
+      <DependentUpon>src\App.xaml</DependentUpon>
+    </Midl>
+    <Midl Include="src\MainWindow.idl">
+      <SubType>Code</SubType>
+      <DependentUpon>src\MainWindow.xaml</DependentUpon>
+    </Midl>
+    <Midl Include="src\Omnibar.idl">
+      <SubType>Code</SubType>
+      <DependentUpon>src\Omnibar.xaml</DependentUpon>
+    </Midl>
+    <Midl Include="src\SettingsWindow.idl">
+      <SubType>Code</SubType>
+      <DependentUpon>src\SettingsWindow.xaml</DependentUpon>
+    </Midl>
+    <Midl Include="src\SettingsPairedDevicesPage.idl">
+      <SubType>Code</SubType>
+      <DependentUpon>src\SettingsPairedDevicesPage.xaml</DependentUpon>
+    </Midl>
+    <Midl Include="src\SettingsThemePage.idl">
+      <SubType>Code</SubType>
+      <DependentUpon>src\SettingsThemePage.xaml</DependentUpon>
+    </Midl>
+    <Midl Include="src\SettingsPasswordsPage.idl">
+      <SubType>Code</SubType>
+      <DependentUpon>src\SettingsPasswordsPage.xaml</DependentUpon>
+    </Midl>
+  </ItemGroup>
+
+  <!-- packages.config declares the NuGet packages; the .targets files
+       below are brought in by 'nuget restore' landing the packages at
+       ..\packages\ relative to the solution. -->
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+
+  <ImportGroup Label="ExtensionTargets">
+    <Import Project="packages\Microsoft.Windows.CppWinRT.2.0.240405.15\build\native\Microsoft.Windows.CppWinRT.targets"
+            Condition="Exists('packages\Microsoft.Windows.CppWinRT.2.0.240405.15\build\native\Microsoft.Windows.CppWinRT.targets')" />
+    <Import Project="packages\Microsoft.WindowsAppSDK.1.6.250402001\build\native\Microsoft.WindowsAppSDK.targets"
+            Condition="Exists('packages\Microsoft.WindowsAppSDK.1.6.250402001\build\native\Microsoft.WindowsAppSDK.targets')" />
+  </ImportGroup>
+
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>This project references NuGet package(s) that are missing on this machine. Use NuGet Package Restore to download them. For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('packages\Microsoft.Windows.CppWinRT.2.0.240405.15\build\native\Microsoft.Windows.CppWinRT.targets')"
+           Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.Windows.CppWinRT.2.0.240405.15\build\native\Microsoft.Windows.CppWinRT.targets'))" />
+    <Error Condition="!Exists('packages\Microsoft.WindowsAppSDK.1.6.250402001\build\native\Microsoft.WindowsAppSDK.targets')"
+           Text="$([System.String]::Format('$(ErrorText)', 'packages\Microsoft.WindowsAppSDK.1.6.250402001\build\native\Microsoft.WindowsAppSDK.targets'))" />
+  </Target>
+</Project>

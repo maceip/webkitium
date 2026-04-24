@@ -1,0 +1,25 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "webkitium", "webkitium.vcxproj", "{AE01F2E9-9F87-4D4E-A48D-6C7A3E4A2F55}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+		Debug|ARM64 = Debug|ARM64
+		Release|ARM64 = Release|ARM64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{AE01F2E9-9F87-4D4E-A48D-6C7A3E4A2F55}.Debug|x64.ActiveCfg = Debug|x64
+		{AE01F2E9-9F87-4D4E-A48D-6C7A3E4A2F55}.Debug|x64.Build.0 = Debug|x64
+		{AE01F2E9-9F87-4D4E-A48D-6C7A3E4A2F55}.Release|x64.ActiveCfg = Release|x64
+		{AE01F2E9-9F87-4D4E-A48D-6C7A3E4A2F55}.Release|x64.Build.0 = Release|x64
+		{AE01F2E9-9F87-4D4E-A48D-6C7A3E4A2F55}.Debug|ARM64.ActiveCfg = Debug|ARM64
+		{AE01F2E9-9F87-4D4E-A48D-6C7A3E4A2F55}.Debug|ARM64.Build.0 = Debug|ARM64
+		{AE01F2E9-9F87-4D4E-A48D-6C7A3E4A2F55}.Release|ARM64.ActiveCfg = Release|ARM64
+		{AE01F2E9-9F87-4D4E-A48D-6C7A3E4A2F55}.Release|ARM64.Build.0 = Release|ARM64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
