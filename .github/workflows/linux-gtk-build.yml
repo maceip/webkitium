@@ -108,7 +108,8 @@ jobs:
           export WEBKITIUM_BROWSER_SHELL_TARGET=linux-gtk
           perl Tools/Scripts/build-webkit --release --gtk --makeargs="-j$JOBS" \
             -DENABLE_EXPERIMENTAL_FEATURES="${WEBKIT_CMAKE_ENABLE_EXPERIMENTAL_FEATURES:-ON}" \
-            -DENABLE_WEBXR="${WEBKIT_CMAKE_ENABLE_WEBXR:-OFF}"
+            -DENABLE_WEBXR="${WEBKIT_CMAKE_ENABLE_WEBXR:-OFF}" \
+            -DENABLE_THUNDER=OFF
 
       - name: Baseline package
         run: |
