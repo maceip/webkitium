@@ -118,7 +118,9 @@ jobs:
             -DENABLE_WEBXR="${WEBKIT_CMAKE_ENABLE_WEBXR:-OFF}" \
             -DENABLE_THUNDER=OFF \
             -DENABLE_BUBBLEWRAP_SANDBOX=OFF \
-            -DUSE_LIBRICE=OFF
+            -DUSE_LIBRICE=OFF \
+            -DCMAKE_C_FLAGS="-Wno-error=stringop-overflow" \
+            -DCMAKE_CXX_FLAGS="-Wno-error=stringop-overflow"
 
       - name: Baseline package
         run: |
