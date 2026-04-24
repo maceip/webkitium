@@ -123,6 +123,13 @@
     </Link>
   </ItemDefinitionGroup>
 
+  <!-- shell32 for SHGetKnownFolderPath (used by Log.cpp). -->
+  <ItemDefinitionGroup>
+    <Link>
+      <AdditionalDependencies>shell32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+
   <!-- Side-by-side manifest for dpi + OS compatibility. -->
   <ItemGroup>
     <Manifest Include="src\app.manifest" />
