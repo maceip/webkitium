@@ -8,8 +8,9 @@
             Background="{ThemeResource SurfaceSunken}"
             BorderBrush="{ThemeResource BorderSubtle}"
             BorderThickness="1"
-            CornerRadius="10"
-            Padding="8,4"
+            CornerRadius="8"
+            Padding="8,2"
+            MinHeight="28"
             HorizontalAlignment="Stretch">
         <Grid ColumnSpacing="8">
             <Grid.ColumnDefinitions>

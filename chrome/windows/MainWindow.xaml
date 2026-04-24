@@ -10,98 +10,63 @@
     MinWidth="640"
     MinHeight="400">
 
-    <!--
-        Mica backdrop via WindowEx.  Kind=Base so the user's brand tint
-        shows up in discrete surfaces (omnibar, buttons) rather than
-        being smeared across the whole window.
-    -->
     <winex:WindowEx.Backdrop>
         <winex:MicaSystemBackdrop Kind="Base" />
     </winex:WindowEx.Backdrop>
 
     <!--
-        Root layout. Row 0: TabView inside the title bar strip (the
-        WinUIpad 2026 pattern). Row 1: NavigationView rail on the
-        left (svrooij rail demo) with content Frame hosting omnibar
-        over a web-content placeholder.
+        Layout after user feedback.
+          Row 0: title-bar strip. TabView on the left (favicon-wide
+          tabs, horizontal mode), explicit draggable filler in the
+          middle, system controls reserve on the right.
+          Row 1: content area. The selected tab's BrowserTab
+          UserControl renders here. Each tab owns its own omnibar +
+          WebView2.
+          The vertical rail is removed; it returns only in vertical-
+          tab mode (see BrowserStateModel.tabStripMode) via a future
+          Ctrl+Shift+E toggle.
     -->
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="48" />
+            <RowDefinition Height="40" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- Title bar strip: TabView + trailing space for system chrome. -->
+        <!-- Row 0: title-bar strip. -->
         <Grid Grid.Row="0" x:Name="TitleBarStrip">
             <Grid.ColumnDefinitions>
+                <!-- TabView width sizes to content (favicon-wide tabs). -->
+                <ColumnDefinition Width="Auto" />
+                <!-- Draggable filler. -->
                 <ColumnDefinition Width="*" />
+                <!-- Reserve for system min/max/close (drawn by OS). -->
                 <ColumnDefinition Width="140" />
             </Grid.ColumnDefinitions>
 
             <TabView x:Name="TabStrip"
                      Grid.Column="0"
                      VerticalAlignment="Stretch"
-                     TabWidthMode="Equal"
-                     CloseButtonOverlayMode="Auto"
+                     TabWidthMode="SizeToContent"
+                     CloseButtonOverlayMode="OnPointerOver"
                      AddTabButtonClick="OnAddTab"
-                     TabCloseRequested="OnTabClose">
-                <TabView.TabItems>
-                    <TabViewItem Header="New Tab" IsClosable="True" />
-                </TabView.TabItems>
-            </TabView>
+                     TabCloseRequested="OnTabClose"
+                     SelectionChanged="OnTabSelectionChanged" />
+
+            <!--
+                Explicit drag filler. The Border is visually empty but
+                is a first-class XAML element so SetTitleBar(...) on the
+                containing strip still considers this whole row a drag
+                region. InputNonClientPointerSource marks TabView
+                internals as passthrough, so tab clicks work; everything
+                else drags the window.
+            -->
+            <Border Grid.Column="1" Background="Transparent" />
         </Grid>
 
-        <!-- Rail nav + content area. -->
-        <NavigationView Grid.Row="1"
-                        x:Name="Nav"
-                        PaneDisplayMode="LeftCompact"
-                        IsBackButtonVisible="Collapsed"
-                        IsPaneToggleButtonVisible="False"
-                        IsSettingsVisible="False"
-                        OpenPaneLength="240"
-                        CompactPaneLength="48"
-                        SelectionChanged="OnNavSelectionChanged">
-
-            <NavigationView.MenuItems>
-                <NavigationViewItem Content="Spaces"     Icon="Library"  Tag="spaces" />
-                <NavigationViewItem Content="Tabs"       Icon="BrowsePhotos" Tag="tabs" IsSelected="True" />
-                <NavigationViewItem Content="Downloads"  Icon="Download" Tag="downloads" />
-                <NavigationViewItem Content="Extensions" Icon="Shop"     Tag="extensions" />
-            </NavigationView.MenuItems>
-
-            <NavigationView.FooterMenuItems>
-                <NavigationViewItem Content="Settings" Icon="Setting" Tag="settings" />
-            </NavigationView.FooterMenuItems>
-
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-
-                <!-- Omnibar band below the tab strip. -->
-                <Grid Grid.Row="0" Padding="12,8,12,8">
-                    <views:Omnibar MaxWidth="720" HorizontalAlignment="Center" />
-                </Grid>
-
-                <!--
-                    WebView2 content surface. Wrapped in a Border so the
-                    rounded corners clip the renderer output; WebView2 on
-                    its own ignores CornerRadius because it's a native
-                    child window. The Microsoft.Web.WebView2 Runtime must
-                    be installed on the host (it ships with Windows 11 by
-                    default; the EdgeWebView2 evergreen installer covers
-                    older builds).
-                -->
-                <Border Grid.Row="1"
-                        Background="{ThemeResource SurfaceCanvas}"
-                        CornerRadius="10"
-                        Margin="12,0,12,12">
-                    <WebView2 x:Name="WebHost"
-                              Source="https://example.com/"
-                              DefaultBackgroundColor="Transparent" />
-                </Border>
-            </Grid>
-        </NavigationView>
+        <!-- Row 1: content frame for the active tab. -->
+        <ContentControl x:Name="ActiveTabHost"
+                        Grid.Row="1"
+                        HorizontalContentAlignment="Stretch"
+                        VerticalContentAlignment="Stretch" />
     </Grid>
 </winex:WindowEx>
