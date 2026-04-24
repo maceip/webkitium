@@ -1,0 +1,6 @@
+namespace webkitium {
+    [default_interface]
+    runtimeclass SettingsPairedDevicesPage : Microsoft.UI.Xaml.Controls.Page {
+        SettingsPairedDevicesPage();
+    }
+}

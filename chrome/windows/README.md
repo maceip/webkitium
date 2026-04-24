@@ -12,11 +12,14 @@ This is a *seed*, not a complete browser. It demonstrates the pieces that matter
 - [x] Token consumption from a single **ResourceDictionary** (`Tokens.xaml`) that mirrors the output of `browser/color/ColorRamp.cpp` for webkitium's default seed
 - [x] Light / Dark `ThemeDictionaries` that automatically follow the system appearance
 - [x] **Runtime palette updates** — `PaletteProvider` mutates the `SolidColorBrush` DPs in place; every bound control repaints without tearing down the visual tree. Bound to a dev-only **Ctrl+Shift+T** shortcut that cycles four test seeds (blue → magenta → green → near-mono) so the end-to-end OKLCH pipeline is visually verifiable.
+- [x] **Settings window** (Ctrl+,) — MicaAlt backdrop + NavigationView with three stub pages:
+    - **Paired devices** — mock list shaped like `browser/sync/LoopbackSyncServer` output
+    - **Theme** — live-wired ColorPicker + four presets; writes call `PaletteProvider::ApplySeed` end-to-end through OKLCH → semantic resolver → brush mutation. Only page currently touching app state.
+    - **Passwords** — mock ceremony log shaped like `WebAuthnController` events
 - [ ] WebView2 content area — stubbed, to be wired when we integrate the WebKit Windows port
 - [ ] Tab strip — not started
 - [ ] Context menu component
-- [ ] Settings window (stubbed sections planned: Paired devices, Theme, Passwords)
-- [ ] Authenticator window
+- [ ] Authenticator window (separate from Settings; drawn by the browser process — see `design/components/authenticator/SECURITY_BOUNDARY.md`)
 - [ ] `browser.theme` extension API wiring — `PaletteProvider::ApplySeed` is the implementation target, exposed through the extension API host once that's ported
 
 ## File layout
@@ -34,7 +37,13 @@ chrome/windows/
 │   ├── Omnibar.xaml.h / .cpp    Omnibar behavior (focus, keyboard, submit)
 │   ├── Tokens.xaml              ResourceDictionary with every semantic color/size
 │   │                            — values are the algorithm's output for the default seed
-│   └── Tokens.h                 Same values as C++ constants for code that needs them
+│   ├── Tokens.h                 Same values as C++ constants for code that needs them
+│   ├── PaletteProvider.h / .cpp Runtime brush mutator (Initialize + ApplySeed)
+│   ├── SettingsWindow.xaml      NavigationView + MicaAlt; hosts the three pages
+│   ├── SettingsWindow.xaml.h/.cpp/.idl
+│   ├── SettingsPairedDevicesPage.xaml{,.h,.cpp,.idl}
+│   ├── SettingsThemePage.xaml{,.h,.cpp,.idl}    live-wired to PaletteProvider
+│   └── SettingsPasswordsPage.xaml{,.h,.cpp,.idl}
 ```
 
 ## How to build
