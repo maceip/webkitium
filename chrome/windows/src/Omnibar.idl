@@ -1,6 +1,0 @@
-namespace webkitium {
-    [default_interface]
-    runtimeclass Omnibar : Microsoft.UI.Xaml.Controls.UserControl {
-        Omnibar();
-    }
-}

@@ -1,0 +1,60 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.22621.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.22621.0</TargetPlatformMinVersion>
+    <RootNamespace>Webkitium</RootNamespace>
+    <AssemblyName>webkitium</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Platforms>x64</Platforms>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <PublishProfile>win-x64</PublishProfile>
+    <UseWinUI>true</UseWinUI>
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <WindowsPackageType>None</WindowsPackageType>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.250108002" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.22621.756" />
+    <PackageReference Include="WinUIEx" Version="2.5.0" />
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.1.240916" />
+    <Manifest Include="$(ApplicationManifest)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="src\Tokens.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+  </ItemGroup>
+
+  <!--
+      Build the native sidecar DLL before the managed project so the
+      output is present when we copy it into the output directory. The
+      webkitium_color.vcxproj produces $(SolutionDir)x64\$(Configuration)\native\webkitium_color.dll.
+  -->
+  <Target Name="BuildNativeSidecar" BeforeTargets="Build">
+    <MSBuild Projects="native\webkitium_color.vcxproj"
+             Properties="Configuration=$(Configuration);Platform=x64"
+             Targets="Build" />
+  </Target>
+
+  <ItemGroup>
+    <!--
+        Copy the native DLL next to the managed EXE so DllImport can
+        resolve it. SolutionDir puts it at x64\$(Configuration)\native\.
+    -->
+    <None Include="$(SolutionDir)x64\$(Configuration)\native\webkitium_color.dll">
+      <Link>webkitium_color.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Visible>false</Visible>
+    </None>
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="Webkitium.Views.Omnibar"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Border x:Name="Pill"
+            Background="{ThemeResource SurfaceSunken}"
+            BorderBrush="{ThemeResource BorderSubtle}"
+            BorderThickness="1"
+            CornerRadius="10"
+            Padding="8,4"
+            HorizontalAlignment="Stretch">
+        <Grid ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <!--
+                Lockmark. Symbol.Permissions maps to the padlock glyph.
+            -->
+            <SymbolIcon Grid.Column="0"
+                        Symbol="Permissions"
+                        Foreground="{ThemeResource AccentFill}"
+                        VerticalAlignment="Center" />
+
+            <TextBox Grid.Column="1"
+                     x:Name="Input"
+                     PlaceholderText="Search or enter address"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     VerticalAlignment="Center"
+                     VerticalContentAlignment="Center" />
+
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2">
+                <Button Width="32" Height="32" Padding="0"
+                        Background="Transparent" BorderBrush="Transparent"
+                        ToolTipService.ToolTip="Reload (Ctrl+R)">
+                    <SymbolIcon Symbol="Refresh" />
+                </Button>
+                <Button Width="32" Height="32" Padding="0"
+                        Background="Transparent" BorderBrush="Transparent"
+                        ToolTipService.ToolTip="Extensions">
+                    <SymbolIcon Symbol="Library" />
+                </Button>
+                <Button Width="32" Height="32" Padding="0"
+                        Background="Transparent" BorderBrush="Transparent"
+                        ToolTipService.ToolTip="More">
+                    <SymbolIcon Symbol="More" />
+                </Button>
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>

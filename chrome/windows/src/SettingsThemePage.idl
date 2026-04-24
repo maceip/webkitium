@@ -1,6 +1,0 @@
-namespace webkitium {
-    [default_interface]
-    runtimeclass SettingsThemePage : Microsoft.UI.Xaml.Controls.Page {
-        SettingsThemePage();
-    }
-}

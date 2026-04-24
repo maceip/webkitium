@@ -1,0 +1,10 @@
+# Build outputs
+bin/
+obj/
+x64/
+packages/
+*.user
+*.suo
+
+# NuGet restore artifacts
+nuget.exe

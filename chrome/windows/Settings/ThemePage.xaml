@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="Webkitium.Settings.ThemePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls">
+
+    <ScrollViewer Padding="36,24,36,32">
+        <StackPanel MaxWidth="1064" Spacing="4">
+            <TextBlock Text="Theme"
+                       FontSize="28"
+                       FontWeight="SemiBold"
+                       Foreground="{ThemeResource TextPrimary}"
+                       Margin="1,0,0,8" />
+            <TextBlock
+                Text="Pick a brand color. Webkitium derives a 24-step palette (12 light + 12 dark) using an OKLCH perceptually-uniform ramp and pushes it to every device on your account."
+                Foreground="{ThemeResource TextSecondary}"
+                TextWrapping="Wrap"
+                Margin="1,0,0,24" />
+
+            <TextBlock Text="Brand color"
+                       Foreground="{ThemeResource TextTertiary}"
+                       FontSize="12"
+                       CharacterSpacing="80"
+                       FontWeight="SemiBold"
+                       Margin="1,16,0,6" />
+
+            <controls:SettingsCard x:Name="CurrentSeedCard"
+                                   Header="Current brand color"
+                                   Description="#1F5AE0">
+                <controls:SettingsCard.HeaderIcon>
+                    <SymbolIcon Symbol="Highlight" />
+                </controls:SettingsCard.HeaderIcon>
+                <Border x:Name="CurrentSwatch"
+                        Width="64" Height="32"
+                        CornerRadius="6"
+                        BorderBrush="{ThemeResource BorderDefault}"
+                        BorderThickness="1" />
+            </controls:SettingsCard>
+
+            <controls:SettingsExpander Header="Presets"
+                                       Description="Four curated brand colors that also seed the developer cycle (Ctrl+Shift+T).">
+                <controls:SettingsExpander.HeaderIcon>
+                    <SymbolIcon Symbol="ViewAll" />
+                </controls:SettingsExpander.HeaderIcon>
+                <controls:SettingsExpander.Items>
+                    <controls:SettingsCard Header="Webkitium blue" Description="Shipped default">
+                        <Button Click="OnPresetClicked" Tag="4280578784"
+                                Width="64" Height="32" Padding="0" BorderThickness="0">
+                            <Border Background="#1F5AE0" CornerRadius="4" />
+                        </Button>
+                    </controls:SettingsCard>
+                    <controls:SettingsCard Header="Deep magenta" Description="Saturated">
+                        <Button Click="OnPresetClicked" Tag="4286522987"
+                                Width="64" Height="32" Padding="0" BorderThickness="0">
+                            <Border Background="#D21F6B" CornerRadius="4" />
+                        </Button>
+                    </controls:SettingsCard>
+                    <controls:SettingsCard Header="Forest green" Description="Warm mid-chroma">
+                        <Button Click="OnPresetClicked" Tag="4281160254"
+                                Width="64" Height="32" Padding="0" BorderThickness="0">
+                            <Border Background="#2D7A3E" CornerRadius="4" />
+                        </Button>
+                    </controls:SettingsCard>
+                    <controls:SettingsCard Header="Near-monochrome" Description="Validates low-chroma seed">
+                        <Button Click="OnPresetClicked" Tag="4283520341"
+                                Width="64" Height="32" Padding="0" BorderThickness="0">
+                            <Border Background="#454B55" CornerRadius="4" />
+                        </Button>
+                    </controls:SettingsCard>
+                </controls:SettingsExpander.Items>
+            </controls:SettingsExpander>
+
+            <controls:SettingsCard Header="Custom"
+                                   Description="Pick any color. Out-of-gamut seeds are clipped to displayable sRGB while preserving hue and lightness.">
+                <controls:SettingsCard.HeaderIcon>
+                    <SymbolIcon Symbol="Edit" />
+                </controls:SettingsCard.HeaderIcon>
+                <ColorPicker x:Name="SeedPicker"
+                             ColorSpectrumShape="Box"
+                             IsAlphaEnabled="False"
+                             IsColorSliderVisible="True"
+                             IsColorChannelTextInputVisible="True"
+                             IsHexInputVisible="True"
+                             Color="#FF1F5AE0"
+                             ColorChanged="OnPickerColorChanged" />
+            </controls:SettingsCard>
+
+            <TextBlock Text="Appearance"
+                       Foreground="{ThemeResource TextTertiary}"
+                       FontSize="12"
+                       CharacterSpacing="80"
+                       FontWeight="SemiBold"
+                       Margin="1,24,0,6" />
+
+            <controls:SettingsCard Header="Follow system appearance"
+                                   Description="Light and dark palettes are generated in parallel from the same seed; your OS setting picks which one is active.">
+                <controls:SettingsCard.HeaderIcon>
+                    <SymbolIcon Symbol="View" />
+                </controls:SettingsCard.HeaderIcon>
+                <ToggleSwitch IsOn="True" IsEnabled="False" />
+            </controls:SettingsCard>
+        </StackPanel>
+    </ScrollViewer>
+</Page>
