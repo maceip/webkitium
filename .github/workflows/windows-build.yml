@@ -217,50 +217,16 @@ jobs:
 
       - name: Baseline package
         shell: bash
-        env:
-          MSYS2_ARG_CONV_EXCL: "*"
         run: |
           set -euo pipefail
-          ROOT="$(cygpath -u 'C:/W/webkit-src/WebKitBuild/Release')"
-          BIN="$ROOT/bin"
-          PLATFORM=windows
-          RUN_ID="${GITHUB_RUN_ID:-local}"
-          RUN_ATTEMPT="${GITHUB_RUN_ATTEMPT:-1}"
-          OUT_ROOT="${RUNNER_TEMP}/baseline-packages"
-          mkdir -p "$OUT_ROOT"
-          [[ -d "$BIN" ]] || { echo "::error::Windows bin dir missing: $BIN" >&2; exit 1; }
-          MSI="$OUT_ROOT/webkit-minibrowser-baseline-${RUN_ID}-${RUN_ATTEMPT}.msi"
-          ZIP="$OUT_ROOT/webkit-minibrowser-baseline-${RUN_ID}-${RUN_ATTEMPT}.zip"
-          SEVENZIP="/c/Program Files/7-Zip/7z.exe"
-          [[ -x "$SEVENZIP" ]] || { echo "::error::7-Zip not found at $SEVENZIP"; exit 1; }
-          (
-            cd "$BIN"
-            "$SEVENZIP" a -tzip -mx1 "$ZIP" MiniBrowser.exe WebKit*.dll JavaScriptCore*.dll
-          )
-          [[ -s "$ZIP" ]] || { echo "::error::Baseline ZIP empty or missing: $ZIP"; exit 1; }
-          printf '%s\n' "WiX/MSI not generated on runner yet; portable ZIP is the baseline payload." >"$MSI"
-          export BASELINE_JSON_DIR="$OUT_ROOT"
-          export BASELINE_PLATFORM="$PLATFORM"
-          export BASELINE_RUN_ID="$RUN_ID"
-          export BASELINE_RUN_ATTEMPT="$RUN_ATTEMPT"
-          export BASELINE_ZIP="$(basename "$ZIP")"
-          export BASELINE_MSI="$(basename "$MSI")"
-          export BASELINE_CREATED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          python <<'PY'
-          import json, os, pathlib
-          out = pathlib.Path(os.environ["BASELINE_JSON_DIR"]) / f"baseline-{os.environ['BASELINE_PLATFORM']}-{os.environ['BASELINE_RUN_ID']}.json"
-          doc = {
-              "platform": os.environ["BASELINE_PLATFORM"],
-              "created": os.environ["BASELINE_CREATED"],
-              "runId": os.environ["BASELINE_RUN_ID"],
-              "attempt": os.environ["BASELINE_RUN_ATTEMPT"],
-              "zip": os.environ["BASELINE_ZIP"],
-              "msi": os.environ["BASELINE_MSI"],
-              "note": "ZIP is the portable baseline; .msi is a placeholder text file until WiX is wired.",
-          }
-          out.write_text(json.dumps(doc, indent=2))
-          PY
-          echo "BASELINE_OK platform=$PLATFORM zip=$ZIP"
+          BIN="$(cygpath -u 'C:/W/webkit-src/WebKitBuild/Release/bin')"
+          [[ -d "$BIN" ]] || { echo "::error::bin dir missing: $BIN"; exit 1; }
+          OUT="${RUNNER_TEMP}/baseline-packages"
+          mkdir -p "$OUT"
+          TAR="$OUT/webkit-windows-baseline-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.tar.gz"
+          tar -czf "$TAR" -C "$BIN" .
+          [[ -s "$TAR" ]] || { echo "::error::Baseline tarball empty"; exit 1; }
+          echo "BASELINE_OK tar=$TAR ($(du -h "$TAR" | cut -f1))"
 
       - name: Stage artifacts
         if: always()
