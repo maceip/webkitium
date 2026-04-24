@@ -121,17 +121,37 @@ jobs:
           $page = "file:///$($bin -replace '\\','/')/validate-probe.html"
           $out = Join-Path $env:RUNNER_TEMP 'probe-report.json'
           $port = 8787
-          $harnessScript = "$env:GITHUB_WORKSPACE\changes\windows-webgpu-service\harness\tools\browser-probe-server.js"
+          $harnessScript = "$env:GITHUB_WORKSPACE\changes\windows-webgpu-service\harness\tools\browser-probe-server.py"
 
+          # PS7 treats "?" as a valid identifier char in some contexts, so
+          # `$page?harness` interpolates to the empty string. Use ${page}.
+          $miniUrl = "${page}?harness=http://127.0.0.1:${port}/"
           Write-Host "[probe] harness: $harnessScript"
-          Write-Host "[probe] page:    $page?harness=http://127.0.0.1:$port/"
+          Write-Host "[probe] page:    $miniUrl"
           Write-Host "[probe] output:  $out"
+
+          # Resolve python. The self-hosted runner has C:\Python314 on PATH via
+          # the build workflow, but this pwsh session may not inherit that
+          # PATH; try common locations.
+          $py = $null
+          foreach ($cand in @(
+              'python', 'python3',
+              'C:\Python314\python.exe',
+              'C:\Python313\python.exe',
+              'C:\Python312\python.exe'
+          )) {
+              $resolved = (Get-Command $cand -ErrorAction SilentlyContinue)
+              if ($resolved) { $py = $resolved.Source; break }
+          }
+          if (-not $py) { throw "python not found on runner PATH" }
+          Write-Host "[probe] python:  $py"
 
           # Start the harness server; it exits when it receives one POST
           # (or after --timeout seconds).
-          $server = Start-Process -FilePath node `
+          $server = Start-Process -FilePath $py `
               -ArgumentList @($harnessScript, '--port', "$port", '--out', $out, '--timeout', '90') `
-              -PassThru -NoNewWindow -RedirectStandardOutput "$env:RUNNER_TEMP\harness-stdout.log" `
+              -PassThru -NoNewWindow `
+              -RedirectStandardOutput "$env:RUNNER_TEMP\harness-stdout.log" `
               -RedirectStandardError "$env:RUNNER_TEMP\harness-stderr.log"
           Write-Host "[probe] harness server pid=$($server.Id)"
           Start-Sleep -Seconds 2  # let it bind
@@ -140,12 +160,11 @@ jobs:
           $mbExe = Join-Path $bin 'MiniBrowser.exe'
           if (-not (Test-Path $mbExe)) { throw "MiniBrowser.exe missing at $mbExe" }
 
-          $miniUrl = "$page" + "?harness=http://127.0.0.1:$port/"
           # CWD must be the bin dir so LoadLibrary finds dxil.dll + dxcompiler.dll.
           $mb = Start-Process -FilePath $mbExe -ArgumentList $miniUrl `
               -WorkingDirectory $bin -PassThru
 
-          Write-Host "[probe] MiniBrowser pid=$($mb.Id); waiting up to 90s for report..."
+          Write-Host "[probe] MiniBrowser pid=$($mb.Id); waiting up to 95s for report..."
 
           # Wait for the harness to exit (report received) or timeout.
           $ok = $server.WaitForExit(95 * 1000)
@@ -154,7 +173,6 @@ jobs:
               try { Stop-Process -Id $server.Id -Force } catch {}
           }
           try { Stop-Process -Id $mb.Id -Force } catch {}
-          # Give MiniBrowser a second to clean up.
           Start-Sleep -Seconds 2
 
           Write-Host "=== harness stdout ==="
@@ -163,12 +181,11 @@ jobs:
           if (Test-Path "$env:RUNNER_TEMP\harness-stderr.log") { Get-Content "$env:RUNNER_TEMP\harness-stderr.log" }
 
           if (-not (Test-Path $out)) {
-              Write-Error "No probe JSON written at $out — MiniBrowser likely failed to launch or load the page. Check the runner's desktop session."
+              Write-Error "No probe JSON written at $out -- MiniBrowser likely failed to launch or load the page. Check the runner's desktop session."
               exit 2
           }
           Write-Host "=== probe JSON ==="
           Get-Content $out
-          "probe_json=$out" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Upload probe report
         if: always()
