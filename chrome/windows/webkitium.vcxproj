@@ -29,6 +29,11 @@
     <WindowsTargetPlatformMinVersion>10.0.22621.0</WindowsTargetPlatformMinVersion>
     <UseWinUI>true</UseWinUI>
     <WinUISDKReferences>false</WinUISDKReferences>
+    <!-- Unpackaged desktop app.  WindowsPackageType=None triggers the
+         Windows App SDK bootstrap auto-init in the generated
+         module.g.cpp; without it, Application::Start() never runs
+         and App::App() is never constructed (silent empty process). -->
+    <WindowsPackageType>None</WindowsPackageType>
   </PropertyGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
