@@ -54,6 +54,7 @@ endif()
 add_library(ng_browser_core STATIC
     color/ColorRamp.cpp
     color/OklchColor.cpp
+    color/SemanticPalette.cpp
     core/Origin.cpp
     extensions/ExtensionManifest.cpp
     extensions/ExtensionRegistry.cpp
