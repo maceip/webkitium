@@ -32,7 +32,7 @@
         <Grid x:Name="OmnibarHost"
               Grid.Row="0"
               Height="44"
-              Padding="{StaticResource Space2}">
+              Padding="8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="140" />  <!-- System controls reserve -->
                 <ColumnDefinition Width="*" />
