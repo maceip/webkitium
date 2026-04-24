@@ -56,7 +56,13 @@ variable "source_ami" {
 variable "xcode_s3_uri" {
   type    = string
   default = ""
-  description = "S3 URI to Xcode .xip (e.g. s3://bucket/Xcode_26.3.xip). If empty, assumes Xcode is on the source AMI."
+  description = "S3 URI to Xcode .xip (e.g. s3://bucket/Xcode_26.3_Apple_silicon.xip). If empty, assumes Xcode is on the source AMI."
+}
+
+variable "xcode_clt_s3_uri" {
+  type    = string
+  default = ""
+  description = "S3 URI to Command Line Tools .dmg. If empty, uses Xcode CLT bundled with Xcode.app."
 }
 
 variable "github_runner_version" {
@@ -129,6 +135,10 @@ build {
   }
 
   # ── 2. Xcode from S3 (optional — skip if source AMI has Xcode) ──
+  #
+  # No Apple ID needed on the runner. The .xip is downloaded once by a
+  # human from developer.apple.com and uploaded to S3. Packer pulls it
+  # during image bake. Every runner launched from this AMI has Xcode.
   provisioner "shell" {
     inline = [
       "set -euo pipefail",
@@ -139,12 +149,26 @@ build {
       "  exit 0",
       "fi",
 
+      "# Command Line Tools (if provided separately)",
+      "if [ -n '${var.xcode_clt_s3_uri}' ]; then",
+      "  echo 'Installing Command Line Tools from S3...'",
+      "  aws s3 cp '${var.xcode_clt_s3_uri}' /tmp/CLT.dmg",
+      "  MNT=$(mktemp -d /tmp/clt-mount.XXXXXX)",
+      "  hdiutil attach /tmp/CLT.dmg -mountpoint $MNT -nobrowse",
+      "  PKG=$(find $MNT -maxdepth 4 -name '*.pkg' | head -1)",
+      "  [ -n \"$PKG\" ] && sudo installer -pkg \"$PKG\" -target /",
+      "  hdiutil detach $MNT -force || true",
+      "  rm -f /tmp/CLT.dmg",
+      "fi",
+
+      "# Full Xcode",
       "echo 'Downloading Xcode from S3...'",
       "aws s3 cp '${var.xcode_s3_uri}' /tmp/Xcode.xip",
       "echo 'Expanding Xcode .xip (this takes ~20 minutes)...'",
-      "xip --expand /tmp/Xcode.xip -C /Applications",
+      "[ -d /Applications/Xcode.app ] && sudo mv /Applications/Xcode.app \"/Applications/Xcode.app.backup-$(date +%Y%m%d%H%M%S)\"",
+      "cd /Applications && xip --expand /tmp/Xcode.xip",
       "rm -f /tmp/Xcode.xip",
-      "sudo xcode-select -s /Applications/Xcode.app",
+      "sudo xcode-select -s /Applications/Xcode.app/Contents/Developer",
       "sudo xcodebuild -license accept",
       "xcodebuild -version",
     ]
