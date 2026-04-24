@@ -5,7 +5,10 @@
 #endif
 
 #include <winrt/Microsoft.UI.Windowing.h>
-#include <winrt/Microsoft.UI.Xaml.Interop.h>
+// xaml_typename<>() and TypeName live in Windows::UI::Xaml::Interop --
+// WinUI 3's Frame::Navigate accepts that Windows-namespace TypeName
+// directly; there is no Microsoft::UI::Xaml::Interop::TypeName.
+#include <winrt/Windows.UI.Xaml.Interop.h>
 
 #include "SettingsPairedDevicesPage.xaml.h"
 #include "SettingsThemePage.xaml.h"
@@ -14,7 +17,7 @@
 using namespace winrt;
 using namespace Microsoft::UI::Xaml;
 using namespace Microsoft::UI::Xaml::Controls;
-using namespace Microsoft::UI::Xaml::Interop;
+using namespace Windows::UI::Xaml::Interop;
 
 namespace winrt::webkitium::implementation {
 
