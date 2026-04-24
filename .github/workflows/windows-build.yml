@@ -96,11 +96,10 @@ jobs:
             exit 1
           fi
           echo "Stitching ${#parts[@]} parts..."
-          sorted=()
-          while IFS= read -r line; do
-            [[ -n "$line" ]] && sorted+=("$line")
-          done < <(printf '%s\n' "${parts[@]}" | LC_ALL=C sort -V)
-          cat "${sorted[@]}" > "$ARCHIVE"
+          # Bash glob expansion is already sorted by LC_COLLATE (aa, ab, ac, ad).
+          # Earlier `sort -V` call resolved to Windows sort.exe on git-bash PATH
+          # and failed with "-V: system cannot find the file specified".
+          cat "${parts[@]}" > "$ARCHIVE"
           rm -f ${WEBKIT_PIN_PART_GLOB}
           shopt -u nullglob
           [[ -s "$ARCHIVE" ]] || { echo "::error::Stitched webkit-pin archive is empty"; exit 1; }
