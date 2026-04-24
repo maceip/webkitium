@@ -109,12 +109,22 @@ jobs:
           # Extract, excluding paths that contain macOS/iOS framework symlinks
           # and test suites not needed for a Windows build.  Tolerate warnings
           # from any remaining symlink entries inside Source/.
-          tar -xzf "$ARCHIVE" --strip-components=1 -C "$SRC" \
-            --exclude='*/LayoutTests/*' \
-            --exclude='*/WebKitLibraries/SDKs/*' \
-            --exclude='*/Websites/*' \
-            --exclude='*/JSTests/*' \
-            || true
+          # Tarball has 2-component prefix (src/webkit-pin/...); try strip=2
+          # first, fall back to strip=1 if a re-cut archive drops a level.
+          for STRIP in 2 1; do
+            tar -xzf "$ARCHIVE" --strip-components="$STRIP" -C "$SRC" \
+              --exclude='*/LayoutTests/*' \
+              --exclude='*/WebKitLibraries/SDKs/*' \
+              --exclude='*/Websites/*' \
+              --exclude='*/JSTests/*' \
+              2>/dev/null || true
+            if [[ -d "$SRC/Source" ]]; then
+              echo "Extracted with --strip-components=$STRIP"
+              break
+            fi
+            echo "strip=$STRIP did not produce Source/, trying next..."
+            rm -rf "$SRC"/*
+          done
 
           rm -f "$ARCHIVE"
 
