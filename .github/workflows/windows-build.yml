@@ -109,22 +109,12 @@ jobs:
           # Extract, excluding paths that contain macOS/iOS framework symlinks
           # and test suites not needed for a Windows build.  Tolerate warnings
           # from any remaining symlink entries inside Source/.
-          # Tarball has 2-component prefix (src/webkit-pin/...); try strip=2
-          # first, fall back to strip=1 if a re-cut archive drops a level.
-          for STRIP in 2 1; do
-            tar -xzf "$ARCHIVE" --strip-components="$STRIP" -C "$SRC" \
-              --exclude='*/LayoutTests/*' \
-              --exclude='*/WebKitLibraries/SDKs/*' \
-              --exclude='*/Websites/*' \
-              --exclude='*/JSTests/*' \
-              2>/dev/null || true
-            if [[ -d "$SRC/Source" ]]; then
-              echo "Extracted with --strip-components=$STRIP"
-              break
-            fi
-            echo "strip=$STRIP did not produce Source/, trying next..."
-            rm -rf "$SRC"/*
-          done
+          tar -xzf "$ARCHIVE" --strip-components=1 -C "$SRC" \
+            --exclude='*/LayoutTests/*' \
+            --exclude='*/WebKitLibraries/SDKs/*' \
+            --exclude='*/Websites/*' \
+            --exclude='*/JSTests/*' \
+            || true
 
           rm -f "$ARCHIVE"
 
@@ -241,11 +231,11 @@ jobs:
           [[ -d "$BIN" ]] || { echo "::error::Windows bin dir missing: $BIN" >&2; exit 1; }
           MSI="$OUT_ROOT/webkit-minibrowser-baseline-${RUN_ID}-${RUN_ATTEMPT}.msi"
           ZIP="$OUT_ROOT/webkit-minibrowser-baseline-${RUN_ID}-${RUN_ATTEMPT}.zip"
-          # Git-bash on Windows doesn't ship zip; use 7z which is on the runner PATH
+          SEVENZIP="/c/Program Files/7-Zip/7z.exe"
+          [[ -x "$SEVENZIP" ]] || { echo "::error::7-Zip not found at $SEVENZIP"; exit 1; }
           (
             cd "$BIN"
-            7z a -tzip -mx1 "$ZIP" MiniBrowser.exe WebKit*.dll JavaScriptCore*.dll 2>/dev/null \
-              || 7z a -tzip -mx1 "$ZIP" . >/dev/null
+            "$SEVENZIP" a -tzip -mx1 "$ZIP" MiniBrowser.exe WebKit*.dll JavaScriptCore*.dll
           )
           [[ -s "$ZIP" ]] || { echo "::error::Baseline ZIP empty or missing: $ZIP"; exit 1; }
           printf '%s\n' "WiX/MSI not generated on runner yet; portable ZIP is the baseline payload." >"$MSI"

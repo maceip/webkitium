@@ -45,15 +45,7 @@ jobs:
         run: |
           set -euo pipefail
           export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
-          GH_BIN="${GH_BIN:-}"
-          if [[ -z "$GH_BIN" ]]; then
-            for candidate in "$(command -v gh 2>/dev/null || true)" /opt/homebrew/bin/gh /usr/local/bin/gh /usr/bin/gh; do
-              [[ -n "$candidate" && -x "$candidate" ]] || continue
-              GH_BIN="$candidate"
-              break
-            done
-          fi
-          [[ -n "$GH_BIN" && -x "$GH_BIN" ]]
+          command -v gh >/dev/null 2>&1 || { echo "::error::gh CLI not found"; exit 1; }
           command -v git >/dev/null 2>&1 || { echo "::error::git not found on PATH"; exit 1; }
 
           SRC="${NG_IOS_WEBKIT_PATH:-$HOME/W/webkit-ios-src}"
@@ -63,7 +55,7 @@ jobs:
           mkdir -p "$SRC"
 
           cd "$RUNNER_TEMP"
-          "$GH_BIN" release download "${WEBKIT_PIN_RELEASE_TAG:?WEBKIT_PIN_RELEASE_TAG missing}" \
+          gh release download "${WEBKIT_PIN_RELEASE_TAG:?WEBKIT_PIN_RELEASE_TAG missing}" \
             --repo "$GITHUB_REPOSITORY" \
             --pattern "${WEBKIT_PIN_PART_GLOB:?WEBKIT_PIN_PART_GLOB missing}"
 
@@ -73,11 +65,7 @@ jobs:
             echo "::error::No tarball parts matched WEBKIT_PIN_PART_GLOB after download"
             exit 1
           fi
-          sorted=()
-          while IFS= read -r line; do
-            [[ -n "$line" ]] && sorted+=("$line")
-          done < <(printf '%s\n' "${parts[@]}" | LC_ALL=C sort -V)
-          cat "${sorted[@]}" > "$ARCHIVE"
+          cat "${parts[@]}" > "$ARCHIVE"
           rm -f ${WEBKIT_PIN_PART_GLOB}
           shopt -u nullglob
           [[ -s "$ARCHIVE" ]] || { echo "::error::Stitched webkit-pin archive is empty"; exit 1; }
@@ -100,7 +88,7 @@ jobs:
             uname -a
             xcodebuild -version || true
             xcrun simctl list runtimes || true
-            printf 'gh=%s\n' "$GH_BIN"
+            command -v gh
             command -v cmake ninja python3 ruby perl
           } | tee "${RUNNER_TEMP}/ios-ci-environment.txt" || true
           echo "WEBKITIUM_BROWSER_SHELL_TARGET=ios" >> "$GITHUB_ENV"

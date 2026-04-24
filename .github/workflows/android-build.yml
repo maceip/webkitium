@@ -86,29 +86,11 @@ jobs:
           fi
           echo "NDK prebuilt host: $PREBUILT"
 
-          # Restore clang-tidy if previous run disabled it
-          TIDY="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/$PREBUILT/bin/clang-tidy"
-          [ -f "$TIDY.disabled" ] && mv "$TIDY.disabled" "$TIDY" || true
-
-          # Suppress cognitive-complexity clang-tidy check that fails with -Werror
-          cat > "$SRC/.clang-tidy" << 'TIDY'
-          Checks: '-readability-function-cognitive-complexity'
-          TIDY
-          # Clear CMake cache to pick up the new .clang-tidy
-          rm -rf "$SRC/wpeview/.cxx" 2>/dev/null || true
-
           # WPE-Android uses Gradle
-          if [ -f "gradlew" ]; then
-            chmod +x gradlew
-            if [[ ! -x ./gradlew ]]; then
-              echo "::error::gradlew is not executable after chmod (check filesystem permissions / noexec)"
-              exit 1
-            fi
-            ./gradlew assembleRelease
-          else
-            echo "::error::No gradlew found — expected WPE-Android repo"
-            exit 1
-          fi
+          chmod +x gradlew
+          ./gradlew assembleRelease \
+            -Pandroid.native.buildOutput=verbose \
+            -PCMAKE_CXX_CLANG_TIDY=""
 
       - name: Baseline package
         run: |

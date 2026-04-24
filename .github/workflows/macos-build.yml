@@ -73,11 +73,7 @@ jobs:
             echo "::error::No tarball parts matched WEBKIT_PIN_PART_GLOB after gh release download"
             exit 1
           fi
-          sorted=()
-          while IFS= read -r line; do
-            [[ -n "$line" ]] && sorted+=("$line")
-          done < <(printf '%s\n' "${parts[@]}" | LC_ALL=C sort -V)
-          cat "${sorted[@]}" > "$ARCHIVE"
+          cat "${parts[@]}" > "$ARCHIVE"
           rm -f ${WEBKIT_PIN_PART_GLOB}
           shopt -u nullglob
           [[ -s "$ARCHIVE" ]] || { echo "::error::Stitched webkit-pin archive is empty"; exit 1; }
@@ -121,64 +117,13 @@ jobs:
           RUN_ATTEMPT="${GITHUB_RUN_ATTEMPT:-1}"
           OUT_ROOT="${RUNNER_TEMP}/baseline-packages"
           mkdir -p "$OUT_ROOT"
-          stamp() { date -u +%Y-%m-%dT%H:%M:%SZ; }
           [[ -d "$ROOT" ]] || { echo "::error::Build output dir missing: $ROOT" >&2; exit 1; }
-          TAR="$OUT_ROOT/webkit-minibrowser-baseline-${RUN_ID}-${RUN_ATTEMPT}.tar.gz"
-          if [[ -d "$ROOT/bin" ]]; then
-            tar -czf "$TAR" -C "$ROOT" bin
-          else
-            tar -czf "$TAR" -C "$ROOT" .
-          fi
-          [[ -s "$TAR" ]] || { echo "::error::Baseline tarball empty: $TAR"; exit 1; }
+          APP="$ROOT/MiniBrowser.app"
+          [[ -d "$APP" ]] || { echo "::error::MiniBrowser.app not found at $APP"; exit 1; }
           DMG="$OUT_ROOT/webkit-minibrowser-baseline-${RUN_ID}-${RUN_ATTEMPT}.dmg"
-          PKG="$OUT_ROOT/webkit-minibrowser-baseline-${RUN_ID}-${RUN_ATTEMPT}.pkg"
-          if [[ "$PLATFORM" == macos ]] && command -v hdiutil >/dev/null 2>&1; then
-            STAGING="$OUT_ROOT/.dmg-staging-$RUN_ID"
-            rm -rf "$STAGING"
-            mkdir -p "$STAGING"
-            if [[ -d "$ROOT/bin/MiniBrowser.app" ]]; then
-              cp -a "$ROOT/bin/MiniBrowser.app" "$STAGING/"
-            elif compgen -G "$ROOT/bin/"*.app >/dev/null; then
-              cp -a "$ROOT/bin/"*.app "$STAGING/" 2>/dev/null || true
-            else
-              cp -a "$ROOT/bin" "$STAGING/" 2>/dev/null || cp -a "$ROOT" "$STAGING/out"
-            fi
-            if ! hdiutil create -volname "WebKitMiniBrowser-baseline" -srcfolder "$STAGING" -ov -format UDZO "$DMG"; then
-              echo "::warning::hdiutil create failed; using tarball symlink for .dmg artifact name"
-              rm -f "$DMG"
-              rm -rf "$STAGING"
-              ln -sf "$(basename "$TAR")" "$DMG" 2>/dev/null || cp "$TAR" "$DMG"
-            else
-              rm -rf "$STAGING"
-            fi
-          else
-            ln -sf "$(basename "$TAR")" "$DMG" 2>/dev/null || cp "$TAR" "$DMG"
-          fi
-          printf '%s\n' "Placeholder PKG: use productbuild --root once signing/bundle layout is fixed." >"$PKG"
-          export BASELINE_JSON_DIR="$OUT_ROOT"
-          export BASELINE_PLATFORM="$PLATFORM"
-          export BASELINE_RUN_ID="$RUN_ID"
-          export BASELINE_RUN_ATTEMPT="$RUN_ATTEMPT"
-          export BASELINE_TARBALL="$(basename "$TAR")"
-          export BASELINE_DMG="$(basename "$DMG")"
-          export BASELINE_PKG="$(basename "$PKG")"
-          export BASELINE_CREATED="$(stamp)"
-          python3 <<'PY'
-          import json, os, pathlib
-          out = pathlib.Path(os.environ["BASELINE_JSON_DIR"]) / f"baseline-{os.environ['BASELINE_PLATFORM']}-{os.environ['BASELINE_RUN_ID']}.json"
-          doc = {
-              "platform": os.environ["BASELINE_PLATFORM"],
-              "created": os.environ["BASELINE_CREATED"],
-              "runId": os.environ["BASELINE_RUN_ID"],
-              "attempt": os.environ["BASELINE_RUN_ATTEMPT"],
-              "tarball": os.environ["BASELINE_TARBALL"],
-              "dmgOrArchive": os.environ["BASELINE_DMG"],
-              "pkg": os.environ["BASELINE_PKG"],
-              "note": "macOS: hdiutil DMG when MiniBrowser.app exists; PKG placeholder until productbuild.",
-          }
-          out.write_text(json.dumps(doc, indent=2))
-          PY
-          echo "BASELINE_OK platform=$PLATFORM tar=$TAR"
+          hdiutil create -volname "WebKitMiniBrowser" -srcfolder "$APP" -ov -format UDZO "$DMG"
+          [[ -s "$DMG" ]] || { echo "::error::DMG creation failed"; exit 1; }
+          echo "BASELINE_OK platform=$PLATFORM dmg=$DMG"
 
       - name: Upload Artifacts
         if: always()
