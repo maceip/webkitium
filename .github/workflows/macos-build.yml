@@ -1,5 +1,12 @@
 name: macos-build
 
+# Operational rule
+# When you re-cut webkit-pin or bump Dawn / vcpkg:
+#
+# Update config/webkit-build-matrix.json.
+# Update config/vcpkg-configuration.json if the Dawn baseline changes.
+# Update config/windows-webgpu-dawn-green.json if you use it as a green reference (CI will fail if it disagrees with the matrix).
+
 on:
   workflow_dispatch:
 
