@@ -78,8 +78,45 @@ jobs:
       - name: Baseline package
         run: |
           set -euo pipefail
-          export NG_ANDROID_SOURCE="${NG_ANDROID_SOURCE:-$HOME/webkit/wpe-android}"
-          bash "$GITHUB_WORKSPACE/packaging/baseline-package.sh" android
+          SRC="${NG_ANDROID_SOURCE:-$HOME/webkit/wpe-android}"
+          RUN_ID="${GITHUB_RUN_ID:-local}"
+          RUN_ATTEMPT="${GITHUB_RUN_ATTEMPT:-1}"
+          OUT_ROOT="${RUNNER_TEMP}/baseline-packages"
+          APK_DIR="$OUT_ROOT/apk"
+          mkdir -p "$APK_DIR"
+          count=0
+          while IFS= read -r f; do
+            [[ -n "$f" ]] || continue
+            cp -f "$f" "$APK_DIR/"
+            count=$((count + 1))
+          done < <(find "$SRC" -type f -name '*.apk' 2>/dev/null | head -20)
+          if [[ "$count" -eq 0 ]]; then
+            echo "::error::No APK files found under $SRC" >&2
+            exit 1
+          fi
+          MANIFEST="$OUT_ROOT/baseline-android-${RUN_ID}.json"
+          export ANDROID_BASELINE_APK_DIR="$APK_DIR"
+          export ANDROID_BASELINE_MANIFEST="$MANIFEST"
+          export ANDROID_BASELINE_RUN_ID="$RUN_ID"
+          export ANDROID_BASELINE_RUN_ATTEMPT="$RUN_ATTEMPT"
+          python3 <<'PY'
+          import json, os, time, pathlib
+          apk_dir = pathlib.Path(os.environ["ANDROID_BASELINE_APK_DIR"])
+          rows = [
+              {"name": n, "bytes": (apk_dir / n).stat().st_size}
+              for n in sorted(os.listdir(apk_dir))
+              if n.endswith(".apk")
+          ]
+          doc = {
+              "platform": "android",
+              "created": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+              "runId": os.environ["ANDROID_BASELINE_RUN_ID"],
+              "attempt": os.environ["ANDROID_BASELINE_RUN_ATTEMPT"],
+              "apks": rows,
+          }
+          pathlib.Path(os.environ["ANDROID_BASELINE_MANIFEST"]).write_text(json.dumps(doc, indent=2))
+          PY
+          echo "BASELINE_OK platform=android apks=$count"
 
       - name: Upload Artifacts
         if: always()

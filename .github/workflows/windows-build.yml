@@ -173,8 +173,43 @@ jobs:
           MSYS2_ARG_CONV_EXCL: "*"
         run: |
           set -euo pipefail
-          export NG_BASELINE_WEBKIT_BUILD="$(cygpath -u 'C:/W/webkit-src/WebKitBuild/Release')"
-          bash "$GITHUB_WORKSPACE/packaging/baseline-package.sh" windows
+          ROOT="$(cygpath -u 'C:/W/webkit-src/WebKitBuild/Release')"
+          BIN="$ROOT/bin"
+          PLATFORM=windows
+          RUN_ID="${GITHUB_RUN_ID:-local}"
+          RUN_ATTEMPT="${GITHUB_RUN_ATTEMPT:-1}"
+          OUT_ROOT="${RUNNER_TEMP}/baseline-packages"
+          mkdir -p "$OUT_ROOT"
+          [[ -d "$BIN" ]] || { echo "::error::Windows bin dir missing: $BIN" >&2; exit 1; }
+          MSI="$OUT_ROOT/webkit-minibrowser-baseline-${RUN_ID}-${RUN_ATTEMPT}.msi"
+          ZIP="$OUT_ROOT/webkit-minibrowser-baseline-${RUN_ID}-${RUN_ATTEMPT}.zip"
+          (
+            cd "$BIN"
+            zip -qr "$ZIP" MiniBrowser.exe WebKit*.dll JavaScriptCore*.dll 2>/dev/null || zip -qr "$ZIP" .
+          )
+          printf '%s\n' "WiX/MSI not generated on runner yet; portable ZIP is the baseline payload." >"$MSI"
+          export BASELINE_JSON_DIR="$OUT_ROOT"
+          export BASELINE_PLATFORM="$PLATFORM"
+          export BASELINE_RUN_ID="$RUN_ID"
+          export BASELINE_RUN_ATTEMPT="$RUN_ATTEMPT"
+          export BASELINE_ZIP="$(basename "$ZIP")"
+          export BASELINE_MSI="$(basename "$MSI")"
+          export BASELINE_CREATED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          python3 <<'PY'
+          import json, os, pathlib
+          out = pathlib.Path(os.environ["BASELINE_JSON_DIR"]) / f"baseline-{os.environ['BASELINE_PLATFORM']}-{os.environ['BASELINE_RUN_ID']}.json"
+          doc = {
+              "platform": os.environ["BASELINE_PLATFORM"],
+              "created": os.environ["BASELINE_CREATED"],
+              "runId": os.environ["BASELINE_RUN_ID"],
+              "attempt": os.environ["BASELINE_RUN_ATTEMPT"],
+              "zip": os.environ["BASELINE_ZIP"],
+              "msi": os.environ["BASELINE_MSI"],
+              "note": "ZIP is the portable baseline; .msi is a placeholder text file until WiX is wired.",
+          }
+          out.write_text(json.dumps(doc, indent=2))
+          PY
+          echo "BASELINE_OK platform=$PLATFORM zip=$ZIP"
 
       - name: Upload Artifacts
         if: always()

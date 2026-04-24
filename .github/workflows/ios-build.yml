@@ -112,8 +112,37 @@ jobs:
           set -euo pipefail
           export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
           SRC="${WEBKIT_SRC:?}"
-          export NG_BASELINE_WEBKIT_BUILD="$SRC/WebKitBuild"
-          bash "$GITHUB_WORKSPACE/packaging/baseline-package.sh" ios
+          ROOT="$SRC/WebKitBuild"
+          RUN_ID="${GITHUB_RUN_ID:-local}"
+          RUN_ATTEMPT="${GITHUB_RUN_ATTEMPT:-1}"
+          OUT_ROOT="${RUNNER_TEMP}/baseline-packages"
+          mkdir -p "$OUT_ROOT"
+          ZIP="$OUT_ROOT/webkit-ios-simulator-baseline-${RUN_ID}-${RUN_ATTEMPT}.zip"
+          FIRST="$(find "$ROOT" -name 'MiniBrowser.app' -type d 2>/dev/null | head -1)"
+          if [[ -z "$FIRST" ]]; then
+            echo "::error::No MiniBrowser.app under $ROOT" >&2
+            exit 1
+          fi
+          tar -czf "$ZIP" -C "$(dirname "$FIRST")" "$(basename "$FIRST")"
+          export BASELINE_JSON_DIR="$OUT_ROOT"
+          export BASELINE_RUN_ID="$RUN_ID"
+          export BASELINE_RUN_ATTEMPT="$RUN_ATTEMPT"
+          export BASELINE_ZIP="$(basename "$ZIP")"
+          export BASELINE_CREATED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          python3 <<'PY'
+          import json, os, pathlib
+          out = pathlib.Path(os.environ["BASELINE_JSON_DIR"]) / f"baseline-ios-{os.environ['BASELINE_RUN_ID']}.json"
+          doc = {
+              "platform": "ios",
+              "created": os.environ["BASELINE_CREATED"],
+              "runId": os.environ["BASELINE_RUN_ID"],
+              "attempt": os.environ["BASELINE_RUN_ATTEMPT"],
+              "zip": os.environ["BASELINE_ZIP"],
+              "ipaNote": "App Store IPA requires signing/exportArchive; simulator .tar.gz is the baseline deliverable here.",
+          }
+          out.write_text(json.dumps(doc, indent=2))
+          PY
+          echo "BASELINE_OK platform=ios zip=$ZIP"
 
       - name: Post-build check
         run: |

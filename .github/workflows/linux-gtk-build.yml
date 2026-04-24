@@ -90,8 +90,48 @@ jobs:
         run: |
           set -euo pipefail
           SRC="${WEBKIT_SRC:?}"
-          export NG_BASELINE_WEBKIT_BUILD="$SRC/WebKitBuild/Release"
-          bash "$GITHUB_WORKSPACE/packaging/baseline-package.sh" linux-gtk
+          ROOT="$SRC/WebKitBuild/Release"
+          PLATFORM=linux-gtk
+          RUN_ID="${GITHUB_RUN_ID:-local}"
+          RUN_ATTEMPT="${GITHUB_RUN_ATTEMPT:-1}"
+          OUT_ROOT="${RUNNER_TEMP}/baseline-packages"
+          mkdir -p "$OUT_ROOT"
+          stamp() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+          [[ -d "$ROOT" ]] || { echo "::error::Build output dir missing: $ROOT" >&2; exit 1; }
+          TAR="$OUT_ROOT/webkit-minibrowser-baseline-${RUN_ID}-${RUN_ATTEMPT}.tar.gz"
+          if [[ -d "$ROOT/bin" ]]; then
+            tar -czf "$TAR" -C "$ROOT" bin
+          else
+            tar -czf "$TAR" -C "$ROOT" .
+          fi
+          DMG="$OUT_ROOT/webkit-minibrowser-baseline-${RUN_ID}-${RUN_ATTEMPT}.dmg"
+          PKG="$OUT_ROOT/webkit-minibrowser-baseline-${RUN_ID}-${RUN_ATTEMPT}.pkg"
+          ln -sf "$(basename "$TAR")" "$DMG" 2>/dev/null || cp "$TAR" "$DMG"
+          printf '%s\n' "Linux: PKG placeholder; use .deb/flatpak when ready." >"$PKG"
+          export BASELINE_JSON_DIR="$OUT_ROOT"
+          export BASELINE_PLATFORM="$PLATFORM"
+          export BASELINE_RUN_ID="$RUN_ID"
+          export BASELINE_RUN_ATTEMPT="$RUN_ATTEMPT"
+          export BASELINE_TARBALL="$(basename "$TAR")"
+          export BASELINE_DMG="$(basename "$DMG")"
+          export BASELINE_PKG="$(basename "$PKG")"
+          export BASELINE_CREATED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          python3 <<'PY'
+          import json, os, pathlib
+          out = pathlib.Path(os.environ["BASELINE_JSON_DIR"]) / f"baseline-{os.environ['BASELINE_PLATFORM']}-{os.environ['BASELINE_RUN_ID']}.json"
+          doc = {
+              "platform": os.environ["BASELINE_PLATFORM"],
+              "created": os.environ["BASELINE_CREATED"],
+              "runId": os.environ["BASELINE_RUN_ID"],
+              "attempt": os.environ["BASELINE_RUN_ATTEMPT"],
+              "tarball": os.environ["BASELINE_TARBALL"],
+              "dmgOrArchive": os.environ["BASELINE_DMG"],
+              "pkg": os.environ["BASELINE_PKG"],
+              "note": "DMG filename reused as symlink to tarball for artifact naming parity with macOS.",
+          }
+          out.write_text(json.dumps(doc, indent=2))
+          PY
+          echo "BASELINE_OK platform=$PLATFORM tar=$TAR"
 
       - name: Upload artifacts
         if: always()
