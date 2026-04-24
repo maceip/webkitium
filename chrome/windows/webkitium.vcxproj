@@ -257,6 +257,8 @@
             Condition="Exists('packages\Microsoft.Windows.CppWinRT.2.0.240405.15\build\native\Microsoft.Windows.CppWinRT.targets')" />
     <Import Project="packages\Microsoft.WindowsAppSDK.1.6.250402001\build\native\Microsoft.WindowsAppSDK.targets"
             Condition="Exists('packages\Microsoft.WindowsAppSDK.1.6.250402001\build\native\Microsoft.WindowsAppSDK.targets')" />
+    <Import Project="packages\Microsoft.Web.WebView2.1.0.2592.51\build\native\Microsoft.Web.WebView2.targets"
+            Condition="Exists('packages\Microsoft.Web.WebView2.1.0.2592.51\build\native\Microsoft.Web.WebView2.targets')" />
   </ImportGroup>
 
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
