@@ -107,6 +107,7 @@ jobs:
           JOBS="$(nproc 2>/dev/null || echo 4)"
           export WEBKITIUM_BROWSER_SHELL_TARGET=linux-gtk
           perl Tools/Scripts/build-webkit --release --gtk --makeargs="-j$JOBS" \
+            -DCMAKE_MODULE_PATH="$GITHUB_WORKSPACE/config/cmake" \
             -DENABLE_EXPERIMENTAL_FEATURES="${WEBKIT_CMAKE_ENABLE_EXPERIMENTAL_FEATURES:-ON}" \
             -DENABLE_WEBXR="${WEBKIT_CMAKE_ENABLE_WEBXR:-OFF}" \
             -DENABLE_THUNDER=OFF
