@@ -25,7 +25,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          SRC="$HOME/webkit/wpe-android"
+          SRC="${NG_ANDROID_SOURCE:-$HOME/webkit/wpe-android}"
+          echo "NG_ANDROID_SOURCE=$SRC" >> "$GITHUB_ENV"
 
           if [ ! -d "$SRC" ]; then
             echo "::error::Expected checkout at $SRC not found"
@@ -33,12 +34,13 @@ jobs:
           fi
           echo "Source ready at $SRC"
 
-          # Apply patches
+          # Apply patches (fail fast — silent patch drift wastes hours on Gradle)
           applied=0
           for patch in "$GITHUB_WORKSPACE"/webkit/patches/common/*.patch "$GITHUB_WORKSPACE"/webkit/patches/android/*.patch; do
             [[ -f "$patch" ]] || continue
             echo "Applying $(basename "$patch")"
-            git -C "$SRC" apply --whitespace=nowarn --unidiff-zero "$patch" || true
+            git -C "$SRC" apply --check --whitespace=nowarn --unidiff-zero "$patch"
+            git -C "$SRC" apply --whitespace=nowarn --unidiff-zero "$patch"
             applied=$((applied + 1))
           done
           echo "Applied $applied patches."
@@ -49,14 +51,35 @@ jobs:
       - name: Build
         run: |
           set -euo pipefail
-          SRC="$HOME/webkit/wpe-android"
+          SRC="${NG_ANDROID_SOURCE:-$HOME/webkit/wpe-android}"
           cd "$SRC"
 
           export ANDROID_HOME="${ANDROID_HOME:-$HOME/Android/Sdk}"
-          export ANDROID_NDK_HOME="${ANDROID_NDK_HOME:-$ANDROID_HOME/ndk/$(ls $ANDROID_HOME/ndk/ 2>/dev/null | sort -V | tail -1)}"
+          ndk_ver="$(ls "$ANDROID_HOME/ndk/" 2>/dev/null | sort -V | tail -1)"
+          if [[ -z "${ndk_ver:-}" ]]; then
+            echo "::error::No NDK under \$ANDROID_HOME/ndk (ANDROID_HOME=$ANDROID_HOME)"
+            exit 1
+          fi
+          export ANDROID_NDK_HOME="${ANDROID_NDK_HOME:-$ANDROID_HOME/ndk/$ndk_ver}"
+          ndk_prebuilt_host() {
+            local base="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt"
+            [[ -d "$base" ]] || { echo ""; return; }
+            if [[ -d "$base/linux-aarch64" ]]; then echo linux-aarch64
+            elif [[ -d "$base/linux-arm64" ]]; then echo linux-arm64
+            elif [[ -d "$base/linux-x86_64" ]]; then echo linux-x86_64
+            else
+              find "$base" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' 2>/dev/null | head -1
+            fi
+          }
+          PREBUILT="$(ndk_prebuilt_host)"
+          if [[ -z "$PREBUILT" ]]; then
+            echo "::error::No llvm prebuilt under $ANDROID_NDK_HOME/toolchains/llvm/prebuilt"
+            exit 1
+          fi
+          echo "NDK prebuilt host: $PREBUILT"
 
           # Restore clang-tidy if previous run disabled it
-          TIDY="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/clang-tidy"
+          TIDY="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/$PREBUILT/bin/clang-tidy"
           [ -f "$TIDY.disabled" ] && mv "$TIDY.disabled" "$TIDY" || true
 
           # Suppress cognitive-complexity clang-tidy check that fails with -Werror
@@ -69,6 +92,10 @@ jobs:
           # WPE-Android uses Gradle
           if [ -f "gradlew" ]; then
             chmod +x gradlew
+            if [[ ! -x ./gradlew ]]; then
+              echo "::error::gradlew is not executable after chmod (check filesystem permissions / noexec)"
+              exit 1
+            fi
             ./gradlew assembleRelease
           else
             echo "::error::No gradlew found — expected WPE-Android repo"

@@ -33,6 +33,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          command -v gh >/dev/null 2>&1 || { echo "::error::gh CLI not found"; exit 1; }
+          command -v git >/dev/null 2>&1 || { echo "::error::git not found on PATH"; exit 1; }
           SRC="${NG_LINUX_GTK_WEBKIT_SRC:-$HOME/webkit-src-gtk}"
           echo "WEBKIT_SRC=$SRC" >> "$GITHUB_ENV"
           echo "WEBKITIUM_BROWSER_SHELL_TARGET=linux-gtk" >> "$GITHUB_ENV"
@@ -43,13 +45,20 @@ jobs:
           gh release download webkit-pin \
             --repo "$GITHUB_REPOSITORY" \
             --pattern "webkit-pin.tar.gz.part-*"
+          shopt -s nullglob
           parts=( webkit-pin.tar.gz.part-* )
           if (( ${#parts[@]} == 0 )); then
             echo "::error::No tarball parts found after download"
             exit 1
           fi
-          cat "${parts[@]}" > "$ARCHIVE"
+          sorted=()
+          while IFS= read -r line; do
+            [[ -n "$line" ]] && sorted+=("$line")
+          done < <(printf '%s\n' "${parts[@]}" | LC_ALL=C sort -V)
+          cat "${sorted[@]}" > "$ARCHIVE"
           rm -f webkit-pin.tar.gz.part-*
+          shopt -u nullglob
+          [[ -s "$ARCHIVE" ]] || { echo "::error::Stitched webkit-pin archive is empty"; exit 1; }
           tar -xzf "$ARCHIVE" --strip-components=1 -C "$SRC"
           rm -f "$ARCHIVE"
           if [[ ! -d "$SRC/Source" ]]; then
@@ -104,6 +113,7 @@ jobs:
           else
             tar -czf "$TAR" -C "$ROOT" .
           fi
+          [[ -s "$TAR" ]] || { echo "::error::Baseline tarball empty: $TAR"; exit 1; }
           DMG="$OUT_ROOT/webkit-minibrowser-baseline-${RUN_ID}-${RUN_ATTEMPT}.dmg"
           PKG="$OUT_ROOT/webkit-minibrowser-baseline-${RUN_ID}-${RUN_ATTEMPT}.pkg"
           ln -sf "$(basename "$TAR")" "$DMG" 2>/dev/null || cp "$TAR" "$DMG"
@@ -146,4 +156,9 @@ jobs:
 
       - name: Cleanup source
         if: always()
-        run: rm -rf "${WEBKIT_SRC:-}"
+        run: |
+          set -euo pipefail
+          d="${WEBKIT_SRC:-}"
+          if [[ -n "$d" && "$d" != "/" && "$d" != "$HOME" && "$d" != "$HOME/" ]]; then
+            rm -rf "$d"
+          fi

@@ -42,6 +42,8 @@ jobs:
         run: |
           set -euo pipefail
           export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
+          command -v gh >/dev/null 2>&1 || { echo "::error::gh CLI not found (install: brew install gh)"; exit 1; }
+          command -v git >/dev/null 2>&1 || { echo "::error::git not found on PATH"; exit 1; }
           SRC="${NG_MACOS_WEBKIT_SRC:-$HOME/webkit-src}"
           echo "WEBKIT_SRC=$SRC" >> "$GITHUB_ENV"
           echo "WEBKITIUM_BROWSER_SHELL_TARGET=macos" >> "$GITHUB_ENV"
@@ -52,8 +54,20 @@ jobs:
           gh release download webkit-pin \
             --repo "$GITHUB_REPOSITORY" \
             --pattern "webkit-pin.tar.gz.part-*"
-          cat webkit-pin.tar.gz.part-* > "$ARCHIVE"
+          shopt -s nullglob
+          parts=( webkit-pin.tar.gz.part-* )
+          if (( ${#parts[@]} == 0 )); then
+            echo "::error::No webkit-pin.tar.gz.part-* files after gh release download"
+            exit 1
+          fi
+          sorted=()
+          while IFS= read -r line; do
+            [[ -n "$line" ]] && sorted+=("$line")
+          done < <(printf '%s\n' "${parts[@]}" | LC_ALL=C sort -V)
+          cat "${sorted[@]}" > "$ARCHIVE"
           rm -f webkit-pin.tar.gz.part-*
+          shopt -u nullglob
+          [[ -s "$ARCHIVE" ]] || { echo "::error::Stitched webkit-pin archive is empty"; exit 1; }
           tar -xzf "$ARCHIVE" --strip-components=1 -C "$SRC"
           rm -f "$ARCHIVE"
           if [[ ! -d "$SRC/Source" ]]; then
@@ -99,6 +113,7 @@ jobs:
           else
             tar -czf "$TAR" -C "$ROOT" .
           fi
+          [[ -s "$TAR" ]] || { echo "::error::Baseline tarball empty: $TAR"; exit 1; }
           DMG="$OUT_ROOT/webkit-minibrowser-baseline-${RUN_ID}-${RUN_ATTEMPT}.dmg"
           PKG="$OUT_ROOT/webkit-minibrowser-baseline-${RUN_ID}-${RUN_ATTEMPT}.pkg"
           if [[ "$PLATFORM" == macos ]] && command -v hdiutil >/dev/null 2>&1; then
@@ -112,8 +127,14 @@ jobs:
             else
               cp -a "$ROOT/bin" "$STAGING/" 2>/dev/null || cp -a "$ROOT" "$STAGING/out"
             fi
-            hdiutil create -volname "WebKitMiniBrowser-baseline" -srcfolder "$STAGING" -ov -format UDZO "$DMG"
-            rm -rf "$STAGING"
+            if ! hdiutil create -volname "WebKitMiniBrowser-baseline" -srcfolder "$STAGING" -ov -format UDZO "$DMG"; then
+              echo "::warning::hdiutil create failed; using tarball symlink for .dmg artifact name"
+              rm -f "$DMG"
+              rm -rf "$STAGING"
+              ln -sf "$(basename "$TAR")" "$DMG" 2>/dev/null || cp "$TAR" "$DMG"
+            else
+              rm -rf "$STAGING"
+            fi
           else
             ln -sf "$(basename "$TAR")" "$DMG" 2>/dev/null || cp "$TAR" "$DMG"
           fi
@@ -156,4 +177,9 @@ jobs:
 
       - name: Cleanup Source
         if: always()
-        run: rm -rf "${WEBKIT_SRC:-}"
+        run: |
+          set -euo pipefail
+          d="${WEBKIT_SRC:-}"
+          if [[ -n "$d" && "$d" != "/" && "$d" != "$HOME" && "$d" != "$HOME/" ]]; then
+            rm -rf "$d"
+          fi

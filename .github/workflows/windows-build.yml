@@ -33,6 +33,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          command -v gh >/dev/null 2>&1 || { echo "::error::gh CLI not found"; exit 1; }
+          command -v git >/dev/null 2>&1 || { echo "::error::git not found on PATH"; exit 1; }
 
           SRC_WIN='C:/W/webkit-src'
           SRC="$(cygpath -u "$SRC_WIN")"
@@ -57,15 +59,21 @@ jobs:
             [[ -e "$f" ]] && mv -- "$f" "${f%$'\r'}"
           done
 
-          # Stitch parts into single tarball
+          # Stitch parts into single tarball (nullglob already on from CRLF rename loop)
           parts=( webkit-pin.tar.gz.part-* )
           if (( ${#parts[@]} == 0 )); then
             echo "::error::No tarball parts found after download"
             exit 1
           fi
           echo "Stitching ${#parts[@]} parts..."
-          cat "${parts[@]}" > "$ARCHIVE"
+          sorted=()
+          while IFS= read -r line; do
+            [[ -n "$line" ]] && sorted+=("$line")
+          done < <(printf '%s\n' "${parts[@]}" | LC_ALL=C sort -V)
+          cat "${sorted[@]}" > "$ARCHIVE"
           rm -f webkit-pin.tar.gz.part-*
+          shopt -u nullglob
+          [[ -s "$ARCHIVE" ]] || { echo "::error::Stitched webkit-pin archive is empty"; exit 1; }
 
           echo "Tarball: $(du -h "$ARCHIVE" | cut -f1)"
 
@@ -183,10 +191,12 @@ jobs:
           [[ -d "$BIN" ]] || { echo "::error::Windows bin dir missing: $BIN" >&2; exit 1; }
           MSI="$OUT_ROOT/webkit-minibrowser-baseline-${RUN_ID}-${RUN_ATTEMPT}.msi"
           ZIP="$OUT_ROOT/webkit-minibrowser-baseline-${RUN_ID}-${RUN_ATTEMPT}.zip"
+          command -v zip >/dev/null 2>&1 || { echo "::error::zip not found in Git bash PATH"; exit 1; }
           (
             cd "$BIN"
             zip -qr "$ZIP" MiniBrowser.exe WebKit*.dll JavaScriptCore*.dll 2>/dev/null || zip -qr "$ZIP" .
           )
+          [[ -s "$ZIP" ]] || { echo "::error::Baseline ZIP empty or missing: $ZIP"; exit 1; }
           printf '%s\n' "WiX/MSI not generated on runner yet; portable ZIP is the baseline payload." >"$MSI"
           export BASELINE_JSON_DIR="$OUT_ROOT"
           export BASELINE_PLATFORM="$PLATFORM"

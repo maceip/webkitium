@@ -41,6 +41,7 @@ jobs:
             done
           fi
           [[ -n "$GH_BIN" && -x "$GH_BIN" ]]
+          command -v git >/dev/null 2>&1 || { echo "::error::git not found on PATH"; exit 1; }
 
           SRC="${NG_IOS_WEBKIT_PATH:-$HOME/W/webkit-ios-src}"
           echo "WEBKIT_SRC=$SRC" >> "$GITHUB_ENV"
@@ -53,8 +54,20 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --pattern "webkit-pin.tar.gz.part-*"
 
-          cat webkit-pin.tar.gz.part-* > "$ARCHIVE"
+          shopt -s nullglob
+          parts=( webkit-pin.tar.gz.part-* )
+          if (( ${#parts[@]} == 0 )); then
+            echo "::error::No webkit-pin tarball parts after download"
+            exit 1
+          fi
+          sorted=()
+          while IFS= read -r line; do
+            [[ -n "$line" ]] && sorted+=("$line")
+          done < <(printf '%s\n' "${parts[@]}" | LC_ALL=C sort -V)
+          cat "${sorted[@]}" > "$ARCHIVE"
           rm -f webkit-pin.tar.gz.part-*
+          shopt -u nullglob
+          [[ -s "$ARCHIVE" ]] || { echo "::error::Stitched webkit-pin archive is empty"; exit 1; }
           tar -xzf "$ARCHIVE" --strip-components=1 -C "$SRC"
           rm -f "$ARCHIVE"
 
@@ -118,12 +131,14 @@ jobs:
           OUT_ROOT="${RUNNER_TEMP}/baseline-packages"
           mkdir -p "$OUT_ROOT"
           ZIP="$OUT_ROOT/webkit-ios-simulator-baseline-${RUN_ID}-${RUN_ATTEMPT}.zip"
-          FIRST="$(find "$ROOT" -name 'MiniBrowser.app' -type d 2>/dev/null | head -1)"
+          FIRST="$(find "$ROOT" \( -name 'MiniBrowser.app' -o -name 'MobileMiniBrowser.app' \) -type d 2>/dev/null | head -1)"
           if [[ -z "$FIRST" ]]; then
-            echo "::error::No MiniBrowser.app under $ROOT" >&2
+            echo "::error::No MiniBrowser.app or MobileMiniBrowser.app under $ROOT" >&2
             exit 1
           fi
+          command -v zip >/dev/null 2>&1 || { echo "::error::zip CLI not found"; exit 1; }
           (cd "$(dirname "$FIRST")" && zip -qr "$ZIP" "$(basename "$FIRST")")
+          [[ -s "$ZIP" ]] || { echo "::error::Baseline iOS zip empty: $ZIP"; exit 1; }
           export BASELINE_JSON_DIR="$OUT_ROOT"
           export BASELINE_RUN_ID="$RUN_ID"
           export BASELINE_RUN_ATTEMPT="$RUN_ATTEMPT"
@@ -138,7 +153,7 @@ jobs:
               "runId": os.environ["BASELINE_RUN_ID"],
               "attempt": os.environ["BASELINE_RUN_ATTEMPT"],
               "zip": os.environ["BASELINE_ZIP"],
-              "ipaNote": "App Store IPA requires signing/exportArchive; simulator .zip of MiniBrowser.app is the baseline deliverable here.",
+              "ipaNote": "App Store IPA requires signing/exportArchive; simulator .zip of MiniBrowser or MobileMiniBrowser.app is the baseline deliverable here.",
           }
           out.write_text(json.dumps(doc, indent=2))
           PY
