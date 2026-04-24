@@ -84,16 +84,22 @@
                     <views:Omnibar MaxWidth="720" HorizontalAlignment="Center" />
                 </Grid>
 
-                <!-- Content surface placeholder. WebView2 / WebKit Windows lands here later. -->
+                <!--
+                    WebView2 content surface. Wrapped in a Border so the
+                    rounded corners clip the renderer output; WebView2 on
+                    its own ignores CornerRadius because it's a native
+                    child window. The Microsoft.Web.WebView2 Runtime must
+                    be installed on the host (it ships with Windows 11 by
+                    default; the EdgeWebView2 evergreen installer covers
+                    older builds).
+                -->
                 <Border Grid.Row="1"
                         Background="{ThemeResource SurfaceCanvas}"
                         CornerRadius="10"
                         Margin="12,0,12,12">
-                    <TextBlock Text="Web content goes here"
-                               Foreground="{ThemeResource TextTertiary}"
-                               FontSize="14"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center" />
+                    <WebView2 x:Name="WebHost"
+                              Source="https://example.com/"
+                              DefaultBackgroundColor="Transparent" />
                 </Border>
             </Grid>
         </NavigationView>
