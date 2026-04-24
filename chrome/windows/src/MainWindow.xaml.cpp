@@ -98,7 +98,7 @@ void MainWindow::OnOpenSettingsInvoked(
     KeyboardAccelerator const&,
     KeyboardAcceleratorInvokedEventArgs const& args) {
     args.Handled(true);
-    if (auto app = implementation::App::Current()) {
+    if (auto app = implementation::App::Instance()) {
         app->OpenSettings();
     }
 }

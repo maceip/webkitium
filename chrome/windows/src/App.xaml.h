@@ -24,10 +24,15 @@ struct App : AppT<App> {
     // repeatedly -- second call just re-activates the existing window.
     void OpenSettings();
 
-    // Convenience for call sites that only have an Application handle.
-    static App* Current();
+    // Raw pointer to the process-wide App instance so MainWindow's
+    // keyboard accelerators can reach OpenSettings() directly without
+    // round-tripping through the WinRT projection (which tripped
+    // get_self<App> template deduction).
+    static App* Instance() { return s_instance; }
 
 private:
+    static inline App* s_instance = nullptr;
+
     Microsoft::UI::Xaml::Window      m_window{ nullptr };
     Microsoft::UI::Xaml::Window      m_settings_window{ nullptr };
     std::shared_ptr<PaletteProvider> m_palette;

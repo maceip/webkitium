@@ -11,6 +11,8 @@ namespace winrt::webkitium::implementation {
 App::App() {
     InitializeComponent();
 
+    s_instance = this;
+
     UnhandledException([](IInspectable const&,
                           UnhandledExceptionEventArgs const& e) {
         if (IsDebuggerPresent()) {
@@ -41,11 +43,6 @@ void App::OpenSettings() {
         }
     }
     m_settings_window.Activate();
-}
-
-App* App::Current() {
-    return winrt::get_self<App>(
-        Application::Current().as<winrt::webkitium::App>());
 }
 
 }  // namespace winrt::webkitium::implementation
