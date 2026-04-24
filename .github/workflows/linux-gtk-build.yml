@@ -107,11 +107,12 @@ jobs:
           cd "$SRC"
           JOBS="$(nproc 2>/dev/null || echo 4)"
           export WEBKITIUM_BROWSER_SHELL_TARGET=linux-gtk
-          # WebKit's FindThunder.cmake fails on standard Ubuntu (Thunder is
-          # WPE/RDK). Overwrite with our stub before configure runs.
-          # Overwrite Find modules for unavailable packages so CMake configure completes
+          # Overwrite Find modules for packages unavailable on standard Ubuntu
           cp "$GITHUB_WORKSPACE/config/cmake/FindThunder.cmake" "$SRC/Source/cmake/FindThunder.cmake"
           cp "$GITHUB_WORKSPACE/config/cmake/FindRice.cmake" "$SRC/Source/cmake/FindRice.cmake"
+          # GStreamerChecks.cmake:67 emits FATAL_ERROR when librice is missing.
+          # Downgrade to WARNING so configure continues with USE_LIBRICE=OFF.
+          sed -i 's/message(FATAL_ERROR.*librice/message(WARNING "librice/' "$SRC/Source/cmake/GStreamerChecks.cmake"
           perl Tools/Scripts/build-webkit --release --gtk --makeargs="-j$JOBS" \
             -DENABLE_EXPERIMENTAL_FEATURES="${WEBKIT_CMAKE_ENABLE_EXPERIMENTAL_FEATURES:-ON}" \
             -DENABLE_WEBXR="${WEBKIT_CMAKE_ENABLE_WEBXR:-OFF}" \
