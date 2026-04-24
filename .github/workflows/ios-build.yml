@@ -1,5 +1,12 @@
 name: ios-release
 
+# Operational rule
+# When you re-cut webkit-pin or bump Dawn / vcpkg:
+#
+# Update config/webkit-build-matrix.json.
+# Update config/vcpkg-configuration.json if the Dawn baseline changes.
+# Update config/windows-webgpu-dawn-green.json if you use it as a green reference (CI will fail if it disagrees with the matrix).
+
 on:
   workflow_dispatch:
 
@@ -26,6 +33,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Load CI matrix into environment
+        run: |
+          set -euo pipefail
+          python3 "$GITHUB_WORKSPACE/config/ci_matrix_env.py" \
+            --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" >> "$GITHUB_ENV"
+
       - name: Prepare source
         env:
           GH_TOKEN: ${{ github.token }}
@@ -41,6 +54,7 @@ jobs:
             done
           fi
           [[ -n "$GH_BIN" && -x "$GH_BIN" ]]
+          command -v git >/dev/null 2>&1 || { echo "::error::git not found on PATH"; exit 1; }
 
           SRC="${NG_IOS_WEBKIT_PATH:-$HOME/W/webkit-ios-src}"
           echo "WEBKIT_SRC=$SRC" >> "$GITHUB_ENV"
@@ -49,14 +63,30 @@ jobs:
           mkdir -p "$SRC"
 
           cd "$RUNNER_TEMP"
-          "$GH_BIN" release download webkit-pin \
+          "$GH_BIN" release download "${WEBKIT_PIN_RELEASE_TAG:?WEBKIT_PIN_RELEASE_TAG missing}" \
             --repo "$GITHUB_REPOSITORY" \
-            --pattern "webkit-pin.tar.gz.part-*"
+            --pattern "${WEBKIT_PIN_PART_GLOB:?WEBKIT_PIN_PART_GLOB missing}"
 
-          cat webkit-pin.tar.gz.part-* > "$ARCHIVE"
-          rm -f webkit-pin.tar.gz.part-*
+          shopt -s nullglob
+          parts=( ${WEBKIT_PIN_PART_GLOB} )
+          if (( ${#parts[@]} == 0 )); then
+            echo "::error::No tarball parts matched WEBKIT_PIN_PART_GLOB after download"
+            exit 1
+          fi
+          sorted=()
+          while IFS= read -r line; do
+            [[ -n "$line" ]] && sorted+=("$line")
+          done < <(printf '%s\n' "${parts[@]}" | LC_ALL=C sort -V)
+          cat "${sorted[@]}" > "$ARCHIVE"
+          rm -f ${WEBKIT_PIN_PART_GLOB}
+          shopt -u nullglob
+          [[ -s "$ARCHIVE" ]] || { echo "::error::Stitched webkit-pin archive is empty"; exit 1; }
           tar -xzf "$ARCHIVE" --strip-components=1 -C "$SRC"
           rm -f "$ARCHIVE"
+
+          python3 "$GITHUB_WORKSPACE/config/verify_webkit_pin_commit.py" \
+            --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" \
+            --webkit-root "$SRC"
 
           for patch in webkit/patches/common/* webkit/patches/ios/*; do
             [[ -f "$patch" ]] || continue
@@ -73,6 +103,7 @@ jobs:
             printf 'gh=%s\n' "$GH_BIN"
             command -v cmake ninja python3 ruby perl
           } | tee "${RUNNER_TEMP}/ios-ci-environment.txt" || true
+          echo "WEBKITIUM_BROWSER_SHELL_TARGET=ios" >> "$GITHUB_ENV"
 
       - name: Build
         run: |
@@ -98,13 +129,52 @@ jobs:
           LOG="${RUNNER_TEMP}/build-webkit-ios.log"
           set -o pipefail
           perl Tools/Scripts/build-webkit --release --ios-simulator --makeargs="-j$JOBS" \
-            -DENABLE_EXPERIMENTAL_FEATURES=ON \
-            -DENABLE_WEBXR=OFF \
+            -DENABLE_EXPERIMENTAL_FEATURES="${WEBKIT_CMAKE_ENABLE_EXPERIMENTAL_FEATURES:-ON}" \
+            -DENABLE_WEBXR="${WEBKIT_CMAKE_ENABLE_WEBXR:-OFF}" \
             "${SCCACHE_CMAKE[@]}" \
             2>&1 | tee "$LOG"
           if command -v sccache >/dev/null 2>&1; then
             sccache --show-stats
           fi
+
+      - name: Baseline package
+        run: |
+          set -euo pipefail
+          export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
+          SRC="${WEBKIT_SRC:?}"
+          ROOT="$SRC/WebKitBuild"
+          RUN_ID="${GITHUB_RUN_ID:-local}"
+          RUN_ATTEMPT="${GITHUB_RUN_ATTEMPT:-1}"
+          OUT_ROOT="${RUNNER_TEMP}/baseline-packages"
+          mkdir -p "$OUT_ROOT"
+          ZIP="$OUT_ROOT/webkit-ios-simulator-baseline-${RUN_ID}-${RUN_ATTEMPT}.zip"
+          FIRST="$(find "$ROOT" \( -name 'MiniBrowser.app' -o -name 'MobileMiniBrowser.app' \) -type d 2>/dev/null | head -1)"
+          if [[ -z "$FIRST" ]]; then
+            echo "::error::No MiniBrowser.app or MobileMiniBrowser.app under $ROOT" >&2
+            exit 1
+          fi
+          command -v zip >/dev/null 2>&1 || { echo "::error::zip CLI not found"; exit 1; }
+          (cd "$(dirname "$FIRST")" && zip -qr "$ZIP" "$(basename "$FIRST")")
+          [[ -s "$ZIP" ]] || { echo "::error::Baseline iOS zip empty: $ZIP"; exit 1; }
+          export BASELINE_JSON_DIR="$OUT_ROOT"
+          export BASELINE_RUN_ID="$RUN_ID"
+          export BASELINE_RUN_ATTEMPT="$RUN_ATTEMPT"
+          export BASELINE_ZIP="$(basename "$ZIP")"
+          export BASELINE_CREATED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          python3 <<'PY'
+          import json, os, pathlib
+          out = pathlib.Path(os.environ["BASELINE_JSON_DIR"]) / f"baseline-ios-{os.environ['BASELINE_RUN_ID']}.json"
+          doc = {
+              "platform": "ios",
+              "created": os.environ["BASELINE_CREATED"],
+              "runId": os.environ["BASELINE_RUN_ID"],
+              "attempt": os.environ["BASELINE_RUN_ATTEMPT"],
+              "zip": os.environ["BASELINE_ZIP"],
+              "ipaNote": "App Store IPA requires signing/exportArchive; simulator .zip of MiniBrowser or MobileMiniBrowser.app is the baseline deliverable here.",
+          }
+          out.write_text(json.dumps(doc, indent=2))
+          PY
+          echo "BASELINE_OK platform=ios zip=$ZIP"
 
       - name: Post-build check
         run: |
@@ -124,4 +194,5 @@ jobs:
             ${{ runner.temp }}/build-webkit-ios.log
             ${{ runner.temp }}/ios-ci-environment.txt
             ${{ runner.temp }}/ios-products.txt
+            ${{ runner.temp }}/baseline-packages
           if-no-files-found: warn

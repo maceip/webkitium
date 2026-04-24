@@ -1,5 +1,12 @@
 name: windows-release
 
+# Operational rule
+# When you re-cut webkit-pin or bump Dawn / vcpkg:
+#
+# Update config/webkit-build-matrix.json.
+# Update config/vcpkg-configuration.json if the Dawn baseline changes.
+# Update config/windows-webgpu-dawn-green.json if you use it as a green reference (CI will fail if it disagrees with the matrix).
+
 on:
   workflow_dispatch:
 
@@ -26,6 +33,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Load CI matrix into environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 "$GITHUB_WORKSPACE/config/ci_matrix_env.py" \
+            --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" >> "$GITHUB_ENV"
+
+      - name: Verify matrix, vcpkg (Dawn), and green JSON alignment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 "$GITHUB_WORKSPACE/config/verify_webkit_pin_commit.py" \
+            --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" \
+            --check-vcpkg --check-green-json
+
       # ── Download, extract, and patch ───────────────────────────────
       - name: Prepare Source
         shell: bash
@@ -33,6 +55,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          command -v gh >/dev/null 2>&1 || { echo "::error::gh CLI not found"; exit 1; }
+          command -v git >/dev/null 2>&1 || { echo "::error::git not found on PATH"; exit 1; }
 
           SRC_WIN='C:/W/webkit-src'
           SRC="$(cygpath -u "$SRC_WIN")"
@@ -47,25 +71,31 @@ jobs:
 
           # Download the four split parts from the webkit-pin release
           cd "$RUNNER_TEMP"
-          gh release download webkit-pin \
+          gh release download "${WEBKIT_PIN_RELEASE_TAG:?WEBKIT_PIN_RELEASE_TAG missing}" \
             --repo "$GITHUB_REPOSITORY" \
-            --pattern "webkit-pin.tar.gz.part-*"
+            --pattern "${WEBKIT_PIN_PART_GLOB:?WEBKIT_PIN_PART_GLOB missing}"
 
           # Strip stray \r from filenames (Windows gh can leave CRLF artefacts)
           shopt -s nullglob
-          for f in webkit-pin.tar.gz.part-*$'\r'; do
+          for f in ${WEBKIT_PIN_PART_GLOB}$'\r'; do
             [[ -e "$f" ]] && mv -- "$f" "${f%$'\r'}"
           done
 
-          # Stitch parts into single tarball
-          parts=( webkit-pin.tar.gz.part-* )
+          # Stitch parts into single tarball (nullglob already on from CRLF rename loop)
+          parts=( ${WEBKIT_PIN_PART_GLOB} )
           if (( ${#parts[@]} == 0 )); then
             echo "::error::No tarball parts found after download"
             exit 1
           fi
           echo "Stitching ${#parts[@]} parts..."
-          cat "${parts[@]}" > "$ARCHIVE"
-          rm -f webkit-pin.tar.gz.part-*
+          sorted=()
+          while IFS= read -r line; do
+            [[ -n "$line" ]] && sorted+=("$line")
+          done < <(printf '%s\n' "${parts[@]}" | LC_ALL=C sort -V)
+          cat "${sorted[@]}" > "$ARCHIVE"
+          rm -f ${WEBKIT_PIN_PART_GLOB}
+          shopt -u nullglob
+          [[ -s "$ARCHIVE" ]] || { echo "::error::Stitched webkit-pin archive is empty"; exit 1; }
 
           echo "Tarball: $(du -h "$ARCHIVE" | cut -f1)"
 
@@ -86,14 +116,22 @@ jobs:
             echo "::error::Extraction failed -- Source/ directory missing"
             exit 1
           fi
+          python3 "$GITHUB_WORKSPACE/config/verify_webkit_pin_commit.py" \
+            --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" \
+            --webkit-root "$SRC"
           echo "Source ready at $SRC_WIN"
           ls "$SRC" | head -20
 
-          # Fetch LiteRT-LM for WebNN backend
+          # Fetch LiteRT-LM for WebNN backend (ref from config/webkit-build-matrix.json)
+          LITERT_REF="$(
+            python3 -c "import json, pathlib; print(json.load(pathlib.Path('$GITHUB_WORKSPACE/config/webkit-build-matrix.json').open())['webnn']['litertLm']['gitRef'])"
+          )"
+          LITERT_URL="$(
+            python3 -c "import json, pathlib; print(json.load(pathlib.Path('$GITHUB_WORKSPACE/config/webkit-build-matrix.json').open())['webnn']['litertLm']['gitUrl'])"
+          )"
           LITERT="$RUNNER_TEMP/litert-lm"
           if [ ! -d "$LITERT/.git" ]; then
-            git clone --depth 1 --branch v0.10.2 \
-              https://github.com/google-ai-edge/LiteRT-LM.git "$LITERT"
+            git clone --depth 1 --branch "$LITERT_REF" "$LITERT_URL" "$LITERT"
             (cd "$LITERT" && git lfs pull --include="prebuilt/windows_x86_64/*")
           fi
           echo "LiteRT-LM: $(ls "$LITERT/prebuilt/windows_x86_64/"*.dll 2>/dev/null | wc -l) DLLs"
@@ -114,6 +152,7 @@ jobs:
             applied=$((applied + 1))
           done
           echo "Applied $applied patches."
+          echo "WEBKITIUM_BROWSER_SHELL_TARGET=windows" >> "$GITHUB_ENV"
 
       # ── Build ──────────────────────────────────────────────────────
       - name: Build
@@ -161,10 +200,56 @@ jobs:
             -DVCPKG_TARGET_TRIPLET=x64-windows-webkit ^
             -DVCPKG_INSTALLED_DIR=C:/vcpkg/installed ^
             -DVCPKG_MANIFEST_MODE=OFF ^
-            --webgpu -DENABLE_EXPERIMENTAL_FEATURES=ON -DENABLE_WEBXR=OFF
+            %WINDOWS_BUILD_WEBKIT_EXTRA% -DENABLE_EXPERIMENTAL_FEATURES=%WEBKIT_CMAKE_ENABLE_EXPERIMENTAL_FEATURES% -DENABLE_WEBXR=%WEBKIT_CMAKE_ENABLE_WEBXR%
           if errorlevel 1 exit /b %errorlevel%
 
           C:\Bootstrap\toolbin\sccache.exe --show-stats
+
+      - name: Baseline package
+        shell: bash
+        env:
+          MSYS2_ARG_CONV_EXCL: "*"
+        run: |
+          set -euo pipefail
+          ROOT="$(cygpath -u 'C:/W/webkit-src/WebKitBuild/Release')"
+          BIN="$ROOT/bin"
+          PLATFORM=windows
+          RUN_ID="${GITHUB_RUN_ID:-local}"
+          RUN_ATTEMPT="${GITHUB_RUN_ATTEMPT:-1}"
+          OUT_ROOT="${RUNNER_TEMP}/baseline-packages"
+          mkdir -p "$OUT_ROOT"
+          [[ -d "$BIN" ]] || { echo "::error::Windows bin dir missing: $BIN" >&2; exit 1; }
+          MSI="$OUT_ROOT/webkit-minibrowser-baseline-${RUN_ID}-${RUN_ATTEMPT}.msi"
+          ZIP="$OUT_ROOT/webkit-minibrowser-baseline-${RUN_ID}-${RUN_ATTEMPT}.zip"
+          command -v zip >/dev/null 2>&1 || { echo "::error::zip not found in Git bash PATH"; exit 1; }
+          (
+            cd "$BIN"
+            zip -qr "$ZIP" MiniBrowser.exe WebKit*.dll JavaScriptCore*.dll 2>/dev/null || zip -qr "$ZIP" .
+          )
+          [[ -s "$ZIP" ]] || { echo "::error::Baseline ZIP empty or missing: $ZIP"; exit 1; }
+          printf '%s\n' "WiX/MSI not generated on runner yet; portable ZIP is the baseline payload." >"$MSI"
+          export BASELINE_JSON_DIR="$OUT_ROOT"
+          export BASELINE_PLATFORM="$PLATFORM"
+          export BASELINE_RUN_ID="$RUN_ID"
+          export BASELINE_RUN_ATTEMPT="$RUN_ATTEMPT"
+          export BASELINE_ZIP="$(basename "$ZIP")"
+          export BASELINE_MSI="$(basename "$MSI")"
+          export BASELINE_CREATED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          python3 <<'PY'
+          import json, os, pathlib
+          out = pathlib.Path(os.environ["BASELINE_JSON_DIR"]) / f"baseline-{os.environ['BASELINE_PLATFORM']}-{os.environ['BASELINE_RUN_ID']}.json"
+          doc = {
+              "platform": os.environ["BASELINE_PLATFORM"],
+              "created": os.environ["BASELINE_CREATED"],
+              "runId": os.environ["BASELINE_RUN_ID"],
+              "attempt": os.environ["BASELINE_RUN_ATTEMPT"],
+              "zip": os.environ["BASELINE_ZIP"],
+              "msi": os.environ["BASELINE_MSI"],
+              "note": "ZIP is the portable baseline; .msi is a placeholder text file until WiX is wired.",
+          }
+          out.write_text(json.dumps(doc, indent=2))
+          PY
+          echo "BASELINE_OK platform=$PLATFORM zip=$ZIP"
 
       - name: Upload Artifacts
         if: always()
@@ -175,6 +260,7 @@ jobs:
             C:\W\webkit-src\WebKitBuild\Release\bin
             C:\W\webkit-src\WebKitBuild\Release\CMakeCache.txt
             C:\W\webkit-src\WebKitBuild\Release\vcpkg-manifest-install.log
+            ${{ runner.temp }}/baseline-packages
           if-no-files-found: warn
 
       - name: Cleanup Source

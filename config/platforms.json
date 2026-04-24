@@ -86,7 +86,13 @@
         }
       }
     },
-    "linux": { "status": "empty" },
+    "linux": {
+      "status": "active",
+      "workflow": "linux-gtk-build",
+      "runnerLabels": ["self-hosted", "Linux", "ARM64"],
+      "notes": "GTK port on Linux arm64 only on current runner pool; extend labels when x86_64 builders exist.",
+      "artifactPatterns": ["*.tar.gz", "*.zip", "*.deb", "*.log", "*.json"]
+    },
     "ios": { "status": "empty" },
     "macos": {
       "status": "active",

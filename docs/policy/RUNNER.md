@@ -1,5 +1,7 @@
 # Runner
 
+For **GitHub Actions self-hosted builder AMIs** (sudo, `gh`, Xcode, GTK, disk, checkout token scope), see **[`docs/runner-image-requirements.md`](../runner-image-requirements.md)** and **`scripts/runners/validate-host-prereqs.sh`**.
+
 The runner is a small Node.js HTTP service in `service/` that turns
 `./run-build.sh <platform> <id>` (or `webkit/scripts/common/run-build.sh`) into an API. Every platform is driven
 the same way: create a build id, spawn the platform shell script, tail its log

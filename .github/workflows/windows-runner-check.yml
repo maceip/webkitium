@@ -19,6 +19,14 @@ jobs:
       # Checkout so we can read the build workflow and patches
       - uses: actions/checkout@v4
 
+      - name: Verify CI matrix pins (vcpkg / Dawn / green JSON)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 "$GITHUB_WORKSPACE/config/verify_webkit_pin_commit.py" \
+            --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" \
+            --check-vcpkg --check-green-json
+
       # Set up the EXACT environment the build will use, then audit it.
       # This runs VsDevCmd + the same PATH as the Build step so every
       # check reflects what the build will actually see.

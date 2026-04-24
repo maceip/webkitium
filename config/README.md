@@ -9,6 +9,9 @@ These files define **AWS regions**, **S3 prefixes**, **builder instance IDs**, a
 | **`dependencies.json`** | Catalog for `catalog-deps.sh` / `ship-deps.sh`: local paths and S3 prefixes for bootstrap tarballs, AMIs, etc. Paths like `/home/ubuntu/.local/state/webkitium/deps/...` match **builder disk layout** when state uses the default XDG layout. |
 | **`changes.json`** | Enabled WebKit integration **lanes** (`changes/<id>/`). See note inside the file: **`windows-webgpu-service`** is **disabled** when that work lives under **`webkit/patches/windows/`**. |
 | **`windows-webgpu-dawn-green.json`** | Record of a known-green Windows WebGPU run (AMI, commit, `rootPatchDirectory`: **`webkit/patches/windows`**). |
+| **`webkit-build-matrix.json`** | Canonical CI pins (WebKit tarball commit, Dawn/vcpkg baseline, shared CMake toggles). Consumed by workflows and `config/ci_matrix_env.py`. |
+
+**Self-hosted runner images** (sudo, `gh` auth, disk, private-repo checkout) are documented in **`docs/runner-image-requirements.md`**. Run **`scripts/runners/validate-host-prereqs.sh`** on a new builder before registration.
 
 ## Environment
 

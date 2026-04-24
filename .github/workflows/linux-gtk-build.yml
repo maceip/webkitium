@@ -1,4 +1,4 @@
-name: macos-release
+name: linux-gtk-build
 
 # Operational rule
 # When you re-cut webkit-pin or bump Dawn / vcpkg:
@@ -7,6 +7,9 @@ name: macos-release
 # Update config/vcpkg-configuration.json if the Dawn baseline changes.
 # Update config/windows-webgpu-dawn-green.json if you use it as a green reference (CI will fail if it disagrees with the matrix).
 
+# WebKit GTK port on the Linux ARM64 self-hosted runner (same pool as android-build).
+# Produces arm64 binaries only on this hardware.
+
 on:
   workflow_dispatch:
 
@@ -14,7 +17,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: webkitium-macos-build
+  group: webkitium-linux-gtk-build
   cancel-in-progress: false
 
 defaults:
@@ -23,12 +26,11 @@ defaults:
 
 jobs:
   build:
-    name: macOS WebKit Build
+    name: Linux GTK WebKit Build (arm64)
     runs-on:
       - self-hosted
-      - macOS
+      - Linux
       - ARM64
-      - webkitium
     timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4
@@ -39,38 +41,27 @@ jobs:
           python3 "$GITHUB_WORKSPACE/config/ci_matrix_env.py" \
             --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" >> "$GITHUB_ENV"
 
-      - name: Ensure Metal Toolchain
-        run: |
-          sudo xcodebuild -license accept 2>/dev/null || true
-          if xcrun --find metal >/dev/null 2>&1; then
-            echo "Metal toolchain already installed"
-          else
-            echo "Installing Metal toolchain..."
-            sudo xcodebuild -downloadComponent MetalToolchain
-          fi
-
       - name: Prepare source
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
-          command -v gh >/dev/null 2>&1 || { echo "::error::gh CLI not found (install: brew install gh)"; exit 1; }
+          command -v gh >/dev/null 2>&1 || { echo "::error::gh CLI not found"; exit 1; }
           command -v git >/dev/null 2>&1 || { echo "::error::git not found on PATH"; exit 1; }
-          SRC="${NG_MACOS_WEBKIT_SRC:-$HOME/webkit-src}"
+          SRC="${NG_LINUX_GTK_WEBKIT_SRC:-$HOME/webkit-src-gtk}"
           echo "WEBKIT_SRC=$SRC" >> "$GITHUB_ENV"
-          echo "WEBKITIUM_BROWSER_SHELL_TARGET=macos" >> "$GITHUB_ENV"
+          echo "WEBKITIUM_BROWSER_SHELL_TARGET=linux-gtk" >> "$GITHUB_ENV"
           ARCHIVE="${RUNNER_TEMP}/webkit-pin.tar.gz"
           rm -rf "$SRC"
           mkdir -p "$SRC"
           cd "$RUNNER_TEMP"
-          gh release download "${WEBKIT_PIN_RELEASE_TAG:?WEBKIT_PIN_RELEASE_TAG missing — run Load CI matrix step}" \
+          gh release download "${WEBKIT_PIN_RELEASE_TAG:?WEBKIT_PIN_RELEASE_TAG missing}" \
             --repo "$GITHUB_REPOSITORY" \
             --pattern "${WEBKIT_PIN_PART_GLOB:?WEBKIT_PIN_PART_GLOB missing}"
           shopt -s nullglob
           parts=( ${WEBKIT_PIN_PART_GLOB} )
           if (( ${#parts[@]} == 0 )); then
-            echo "::error::No tarball parts matched WEBKIT_PIN_PART_GLOB after gh release download"
+            echo "::error::No tarball parts matched WEBKIT_PIN_PART_GLOB after download"
             exit 1
           fi
           sorted=()
@@ -90,33 +81,42 @@ jobs:
           python3 "$GITHUB_WORKSPACE/config/verify_webkit_pin_commit.py" \
             --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" \
             --webkit-root "$SRC"
-          echo "Source ready at $SRC"
-          for patch in "$GITHUB_WORKSPACE"/webkit/patches/common/*.patch "$GITHUB_WORKSPACE"/webkit/patches/macos/*.patch; do
+          for patch in "$GITHUB_WORKSPACE"/webkit/patches/common/*.patch "$GITHUB_WORKSPACE"/webkit/patches/linux/*.patch; do
             [[ -f "$patch" ]] || continue
             echo "Applying $(basename "$patch")"
             git -C "$SRC" apply --check --whitespace=nowarn --unidiff-zero "$patch"
             git -C "$SRC" apply --whitespace=nowarn --unidiff-zero "$patch"
           done
 
+      - name: Install GTK build dependencies
+        run: |
+          set -euo pipefail
+          SRC="${WEBKIT_SRC:?}"
+          if [[ -f "$SRC/Tools/gtk/install-dependencies" ]]; then
+            sudo env DEBIAN_FRONTEND=noninteractive "$SRC/Tools/gtk/install-dependencies" || {
+              echo "::warning::install-dependencies failed; continuing if the AMI already has GTK deps"
+            }
+          else
+            echo "::warning::Tools/gtk/install-dependencies missing; assuming runner image has deps"
+          fi
+
       - name: Build
         run: |
           set -euo pipefail
-          export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
           SRC="${WEBKIT_SRC:?}"
           cd "$SRC"
-          export WEBKITIUM_BROWSER_SHELL_TARGET=macos
-          JOBS="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
-          perl Tools/Scripts/build-webkit --release --makeargs="-j$JOBS" \
+          JOBS="$(nproc 2>/dev/null || echo 4)"
+          export WEBKITIUM_BROWSER_SHELL_TARGET=linux-gtk
+          perl Tools/Scripts/build-webkit --release --gtk --makeargs="-j$JOBS" \
             -DENABLE_EXPERIMENTAL_FEATURES="${WEBKIT_CMAKE_ENABLE_EXPERIMENTAL_FEATURES:-ON}" \
             -DENABLE_WEBXR="${WEBKIT_CMAKE_ENABLE_WEBXR:-OFF}"
 
       - name: Baseline package
         run: |
           set -euo pipefail
-          export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
           SRC="${WEBKIT_SRC:?}"
           ROOT="$SRC/WebKitBuild/Release"
-          PLATFORM=macos
+          PLATFORM=linux-gtk
           RUN_ID="${GITHUB_RUN_ID:-local}"
           RUN_ATTEMPT="${GITHUB_RUN_ATTEMPT:-1}"
           OUT_ROOT="${RUNNER_TEMP}/baseline-packages"
@@ -132,29 +132,8 @@ jobs:
           [[ -s "$TAR" ]] || { echo "::error::Baseline tarball empty: $TAR"; exit 1; }
           DMG="$OUT_ROOT/webkit-minibrowser-baseline-${RUN_ID}-${RUN_ATTEMPT}.dmg"
           PKG="$OUT_ROOT/webkit-minibrowser-baseline-${RUN_ID}-${RUN_ATTEMPT}.pkg"
-          if [[ "$PLATFORM" == macos ]] && command -v hdiutil >/dev/null 2>&1; then
-            STAGING="$OUT_ROOT/.dmg-staging-$RUN_ID"
-            rm -rf "$STAGING"
-            mkdir -p "$STAGING"
-            if [[ -d "$ROOT/bin/MiniBrowser.app" ]]; then
-              cp -a "$ROOT/bin/MiniBrowser.app" "$STAGING/"
-            elif compgen -G "$ROOT/bin/"*.app >/dev/null; then
-              cp -a "$ROOT/bin/"*.app "$STAGING/" 2>/dev/null || true
-            else
-              cp -a "$ROOT/bin" "$STAGING/" 2>/dev/null || cp -a "$ROOT" "$STAGING/out"
-            fi
-            if ! hdiutil create -volname "WebKitMiniBrowser-baseline" -srcfolder "$STAGING" -ov -format UDZO "$DMG"; then
-              echo "::warning::hdiutil create failed; using tarball symlink for .dmg artifact name"
-              rm -f "$DMG"
-              rm -rf "$STAGING"
-              ln -sf "$(basename "$TAR")" "$DMG" 2>/dev/null || cp "$TAR" "$DMG"
-            else
-              rm -rf "$STAGING"
-            fi
-          else
-            ln -sf "$(basename "$TAR")" "$DMG" 2>/dev/null || cp "$TAR" "$DMG"
-          fi
-          printf '%s\n' "Placeholder PKG: use productbuild --root once signing/bundle layout is fixed." >"$PKG"
+          ln -sf "$(basename "$TAR")" "$DMG" 2>/dev/null || cp "$TAR" "$DMG"
+          printf '%s\n' "Linux: PKG placeholder; use .deb/flatpak when ready." >"$PKG"
           export BASELINE_JSON_DIR="$OUT_ROOT"
           export BASELINE_PLATFORM="$PLATFORM"
           export BASELINE_RUN_ID="$RUN_ID"
@@ -162,7 +141,7 @@ jobs:
           export BASELINE_TARBALL="$(basename "$TAR")"
           export BASELINE_DMG="$(basename "$DMG")"
           export BASELINE_PKG="$(basename "$PKG")"
-          export BASELINE_CREATED="$(stamp)"
+          export BASELINE_CREATED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           python3 <<'PY'
           import json, os, pathlib
           out = pathlib.Path(os.environ["BASELINE_JSON_DIR"]) / f"baseline-{os.environ['BASELINE_PLATFORM']}-{os.environ['BASELINE_RUN_ID']}.json"
@@ -174,24 +153,24 @@ jobs:
               "tarball": os.environ["BASELINE_TARBALL"],
               "dmgOrArchive": os.environ["BASELINE_DMG"],
               "pkg": os.environ["BASELINE_PKG"],
-              "note": "macOS: hdiutil DMG when MiniBrowser.app exists; PKG placeholder until productbuild.",
+              "note": "DMG filename reused as symlink to tarball for artifact naming parity with macOS.",
           }
           out.write_text(json.dumps(doc, indent=2))
           PY
           echo "BASELINE_OK platform=$PLATFORM tar=$TAR"
 
-      - name: Upload Artifacts
+      - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: macos-build-${{ github.run_id }}-${{ github.run_attempt }}
+          name: linux-gtk-build-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             ${{ env.WEBKIT_SRC }}/WebKitBuild/Release/bin
             ${{ env.WEBKIT_SRC }}/WebKitBuild/Release/CMakeCache.txt
             ${{ runner.temp }}/baseline-packages
           if-no-files-found: warn
 
-      - name: Cleanup Source
+      - name: Cleanup source
         if: always()
         run: |
           set -euo pipefail
