@@ -46,3 +46,7 @@ private:
 };
 
 }  // namespace winrt::webkitium::implementation
+
+namespace winrt::webkitium::factory_implementation {
+struct App : AppT<App, implementation::App> {};
+}  // namespace winrt::webkitium::factory_implementation
