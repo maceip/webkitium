@@ -45,13 +45,13 @@ public:
 private:
     using BrushArray = std::array<
         Microsoft::UI::Xaml::Media::SolidColorBrush,
-        webkitium::color::kSemanticTokenCount>;
+        ::webkitium::color::kSemanticTokenCount>;
 
     void CacheBrushes(BrushArray& out,
                       Microsoft::UI::Xaml::ResourceDictionary const& dict);
 
     void ApplyToBrushes(BrushArray const& brushes,
-                        webkitium::color::SemanticPalette const& palette);
+                        ::webkitium::color::SemanticPalette const& palette);
 
     BrushArray m_light_brushes{};
     BrushArray m_dark_brushes{};

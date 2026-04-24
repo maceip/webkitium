@@ -13,7 +13,7 @@ using namespace Windows::UI;
 namespace winrt::webkitium::implementation {
 namespace {
 
-Color ToWinrtColor(webkitium::color::Srgb c) {
+Color ToWinrtColor(::webkitium::color::Srgb c) {
     return Color{ /*A=*/0xFF, c.r, c.g, c.b };
 }
 
@@ -51,8 +51,8 @@ void PaletteProvider::Initialize() {
 void PaletteProvider::CacheBrushes(
     BrushArray& out,
     ResourceDictionary const& dict) {
-    for (int i = 0; i < webkitium::color::kSemanticTokenCount; ++i) {
-        const auto key = Widen(webkitium::color::kSemanticTokenNames[i]);
+    for (int i = 0; i < ::webkitium::color::kSemanticTokenCount; ++i) {
+        const auto key = Widen(::webkitium::color::kSemanticTokenNames[i]);
         auto box = dict.TryLookup(box_value(hstring(key)));
         if (!box) continue;
         if (auto brush = box.try_as<SolidColorBrush>()) {
@@ -64,15 +64,15 @@ void PaletteProvider::CacheBrushes(
 bool PaletteProvider::ApplySeed(uint32_t argb) {
     if (!m_initialized) return false;
 
-    webkitium::color::Srgb seed{
+    ::webkitium::color::Srgb seed{
         static_cast<uint8_t>((argb >> 16) & 0xFF),
         static_cast<uint8_t>((argb >> 8)  & 0xFF),
         static_cast<uint8_t>((argb >> 0)  & 0xFF),
     };
 
-    const auto palette = webkitium::color::GeneratePalette(seed);
-    const auto light_semantic = webkitium::color::ResolveSemanticPalette(palette, /*dark=*/false);
-    const auto dark_semantic  = webkitium::color::ResolveSemanticPalette(palette, /*dark=*/true);
+    const auto palette = ::webkitium::color::GeneratePalette(seed);
+    const auto light_semantic = ::webkitium::color::ResolveSemanticPalette(palette, /*dark=*/false);
+    const auto dark_semantic  = ::webkitium::color::ResolveSemanticPalette(palette, /*dark=*/true);
 
     ApplyToBrushes(m_light_brushes, light_semantic);
     ApplyToBrushes(m_dark_brushes,  dark_semantic);
@@ -83,8 +83,8 @@ bool PaletteProvider::ApplySeed(uint32_t argb) {
 
 void PaletteProvider::ApplyToBrushes(
     BrushArray const& brushes,
-    webkitium::color::SemanticPalette const& palette) {
-    for (int i = 0; i < webkitium::color::kSemanticTokenCount; ++i) {
+    ::webkitium::color::SemanticPalette const& palette) {
+    for (int i = 0; i < ::webkitium::color::kSemanticTokenCount; ++i) {
         if (!brushes[i]) continue;  // brush not found in dictionary
         brushes[i].Color(ToWinrtColor(palette.colors[i]));
     }
