@@ -216,12 +216,10 @@
     <ClInclude Include="src\PaletteProvider.h" />
   </ItemGroup>
 
-  <!-- MIDL .idl compilation for runtime class declarations. -->
+  <!-- MIDL .idl compilation for runtime class declarations.
+       No App.idl: WinUI 3 App is composed (not independently activated)
+       and works from its code-behind without an IDL declaration. -->
   <ItemGroup>
-    <Midl Include="src\App.idl">
-      <SubType>Code</SubType>
-      <DependentUpon>src\App.xaml</DependentUpon>
-    </Midl>
     <Midl Include="src\MainWindow.idl">
       <SubType>Code</SubType>
       <DependentUpon>src\MainWindow.xaml</DependentUpon>
