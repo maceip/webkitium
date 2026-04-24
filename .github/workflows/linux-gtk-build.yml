@@ -92,12 +92,13 @@ jobs:
         run: |
           set -euo pipefail
           SRC="${WEBKIT_SRC:?}"
-          if [[ -f "$SRC/Tools/gtk/install-dependencies" ]]; then
-            sudo env DEBIAN_FRONTEND=noninteractive "$SRC/Tools/gtk/install-dependencies" || {
-              echo "::warning::install-dependencies failed; continuing if the AMI already has GTK deps"
-            }
+          if [[ "${NG_SKIP_INSTALL_DEPS:-0}" == "1" ]]; then
+            echo "Skipping install-dependencies (NG_SKIP_INSTALL_DEPS=1, AMI pre-baked)"
+          elif [[ -f "$SRC/Tools/gtk/install-dependencies" ]]; then
+            sudo env DEBIAN_FRONTEND=noninteractive "$SRC/Tools/gtk/install-dependencies"
           else
-            echo "::warning::Tools/gtk/install-dependencies missing; assuming runner image has deps"
+            echo "::error::Tools/gtk/install-dependencies not found and NG_SKIP_INSTALL_DEPS not set"
+            exit 1
           fi
 
       - name: Build

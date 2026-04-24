@@ -42,8 +42,9 @@ jobs:
           echo "Source ready at $SRC"
 
           # Apply patches (fail fast — silent patch drift wastes hours on Gradle)
+          # Android patches target WPE-Android, not the WebKit tree — skip common/.
           applied=0
-          for patch in "$GITHUB_WORKSPACE"/webkit/patches/common/*.patch "$GITHUB_WORKSPACE"/webkit/patches/android/*.patch; do
+          for patch in "$GITHUB_WORKSPACE"/webkit/patches/android/*.patch; do
             [[ -f "$patch" ]] || continue
             echo "Applying $(basename "$patch")"
             git -C "$SRC" apply --check --whitespace=nowarn --unidiff-zero "$patch"
