@@ -127,7 +127,8 @@ jobs:
             -DENABLE_WEBXR="${WEBKIT_CMAKE_ENABLE_WEBXR:-OFF}" \
             -DENABLE_THUNDER=OFF \
             -DENABLE_BUBBLEWRAP_SANDBOX=OFF \
-            -DUSE_LIBRICE=OFF
+            -DUSE_LIBRICE=OFF \
+            -DENABLE_WEB_RTC=OFF
 
       - name: Baseline package
         run: |
