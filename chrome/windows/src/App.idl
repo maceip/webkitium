@@ -1,0 +1,8 @@
+namespace webkitium {
+    // App is a composed Application (XAML-driven).  No [default_interface]
+    // and no explicit constructor -- the IDL presence lets MIDL generate
+    // the AppT<D> base template that implementation::App derives from,
+    // but we deliberately do not declare App as externally activatable.
+    runtimeclass App : Microsoft.UI.Xaml.Application {
+    }
+}
