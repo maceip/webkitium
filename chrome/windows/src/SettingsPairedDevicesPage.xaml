@@ -10,14 +10,14 @@
 
             <TextBlock Text="Paired devices"
                        FontFamily="{StaticResource FontFamilyUI}"
-                       FontSize="{StaticResource FontSizeTitle1, x:Double}"
+                       FontSize="{StaticResource FontSizeTitle1}"
                        FontWeight="SemiBold"
                        Foreground="{ThemeResource TextPrimary}" />
 
             <TextBlock
                 Text="Devices signed in to your webkitium account appear here. Sync traffic flows through the loopback server at browser/sync/LoopbackSyncServer until the cloud sync transport is wired."
                 FontFamily="{StaticResource FontFamilyUI}"
-                FontSize="{StaticResource FontSizeBody, x:Double}"
+                FontSize="{StaticResource FontSizeBody}"
                 Foreground="{ThemeResource TextSecondary}"
                 TextWrapping="Wrap" />
 
@@ -28,13 +28,13 @@
             -->
             <StackPanel Spacing="8">
                 <TextBlock Text="CURRENTLY CONNECTED"
-                           FontSize="{StaticResource FontSizeFootnote, x:Double}"
+                           FontSize="{StaticResource FontSizeFootnote}"
                            Foreground="{ThemeResource TextTertiary}"
                            CharacterSpacing="80"
                            FontWeight="SemiBold" />
 
                 <Border Background="{ThemeResource SurfaceChromeRaised}"
-                        CornerRadius="{StaticResource RadiusMd, x:Double}"
+                        CornerRadius="{StaticResource RadiusMd}"
                         BorderBrush="{ThemeResource BorderSubtle}"
                         BorderThickness="1"
                         Padding="16">
@@ -53,19 +53,19 @@
                                   VerticalAlignment="Center" />
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
                             <TextBlock Text="Work Laptop"
-                                       FontSize="{StaticResource FontSizeBody, x:Double}"
+                                       FontSize="{StaticResource FontSizeBody}"
                                        Foreground="{ThemeResource TextPrimary}"
                                        FontWeight="SemiBold" />
                             <TextBlock Text="Bookmarks, Tabs, Passkeys • last sync 2m ago"
-                                       FontSize="{StaticResource FontSizeFootnote, x:Double}"
+                                       FontSize="{StaticResource FontSizeFootnote}"
                                        Foreground="{ThemeResource TextSecondary}" />
                         </StackPanel>
                         <Border Grid.Column="2"
                                 Background="{ThemeResource AccentFillSubtle}"
-                                CornerRadius="{StaticResource RadiusSm, x:Double}"
+                                CornerRadius="{StaticResource RadiusSm}"
                                 Padding="6,2">
                             <TextBlock Text="This device"
-                                       FontSize="{StaticResource FontSizeFootnote, x:Double}"
+                                       FontSize="{StaticResource FontSizeFootnote}"
                                        Foreground="{ThemeResource AccentFill}" />
                         </Border>
                     </Grid>
@@ -74,13 +74,13 @@
 
             <StackPanel Spacing="8">
                 <TextBlock Text="OTHER DEVICES"
-                           FontSize="{StaticResource FontSizeFootnote, x:Double}"
+                           FontSize="{StaticResource FontSizeFootnote}"
                            Foreground="{ThemeResource TextTertiary}"
                            CharacterSpacing="80"
                            FontWeight="SemiBold" />
 
                 <Border Background="{ThemeResource SurfaceChromeRaised}"
-                        CornerRadius="{StaticResource RadiusMd, x:Double}"
+                        CornerRadius="{StaticResource RadiusMd}"
                         BorderBrush="{ThemeResource BorderSubtle}"
                         BorderThickness="1"
                         Padding="16">
@@ -99,10 +99,10 @@
                                       Margin="0,0,12,0" />
                             <StackPanel Grid.Column="1">
                                 <TextBlock Text="Phone"
-                                           FontSize="{StaticResource FontSizeBody, x:Double}"
+                                           FontSize="{StaticResource FontSizeBody}"
                                            Foreground="{ThemeResource TextPrimary}" />
                                 <TextBlock Text="Bookmarks, Tabs • last sync 17s ago"
-                                           FontSize="{StaticResource FontSizeFootnote, x:Double}"
+                                           FontSize="{StaticResource FontSizeFootnote}"
                                            Foreground="{ThemeResource TextSecondary}" />
                             </StackPanel>
                             <FontIcon Grid.Column="2"
@@ -128,10 +128,10 @@
                                       Margin="0,0,12,0" />
                             <StackPanel Grid.Column="1">
                                 <TextBlock Text="Personal iMac"
-                                           FontSize="{StaticResource FontSizeBody, x:Double}"
+                                           FontSize="{StaticResource FontSizeBody}"
                                            Foreground="{ThemeResource TextPrimary}" />
                                 <TextBlock Text="Bookmarks, Passkeys • last sync 3h ago"
-                                           FontSize="{StaticResource FontSizeFootnote, x:Double}"
+                                           FontSize="{StaticResource FontSizeFootnote}"
                                            Foreground="{ThemeResource TextSecondary}" />
                             </StackPanel>
                             <FontIcon Grid.Column="2"
@@ -145,16 +145,16 @@
             </StackPanel>
 
             <Border Background="{ThemeResource SurfaceChromeRaised}"
-                    CornerRadius="{StaticResource RadiusMd, x:Double}"
+                    CornerRadius="{StaticResource RadiusMd}"
                     BorderBrush="{ThemeResource BorderSubtle}"
                     BorderThickness="1"
                     Padding="16">
                 <StackPanel Spacing="4">
                     <TextBlock Text="Loopback sync server"
-                               FontSize="{StaticResource FontSizeBody, x:Double}"
+                               FontSize="{StaticResource FontSizeBody}"
                                Foreground="{ThemeResource TextPrimary}"
                                FontWeight="SemiBold" />
-                    <TextBlock FontSize="{StaticResource FontSizeFootnote, x:Double}"
+                    <TextBlock FontSize="{StaticResource FontSizeFootnote}"
                                Foreground="{ThemeResource TextSecondary}"
                                TextWrapping="Wrap">
                         Running on localhost. All sync traffic is visible at chrome://sync-internals in a future build. Chromium-shaped wire format — no vendor server involved.

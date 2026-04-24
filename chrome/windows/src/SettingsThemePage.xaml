@@ -15,12 +15,12 @@
 
             <TextBlock Text="Theme"
                        FontFamily="{StaticResource FontFamilyUI}"
-                       FontSize="{StaticResource FontSizeTitle1, x:Double}"
+                       FontSize="{StaticResource FontSizeTitle1}"
                        FontWeight="SemiBold"
                        Foreground="{ThemeResource TextPrimary}" />
 
             <TextBlock FontFamily="{StaticResource FontFamilyUI}"
-                       FontSize="{StaticResource FontSizeBody, x:Double}"
+                       FontSize="{StaticResource FontSizeBody}"
                        Foreground="{ThemeResource TextSecondary}"
                        TextWrapping="Wrap">
                 Pick a single brand color. Webkitium derives a 24-step palette
@@ -32,7 +32,7 @@
 
             <!-- Current seed readout -->
             <Border Background="{ThemeResource SurfaceChromeRaised}"
-                    CornerRadius="{StaticResource RadiusMd, x:Double}"
+                    CornerRadius="{StaticResource RadiusMd}"
                     BorderBrush="{ThemeResource BorderSubtle}"
                     BorderThickness="1"
                     Padding="16">
@@ -44,13 +44,13 @@
 
                     <StackPanel Grid.Column="0" Spacing="2">
                         <TextBlock Text="Current brand color"
-                                   FontSize="{StaticResource FontSizeBody, x:Double}"
+                                   FontSize="{StaticResource FontSizeBody}"
                                    Foreground="{ThemeResource TextPrimary}"
                                    FontWeight="SemiBold" />
                         <TextBlock x:Name="CurrentSeedHex"
                                    Text="#1F5AE0"
                                    FontFamily="{StaticResource FontFamilyMono}"
-                                   FontSize="{StaticResource FontSizeFootnote, x:Double}"
+                                   FontSize="{StaticResource FontSizeFootnote}"
                                    Foreground="{ThemeResource TextSecondary}" />
                     </StackPanel>
 
@@ -58,7 +58,7 @@
                             x:Name="CurrentSeedSwatch"
                             Width="64"
                             Height="32"
-                            CornerRadius="{StaticResource RadiusSm, x:Double}"
+                            CornerRadius="{StaticResource RadiusSm}"
                             BorderBrush="{ThemeResource BorderDefault}"
                             BorderThickness="1" />
                 </Grid>
@@ -67,7 +67,7 @@
             <!-- Presets -->
             <StackPanel Spacing="12">
                 <TextBlock Text="PRESETS"
-                           FontSize="{StaticResource FontSizeFootnote, x:Double}"
+                           FontSize="{StaticResource FontSizeFootnote}"
                            Foreground="{ThemeResource TextTertiary}"
                            CharacterSpacing="80"
                            FontWeight="SemiBold" />
@@ -79,7 +79,7 @@
                             Width="80"
                             Height="48"
                             Padding="0"
-                            CornerRadius="{StaticResource RadiusMd, x:Double}"
+                            CornerRadius="{StaticResource RadiusMd}"
                             Background="#FF1F5AE0"
                             BorderThickness="0"
                             ToolTipService.ToolTip="Webkitium blue (default)" />
@@ -89,7 +89,7 @@
                             Width="80"
                             Height="48"
                             Padding="0"
-                            CornerRadius="{StaticResource RadiusMd, x:Double}"
+                            CornerRadius="{StaticResource RadiusMd}"
                             Background="#FFD21F6B"
                             BorderThickness="0"
                             ToolTipService.ToolTip="Magenta" />
@@ -99,7 +99,7 @@
                             Width="80"
                             Height="48"
                             Padding="0"
-                            CornerRadius="{StaticResource RadiusMd, x:Double}"
+                            CornerRadius="{StaticResource RadiusMd}"
                             Background="#FF2D7A3E"
                             BorderThickness="0"
                             ToolTipService.ToolTip="Forest green" />
@@ -109,7 +109,7 @@
                             Width="80"
                             Height="48"
                             Padding="0"
-                            CornerRadius="{StaticResource RadiusMd, x:Double}"
+                            CornerRadius="{StaticResource RadiusMd}"
                             Background="#FF454B55"
                             BorderThickness="0"
                             ToolTipService.ToolTip="Near-monochrome" />
@@ -119,7 +119,7 @@
             <!-- Custom picker -->
             <StackPanel Spacing="12">
                 <TextBlock Text="CUSTOM"
-                           FontSize="{StaticResource FontSizeFootnote, x:Double}"
+                           FontSize="{StaticResource FontSizeFootnote}"
                            Foreground="{ThemeResource TextTertiary}"
                            CharacterSpacing="80"
                            FontWeight="SemiBold" />
@@ -136,17 +136,17 @@
 
             <!-- Appearance (stub — WinUI follows system, no app-level override yet) -->
             <Border Background="{ThemeResource SurfaceChromeRaised}"
-                    CornerRadius="{StaticResource RadiusMd, x:Double}"
+                    CornerRadius="{StaticResource RadiusMd}"
                     BorderBrush="{ThemeResource BorderSubtle}"
                     BorderThickness="1"
                     Padding="16">
                 <StackPanel Spacing="8">
                     <TextBlock Text="Appearance"
-                               FontSize="{StaticResource FontSizeBody, x:Double}"
+                               FontSize="{StaticResource FontSizeBody}"
                                Foreground="{ThemeResource TextPrimary}"
                                FontWeight="SemiBold" />
                     <TextBlock Text="Follows your Windows appearance setting. Per-app light/dark override lands when sync carries the preference."
-                               FontSize="{StaticResource FontSizeFootnote, x:Double}"
+                               FontSize="{StaticResource FontSizeFootnote}"
                                Foreground="{ThemeResource TextSecondary}"
                                TextWrapping="Wrap" />
                 </StackPanel>

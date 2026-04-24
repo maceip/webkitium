@@ -21,7 +21,7 @@
             Background="{ThemeResource SurfaceSunken}"
             BorderBrush="{ThemeResource BorderSubtle}"
             BorderThickness="1"
-            CornerRadius="{StaticResource RadiusOmnibar, x:Double}"
+            CornerRadius="{StaticResource RadiusOmnibar}"
             Padding="8,4"
             HorizontalAlignment="Stretch">
         <Grid>
@@ -60,7 +60,7 @@
                      PlaceholderText="Search or enter address"
                      Foreground="{ThemeResource TextPrimary}"
                      FontFamily="{StaticResource FontFamilyUI}"
-                     FontSize="{StaticResource FontSizeBody, x:Double}"
+                     FontSize="{StaticResource FontSizeBody}"
                      VerticalAlignment="Center"
                      VerticalContentAlignment="Center"
                      GotFocus="OnInputGotFocus"

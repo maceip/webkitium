@@ -32,7 +32,7 @@
         <Grid x:Name="OmnibarHost"
               Grid.Row="0"
               Height="44"
-              Padding="{StaticResource Space2, x:Double}">
+              Padding="{StaticResource Space2}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="140" />  <!-- System controls reserve -->
                 <ColumnDefinition Width="*" />
@@ -52,12 +52,12 @@
         -->
         <Border Grid.Row="1"
                 Background="{ThemeResource SurfaceCanvas}"
-                CornerRadius="{StaticResource RadiusMd, x:Double}"
+                CornerRadius="{StaticResource RadiusMd}"
                 Margin="8,0,8,8">
             <TextBlock Text="Web content goes here"
                        Foreground="{ThemeResource TextTertiary}"
                        FontFamily="{StaticResource FontFamilyUI}"
-                       FontSize="{StaticResource FontSizeBody, x:Double}"
+                       FontSize="{StaticResource FontSizeBody}"
                        HorizontalAlignment="Center"
                        VerticalAlignment="Center" />
         </Border>

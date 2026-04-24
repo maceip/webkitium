@@ -30,7 +30,7 @@
                        Margin="16,6,0,0"
                        Foreground="{ThemeResource TextSecondary}"
                        FontFamily="{StaticResource FontFamilyUI}"
-                       FontSize="{StaticResource FontSizeFootnote, x:Double}"
+                       FontSize="{StaticResource FontSizeFootnote}"
                        VerticalAlignment="Top" />
         </Grid>
 
