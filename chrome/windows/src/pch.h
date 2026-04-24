@@ -19,6 +19,12 @@
 // that follow see the real identifier.
 #undef GetCurrentTime
 
+// <unknwn.h> MUST be included before any <winrt/...> header -- the
+// CppWinRT projections implement classic COM interfaces and static_assert
+// for IUnknown visibility.  Without this, XamlTypeInfo.Impl.g.cpp fails
+// with C2338 / C2555 on AddRef+Release signature mismatch.
+#include <unknwn.h>
+
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Foundation.Collections.h>
 
