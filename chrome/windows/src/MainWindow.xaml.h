@@ -31,7 +31,11 @@ struct MainWindow : MainWindowT<MainWindow> {
 private:
     void InitializeTitleBar();
     void InstallThemeCyclingShortcut();
+    void InstallOpenSettingsShortcut();
     void OnThemeCycleInvoked(
+        Microsoft::UI::Xaml::Input::KeyboardAccelerator const& sender,
+        Microsoft::UI::Xaml::Input::KeyboardAcceleratorInvokedEventArgs const& args);
+    void OnOpenSettingsInvoked(
         Microsoft::UI::Xaml::Input::KeyboardAccelerator const& sender,
         Microsoft::UI::Xaml::Input::KeyboardAcceleratorInvokedEventArgs const& args);
 

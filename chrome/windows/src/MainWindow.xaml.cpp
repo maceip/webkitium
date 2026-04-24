@@ -4,6 +4,8 @@
 #include "MainWindow.g.cpp"
 #endif
 
+#include "App.xaml.h"
+
 #include <winrt/Microsoft.UI.Windowing.h>
 #include <winrt/Windows.Graphics.h>
 #include <winrt/Windows.System.h>
@@ -37,6 +39,7 @@ MainWindow::MainWindow() {
     InitializeComponent();
     InitializeTitleBar();
     InstallThemeCyclingShortcut();
+    InstallOpenSettingsShortcut();
 
     auto appWindow = this->AppWindow();
     if (appWindow) {
@@ -76,6 +79,28 @@ void MainWindow::OnThemeCycleInvoked(
 
     m_test_seed_index = (m_test_seed_index + 1) % static_cast<int>(kTestSeeds.size());
     m_palette->ApplySeed(kTestSeeds[m_test_seed_index]);
+}
+
+void MainWindow::InstallOpenSettingsShortcut() {
+    // Ctrl+, is the Windows convention for "open settings".  VK_OEM_COMMA
+    // is 0xBC, not in the Windows.System.VirtualKey enum, so cast through.
+    KeyboardAccelerator accel;
+    accel.Modifiers(VirtualKeyModifiers::Control);
+    accel.Key(static_cast<VirtualKey>(0xBC));
+    accel.Invoked({ this, &MainWindow::OnOpenSettingsInvoked });
+
+    if (auto root = this->Content().try_as<FrameworkElement>()) {
+        root.KeyboardAccelerators().Append(accel);
+    }
+}
+
+void MainWindow::OnOpenSettingsInvoked(
+    KeyboardAccelerator const&,
+    KeyboardAcceleratorInvokedEventArgs const& args) {
+    args.Handled(true);
+    if (auto app = implementation::App::Current()) {
+        app->OpenSettings();
+    }
 }
 
 }  // namespace winrt::webkitium::implementation
