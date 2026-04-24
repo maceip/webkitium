@@ -27,12 +27,15 @@ struct SettingsWindow : SettingsWindowT<SettingsWindow> {
     // picks a color.
     void AttachPaletteProvider(std::shared_ptr<PaletteProvider> palette);
 
-private:
-    void InitializeTitleBar();
-    void NavigateTo(std::wstring_view page_tag);
+    // XAML event handlers -- must be public so the XAML-generated
+    // Connect() can bind them.  Everything else is private.
     void OnNavigationSelectionChanged(
         Microsoft::UI::Xaml::Controls::NavigationView const& sender,
         Microsoft::UI::Xaml::Controls::NavigationViewSelectionChangedEventArgs const& args);
+
+private:
+    void InitializeTitleBar();
+    void NavigateTo(std::wstring_view page_tag);
 
     std::shared_ptr<PaletteProvider> m_palette;
 };
