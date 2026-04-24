@@ -113,14 +113,15 @@ jobs:
           # GStreamerChecks.cmake:67 emits FATAL_ERROR when librice is missing.
           # Downgrade to WARNING so configure continues with USE_LIBRICE=OFF.
           sed -i 's/message(FATAL_ERROR.*librice/message(WARNING "librice/' "$SRC/Source/cmake/GStreamerChecks.cmake"
+          # GCC on ARM64 raises -Werror=stringop-overflow false positive in bmalloc.
+          export CFLAGS="${CFLAGS:-} -Wno-error=stringop-overflow"
+          export CXXFLAGS="${CXXFLAGS:-} -Wno-error=stringop-overflow"
           perl Tools/Scripts/build-webkit --release --gtk --makeargs="-j$JOBS" \
             -DENABLE_EXPERIMENTAL_FEATURES="${WEBKIT_CMAKE_ENABLE_EXPERIMENTAL_FEATURES:-ON}" \
             -DENABLE_WEBXR="${WEBKIT_CMAKE_ENABLE_WEBXR:-OFF}" \
             -DENABLE_THUNDER=OFF \
             -DENABLE_BUBBLEWRAP_SANDBOX=OFF \
-            -DUSE_LIBRICE=OFF \
-            -DCMAKE_C_FLAGS="-Wno-error=stringop-overflow" \
-            -DCMAKE_CXX_FLAGS="-Wno-error=stringop-overflow"
+            -DUSE_LIBRICE=OFF
 
       - name: Baseline package
         run: |
