@@ -52,6 +52,7 @@ else()
 endif()
 
 add_library(ng_browser_core STATIC
+    color/ColorBridgeC.cc
     color/ColorRamp.cpp
     color/OklchColor.cpp
     color/SemanticPalette.cpp
