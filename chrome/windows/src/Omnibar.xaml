@@ -21,7 +21,7 @@
             Background="{ThemeResource SurfaceSunken}"
             BorderBrush="{ThemeResource BorderSubtle}"
             BorderThickness="1"
-            CornerRadius="{StaticResource RadiusOmnibar}"
+            CornerRadius="10"
             Padding="8,4"
             HorizontalAlignment="Stretch">
         <Grid>

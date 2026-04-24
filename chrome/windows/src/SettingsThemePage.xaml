@@ -32,7 +32,7 @@
 
             <!-- Current seed readout -->
             <Border Background="{ThemeResource SurfaceChromeRaised}"
-                    CornerRadius="{StaticResource RadiusMd}"
+                    CornerRadius="10"
                     BorderBrush="{ThemeResource BorderSubtle}"
                     BorderThickness="1"
                     Padding="16">
@@ -58,7 +58,7 @@
                             x:Name="CurrentSeedSwatch"
                             Width="64"
                             Height="32"
-                            CornerRadius="{StaticResource RadiusSm}"
+                            CornerRadius="6"
                             BorderBrush="{ThemeResource BorderDefault}"
                             BorderThickness="1" />
                 </Grid>
@@ -79,7 +79,7 @@
                             Width="80"
                             Height="48"
                             Padding="0"
-                            CornerRadius="{StaticResource RadiusMd}"
+                            CornerRadius="10"
                             Background="#FF1F5AE0"
                             BorderThickness="0"
                             ToolTipService.ToolTip="Webkitium blue (default)" />
@@ -89,7 +89,7 @@
                             Width="80"
                             Height="48"
                             Padding="0"
-                            CornerRadius="{StaticResource RadiusMd}"
+                            CornerRadius="10"
                             Background="#FFD21F6B"
                             BorderThickness="0"
                             ToolTipService.ToolTip="Magenta" />
@@ -99,7 +99,7 @@
                             Width="80"
                             Height="48"
                             Padding="0"
-                            CornerRadius="{StaticResource RadiusMd}"
+                            CornerRadius="10"
                             Background="#FF2D7A3E"
                             BorderThickness="0"
                             ToolTipService.ToolTip="Forest green" />
@@ -109,7 +109,7 @@
                             Width="80"
                             Height="48"
                             Padding="0"
-                            CornerRadius="{StaticResource RadiusMd}"
+                            CornerRadius="10"
                             Background="#FF454B55"
                             BorderThickness="0"
                             ToolTipService.ToolTip="Near-monochrome" />
@@ -136,7 +136,7 @@
 
             <!-- Appearance (stub — WinUI follows system, no app-level override yet) -->
             <Border Background="{ThemeResource SurfaceChromeRaised}"
-                    CornerRadius="{StaticResource RadiusMd}"
+                    CornerRadius="10"
                     BorderBrush="{ThemeResource BorderSubtle}"
                     BorderThickness="1"
                     Padding="16">

@@ -34,7 +34,7 @@
                            FontWeight="SemiBold" />
 
                 <Border Background="{ThemeResource SurfaceChromeRaised}"
-                        CornerRadius="{StaticResource RadiusMd}"
+                        CornerRadius="10"
                         BorderBrush="{ThemeResource BorderSubtle}"
                         BorderThickness="1"
                         Padding="16">
@@ -62,7 +62,7 @@
                         </StackPanel>
                         <Border Grid.Column="2"
                                 Background="{ThemeResource AccentFillSubtle}"
-                                CornerRadius="{StaticResource RadiusSm}"
+                                CornerRadius="6"
                                 Padding="6,2">
                             <TextBlock Text="This device"
                                        FontSize="{StaticResource FontSizeFootnote}"
@@ -80,7 +80,7 @@
                            FontWeight="SemiBold" />
 
                 <Border Background="{ThemeResource SurfaceChromeRaised}"
-                        CornerRadius="{StaticResource RadiusMd}"
+                        CornerRadius="10"
                         BorderBrush="{ThemeResource BorderSubtle}"
                         BorderThickness="1"
                         Padding="16">
@@ -145,7 +145,7 @@
             </StackPanel>
 
             <Border Background="{ThemeResource SurfaceChromeRaised}"
-                    CornerRadius="{StaticResource RadiusMd}"
+                    CornerRadius="10"
                     BorderBrush="{ThemeResource BorderSubtle}"
                     BorderThickness="1"
                     Padding="16">
