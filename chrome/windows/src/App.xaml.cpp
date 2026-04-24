@@ -10,6 +10,7 @@ using namespace Microsoft::UI::Xaml;
 namespace winrt::webkitium::implementation {
 
 App::App() {
+    OutputDebugStringW(L"[webkitium] App::App() C++ reached, about to Initialize logger\r\n");
     ::webkitium::log::Initialize();
     LOG_INFO("App::App ctor entered");
     InitializeComponent();

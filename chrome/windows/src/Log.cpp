@@ -73,25 +73,40 @@ void Initialize() {
     bool expected = false;
     if (!g_opened.compare_exchange_strong(expected, true)) return;
 
-    try {
-        std::filesystem::path dir = LocalAppDataDir();
-        dir /= L"Webkitium";
-        std::error_code ec;
-        std::filesystem::create_directories(dir, ec);
+    OutputDebugStringW(L"[webkitium] Log::Initialize entered\r\n");
 
-        g_log_path = (dir / L"webkitium.log").wstring();
+    // Open the log at %TEMP%\webkitium.log -- TEMP is guaranteed writable
+    // for any desktop app; no FOLDERID / create_directories fuss.
+    wchar_t temp[MAX_PATH] = L"";
+    DWORD n = GetTempPathW(MAX_PATH, temp);
+    if (n == 0 || n >= MAX_PATH) {
+        OutputDebugStringW(L"[webkitium] Log: GetTempPath failed\r\n");
+        return;
+    }
+    g_log_path.assign(temp);
+    if (!g_log_path.empty() && g_log_path.back() != L'\\') g_log_path += L'\\';
+    g_log_path += L"webkitium.log";
 
-        // Truncate on each launch -- keeps the file short and fresh.
-        _wfopen_s(&g_fp, g_log_path.c_str(), L"w, ccs=UTF-8");
-    } catch (...) {
-        // Swallow -- logger is best-effort.
+    {
+        std::wstring opening = L"[webkitium] Log: opening ";
+        opening += g_log_path;
+        opening += L"\r\n";
+        OutputDebugStringW(opening.c_str());
+    }
+
+    errno_t err = _wfopen_s(&g_fp, g_log_path.c_str(), L"w, ccs=UTF-8");
+    if (err != 0 || !g_fp) {
+        wchar_t msg[128];
+        std::swprintf(msg, 128,
+                      L"[webkitium] Log: _wfopen_s failed errno=%d fp=%p\r\n",
+                      err, reinterpret_cast<void*>(g_fp));
+        OutputDebugStringW(msg);
         g_fp = nullptr;
+        return;
     }
 
-    if (g_fp) {
-        WriteLineLocked(Level::Info, L"Log.cpp:Initialize",
-                        std::wstring(L"log opened: ") + g_log_path);
-    }
+    WriteLineLocked(Level::Info, L"Log.cpp:Initialize",
+                    std::wstring(L"log opened: ") + g_log_path);
 }
 
 void Write(Level level, std::string_view where, std::wstring_view message) {
