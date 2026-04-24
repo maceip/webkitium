@@ -1,0 +1,36 @@
+{
+  "$version": "1.0.0",
+  "$description": "iOS 26 Liquid Glass overrides. Omnibar lives in a floating pill above content; haptics on selection are first-class.",
+  "$extensions": {
+    "dev.webkitium.protection": "platform-only",
+    "dev.webkitium.platform": ["ios"]
+  },
+  "material": {
+    "omnibar": {
+      "$type": "material",
+      "$value": {
+        "liquidGlass": { "variant": "regular", "tint": "{accent.fillSubtle}", "tintIntensity": 0.10, "interactive": true },
+        "fallback": { "blurStyle": "systemChromeMaterial" }
+      }
+    },
+    "contextMenu": {
+      "$type": "material",
+      "$description": "iOS native context menu (UIContextMenuConfiguration) — we do not override the material, only the accent tint used in highlight.",
+      "$value": { "liquidGlass": { "variant": "regular", "tint": "{accent.fillSubtle}", "tintIntensity": 0.15 } }
+    }
+  },
+  "haptics": {
+    "$description": "iOS haptic engine. Mapped from semantic haptic tokens.",
+    "omnibarSubmit":   { "$type": "haptic", "$value": "impact.medium" },
+    "tabSwitch":       { "$type": "haptic", "$value": "selection" },
+    "contextMenuOpen": { "$type": "haptic", "$value": "impact.light" }
+  },
+  "dynamicType": {
+    "enabled": { "$type": "number", "$value": 1 },
+    "$description": "Generator emits UIFont.preferredFont(forTextStyle:) for themeable type sizes."
+  },
+  "shape": {
+    "$description": "iOS 26 prefers more generous radii for the floating omnibar.",
+    "omnibar": { "$type": "dimension", "$value": "22px" }
+  }
+}

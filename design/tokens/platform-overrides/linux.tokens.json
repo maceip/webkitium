@@ -1,0 +1,36 @@
+{
+  "$version": "1.0.0",
+  "$description": "Linux / GTK4 + libadwaita overrides. No translucency stack on most compositors — we use solid fills and honor the libadwaita accent color preference (GNOME 47+). KDE (Qt) gets a separate override file in the future.",
+  "$extensions": {
+    "dev.webkitium.protection": "platform-only",
+    "dev.webkitium.platform": ["linux"]
+  },
+  "toolkit": {
+    "$description": "Which GUI stack the generator targets.",
+    "value": { "$type": "number", "$value": 0, "$description": "0 = gtk4+libadwaita, 1 = qt6 (future)" }
+  },
+  "material": {
+    "omnibar": {
+      "$type": "material",
+      "$value": { "kind": "Solid", "color": "{surface.sunken}" }
+    },
+    "contextMenu": {
+      "$type": "material",
+      "$description": "libadwaita popover. Solid background + subtle shadow.",
+      "$value": { "kind": "Solid", "color": "{surface.overlay}", "shadow": "overlay" }
+    }
+  },
+  "accent": {
+    "$description": "GNOME 47+ exposes org.gnome.desktop.interface accent-color. Pre-theme: follow system accent. Post-theme: brand.",
+    "followSystem": { "$type": "number", "$value": 1 }
+  },
+  "shape": {
+    "omnibar": { "$type": "dimension", "$value": "{radius.md}" }
+  },
+  "shadow": {
+    "overlay": {
+      "$type": "shadow",
+      "$value": { "offsetX": "0", "offsetY": "4px", "blur": "16px", "color": "rgba(0,0,0,0.18)" }
+    }
+  }
+}

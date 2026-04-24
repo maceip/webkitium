@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://webkitium.dev/schemas/tokens.schema.json",
+  "title": "Webkitium Design Tokens",
+  "description": "W3C Design Tokens Community Group format (draft 2024) with webkitium extensions for platform overrides, protection scopes, and extension-API addressability.",
+  "type": "object",
+  "required": ["$version"],
+  "properties": {
+    "$version": {
+      "type": "string",
+      "description": "Semver. Bumped on schema changes; extension API negotiates min version."
+    },
+    "$description": { "type": "string" },
+    "$extensions": {
+      "type": "object",
+      "properties": {
+        "dev.webkitium.protection": {
+          "description": "Default protection for all tokens in this file unless overridden on a leaf.",
+          "enum": ["themeable", "platform-only", "secure-fixed"]
+        },
+        "dev.webkitium.platform": {
+          "description": "If present, tokens in this file are only emitted for the listed platforms.",
+          "type": "array",
+          "items": { "enum": ["macos", "ios", "windows", "android", "linux"] }
+        }
+      }
+    }
+  },
+  "additionalProperties": {
+    "oneOf": [
+      { "$ref": "#/$defs/tokenGroup" },
+      { "$ref": "#/$defs/token" }
+    ]
+  },
+  "$defs": {
+    "token": {
+      "type": "object",
+      "required": ["$value"],
+      "properties": {
+        "$value": {},
+        "$type": {
+          "enum": [
+            "color",
+            "dimension",
+            "fontFamily",
+            "fontWeight",
+            "duration",
+            "cubicBezier",
+            "number",
+            "shadow",
+            "gradient",
+            "typography",
+            "material",
+            "motion",
+            "haptic"
+          ]
+        },
+        "$description": { "type": "string" },
+        "$extensions": {
+          "type": "object",
+          "properties": {
+            "dev.webkitium.protection": {
+              "description": "themeable = user + extension can write via browser.theme API; platform-only = generator emits but API cannot read/write; secure-fixed = compile-time constant, signed into the binary",
+              "enum": ["themeable", "platform-only", "secure-fixed"]
+            },
+            "dev.webkitium.platform-value": {
+              "description": "Per-platform native override (e.g. {\"macos\": \"systemBlue\", \"windows\": \"SystemAccentColor\"})",
+              "type": "object",
+              "additionalProperties": true
+            },
+            "dev.webkitium.syncable": {
+              "description": "If true, value is part of the sync payload. Defaults to true for themeable tokens, false otherwise.",
+              "type": "boolean"
+            },
+            "dev.webkitium.api-path": {
+              "description": "Override the auto-derived API path. Normally the dotted path of the token is used.",
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "tokenGroup": {
+      "type": "object",
+      "patternProperties": {
+        "^[a-zA-Z][a-zA-Z0-9_-]*$": {
+          "oneOf": [
+            { "$ref": "#/$defs/tokenGroup" },
+            { "$ref": "#/$defs/token" }
+          ]
+        }
+      }
+    }
+  }
+}

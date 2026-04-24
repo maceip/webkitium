@@ -1,0 +1,44 @@
+{
+  "$version": "1.0.0",
+  "$description": "macOS 26 Tahoe + Liquid Glass overrides. The generator wraps themeable color tokens in an NSVisualEffectView / SwiftUI .glassEffect() where elevation > surface. User brand color still tints through the material.",
+  "$extensions": {
+    "dev.webkitium.protection": "platform-only",
+    "dev.webkitium.platform": ["macos"]
+  },
+  "material": {
+    "omnibar": {
+      "$type": "material",
+      "$description": "Omnibar uses Liquid Glass with subtle brand tint. Falls back to .regularMaterial on pre-Tahoe.",
+      "$value": {
+        "liquidGlass": { "variant": "regular", "tint": "{accent.fillSubtle}", "tintIntensity": 0.08 },
+        "fallback": { "material": "regularMaterial", "blendingMode": "behindWindow" }
+      }
+    },
+    "contextMenu": {
+      "$type": "material",
+      "$value": {
+        "liquidGlass": { "variant": "regular", "tint": "{surface.overlay}", "tintIntensity": 0.12 },
+        "fallback": { "material": "menu", "blendingMode": "withinWindow" }
+      }
+    },
+    "settingsSidebar": {
+      "$type": "material",
+      "$value": {
+        "liquidGlass": { "variant": "thin", "tint": "{surface.chrome}", "tintIntensity": 0.04 },
+        "fallback": { "material": "sidebar", "blendingMode": "behindWindow" }
+      }
+    }
+  },
+  "accent": {
+    "$description": "Bridge to NSColor.controlAccentColor when user hasn't set a theme. Once user sets brand via browser.theme, we stop following the system accent.",
+    "followSystem": { "$type": "number", "$value": 1, "$description": "1 if no user theme active; 0 otherwise. Set by runtime." }
+  },
+  "vibrancy": {
+    "$description": "Vibrancy levels for text on materials. SwiftUI uses .foregroundStyle(.primary/.secondary/.tertiary) which auto-adapt.",
+    "enabled": { "$type": "number", "$value": 1 }
+  },
+  "dynamicType": {
+    "$description": "macOS respects per-app preferred text size in System Settings > Accessibility > Display. Generator emits .font(.body) etc. rather than fixed pt sizes for themeable type.",
+    "enabled": { "$type": "number", "$value": 1 }
+  }
+}

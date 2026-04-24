@@ -1,0 +1,81 @@
+// Theme sync wire format.
+//
+// Rides on the existing loopback Chromium-shaped sync pipeline in browser/sync/.
+// A new EntitySpecifics variant: ThemeSpecifics. Conflict resolution is
+// last-writer-wins *per token path* rather than per record so concurrent
+// edits on different tokens merge cleanly.
+//
+// secure-ui/** tokens are never carried on the wire. The sync server never
+// sees authenticator tokens — they don't exist in the token graph sent to
+// the extension API and are baked into binaries at build time.
+
+syntax = "proto3";
+
+package webkitium.sync;
+
+option optimize_for = LITE_RUNTIME;
+
+// One syncable theme. A user has at most one active ThemeSpecifics record;
+// extra records represent installed-but-inactive theme packages.
+message ThemeSpecifics {
+  // UUID, stable across edits.
+  string id = 1;
+
+  // User-visible label.
+  string name = 2;
+
+  // Optional author (for imported packages).
+  string author = 3;
+
+  // Schema version the theme was authored against.
+  // Used to reject apply on older runtimes.
+  string schema_version = 4;
+
+  // Light and dark appearances. Either may be empty, in which case the
+  // runtime uses the shipped defaults.
+  TokenGraph light = 5;
+  TokenGraph dark = 6;
+
+  // "light" | "dark" | "auto". When "auto", the OS appearance picks.
+  string appearance = 7;
+
+  // Is this the active theme? Exactly one ThemeSpecifics per user has
+  // active=true. Flip is atomic via sync transaction.
+  bool active = 8;
+
+  // Per-token last-modified times for conflict resolution.
+  // Key = dotted path ("color.brand", "surface.chrome").
+  // Value = epoch ms at the client that wrote it.
+  map<string, int64> token_updated_at = 9;
+
+  // Whole-record updated time.
+  int64 updated_at = 10;
+
+  // Optional signature from a theme marketplace (packages only).
+  bytes signature = 11;
+}
+
+// A subset of the token graph. Keys are dotted paths; values are DTCG-
+// serialized as bytes (JSON) for forward compat — we don't bake every
+// possible token type into the proto.
+message TokenGraph {
+  // Path -> DTCG-serialized value (JSON bytes, e.g. `{"$type":"color","$value":"oklch(...)"}`)
+  map<string, bytes> tokens = 1;
+}
+
+// Conflict resolution rules (enforced in browser/sync/ theme handler):
+//
+// 1. Per-token LWW using token_updated_at. If device A writes color.brand
+//    at t=100 and device B writes shape.omnibar at t=101, both survive.
+//
+// 2. If A and B write the *same* token at t=100 (exact tie), the one with
+//    larger client_id string wins. Deterministic, no clock arbitration.
+//
+// 3. active=true flips are LWW on updated_at at the record level. If two
+//    devices activate different themes at the same instant, the device
+//    with larger client_id wins.
+//
+// 4. schema_version downgrade is refused. A device reading a record with
+//    a newer schema_version than its runtime ignores unknown paths and
+//    logs a warning. It never writes back — so it does not clobber keys
+//    it does not understand.

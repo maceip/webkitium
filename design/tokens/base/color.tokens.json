@@ -1,0 +1,46 @@
+{
+  "$version": "1.0.0",
+  "$description": "Webkitium default brand palette. This is the floor, not the ceiling — users may override any token marked themeable via browser.theme. All ramps follow Radix-style 12-step semantics (1=app bg, 9=solid brand, 12=highest contrast text).",
+  "$extensions": {
+    "dev.webkitium.protection": "themeable"
+  },
+  "brand": {
+    "$description": "Primary brand ramp. OKLCH for perceptual uniformity across monitors and OS color profiles. Users who theme the brand color replace ramp step 9; steps 1-8 and 10-12 are recomputed by the build pipeline.",
+    "1":  { "$type": "color", "$value": "oklch(0.99 0.005 260)" },
+    "2":  { "$type": "color", "$value": "oklch(0.97 0.010 260)" },
+    "3":  { "$type": "color", "$value": "oklch(0.94 0.020 260)" },
+    "4":  { "$type": "color", "$value": "oklch(0.90 0.040 260)" },
+    "5":  { "$type": "color", "$value": "oklch(0.84 0.080 260)" },
+    "6":  { "$type": "color", "$value": "oklch(0.76 0.120 260)" },
+    "7":  { "$type": "color", "$value": "oklch(0.68 0.150 260)" },
+    "8":  { "$type": "color", "$value": "oklch(0.60 0.170 260)" },
+    "9":  { "$type": "color", "$value": "oklch(0.54 0.190 260)", "$extensions": { "dev.webkitium.api-path": "color.brand" } },
+    "10": { "$type": "color", "$value": "oklch(0.48 0.180 260)" },
+    "11": { "$type": "color", "$value": "oklch(0.40 0.160 260)" },
+    "12": { "$type": "color", "$value": "oklch(0.22 0.080 260)" }
+  },
+  "neutral": {
+    "$description": "Chromatic neutrals (slight hue of brand at low chroma). Used for most chrome surfaces.",
+    "1":  { "$type": "color", "$value": "oklch(0.995 0.002 260)" },
+    "2":  { "$type": "color", "$value": "oklch(0.98 0.004 260)" },
+    "3":  { "$type": "color", "$value": "oklch(0.95 0.006 260)" },
+    "4":  { "$type": "color", "$value": "oklch(0.92 0.008 260)" },
+    "5":  { "$type": "color", "$value": "oklch(0.88 0.010 260)" },
+    "6":  { "$type": "color", "$value": "oklch(0.82 0.012 260)" },
+    "7":  { "$type": "color", "$value": "oklch(0.72 0.014 260)" },
+    "8":  { "$type": "color", "$value": "oklch(0.60 0.016 260)" },
+    "9":  { "$type": "color", "$value": "oklch(0.48 0.014 260)" },
+    "10": { "$type": "color", "$value": "oklch(0.38 0.012 260)" },
+    "11": { "$type": "color", "$value": "oklch(0.28 0.010 260)" },
+    "12": { "$type": "color", "$value": "oklch(0.14 0.006 260)" }
+  },
+  "danger": {
+    "9": { "$type": "color", "$value": "oklch(0.58 0.22 25)" }
+  },
+  "success": {
+    "9": { "$type": "color", "$value": "oklch(0.60 0.18 155)" }
+  },
+  "warning": {
+    "9": { "$type": "color", "$value": "oklch(0.76 0.16 80)" }
+  }
+}

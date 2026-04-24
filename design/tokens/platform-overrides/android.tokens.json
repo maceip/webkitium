@@ -1,0 +1,45 @@
+{
+  "$version": "1.0.0",
+  "$description": "Android 15+ overrides. Material You dynamic color is opt-in: if user has set a webkitium theme we ignore wallpaper-derived colors and use user brand instead. Edge-to-edge + predictive back are assumed.",
+  "$extensions": {
+    "dev.webkitium.protection": "platform-only",
+    "dev.webkitium.platform": ["android"]
+  },
+  "dynamicColor": {
+    "source": {
+      "$description": "'user-theme' | 'wallpaper' | 'brand-default'. Runtime sets based on browser.theme state.",
+      "$type": "number",
+      "$value": 0
+    }
+  },
+  "material": {
+    "omnibar": {
+      "$type": "material",
+      "$description": "Compose Surface with tonalElevation=3.dp, shape.roundedCorner(28.dp). Floats above content (edge-to-edge).",
+      "$value": {
+        "kind": "Surface",
+        "tonalElevation": 3,
+        "color": "{surface.chromeRaised}",
+        "shape": "roundedCorner:{shape.omnibar}"
+      }
+    },
+    "contextMenu": {
+      "$type": "material",
+      "$description": "DropdownMenu with elevation=2. Material 3 does not support blur behind menus on Android without compositing tricks; we accept solid surface.",
+      "$value": { "kind": "Surface", "tonalElevation": 2, "color": "{surface.overlay}" }
+    }
+  },
+  "haptics": {
+    "$description": "HapticFeedbackConstants. Honors per-device haptic settings.",
+    "omnibarSubmit":   { "$type": "haptic", "$value": "CONFIRM" },
+    "tabSwitch":       { "$type": "haptic", "$value": "SEGMENT_TICK" },
+    "contextMenuOpen": { "$type": "haptic", "$value": "CONTEXT_CLICK" }
+  },
+  "shape": {
+    "omnibar": { "$type": "dimension", "$value": "28px" },
+    "contextMenu": { "$type": "dimension", "$value": "12px" }
+  },
+  "predictiveBack": {
+    "enabled": { "$type": "number", "$value": 1 }
+  }
+}

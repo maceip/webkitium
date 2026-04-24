@@ -1,0 +1,37 @@
+{
+  "$version": "1.0.0",
+  "$description": "Role-based tokens for light appearance. Components reference these (never base tokens directly). Users override a semantic to affect every component using it.",
+  "$extensions": {
+    "dev.webkitium.protection": "themeable"
+  },
+  "surface": {
+    "canvas":      { "$type": "color", "$value": "{color.neutral.1}", "$description": "Window background behind all chrome." },
+    "chrome":      { "$type": "color", "$value": "{color.neutral.2}", "$description": "Toolbar / omnibar rest surface." },
+    "chromeRaised":{ "$type": "color", "$value": "{color.neutral.1}" },
+    "sunken":      { "$type": "color", "$value": "{color.neutral.3}", "$description": "Inside the omnibar text field, inside search results." },
+    "hover":       { "$type": "color", "$value": "{color.neutral.4}" },
+    "pressed":     { "$type": "color", "$value": "{color.neutral.5}" },
+    "overlay":     { "$type": "color", "$value": "{color.neutral.1}", "$description": "Context menu / popover base. Combined with platform material." },
+    "selected":    { "$type": "color", "$value": "{color.brand.4}" }
+  },
+  "text": {
+    "primary":   { "$type": "color", "$value": "{color.neutral.12}" },
+    "secondary": { "$type": "color", "$value": "{color.neutral.11}" },
+    "tertiary":  { "$type": "color", "$value": "{color.neutral.9}" },
+    "onBrand":   { "$type": "color", "$value": "{color.neutral.1}" },
+    "danger":    { "$type": "color", "$value": "{color.danger.9}" },
+    "link":      { "$type": "color", "$value": "{color.brand.11}" }
+  },
+  "border": {
+    "subtle": { "$type": "color", "$value": "{color.neutral.5}" },
+    "default":{ "$type": "color", "$value": "{color.neutral.6}" },
+    "strong": { "$type": "color", "$value": "{color.neutral.8}" },
+    "focus":  { "$type": "color", "$value": "{color.brand.8}", "$description": "Focus ring. Platform accessibility scale may thicken." }
+  },
+  "accent": {
+    "fill":       { "$type": "color", "$value": "{color.brand.9}" },
+    "fillHover":  { "$type": "color", "$value": "{color.brand.10}" },
+    "fillPressed":{ "$type": "color", "$value": "{color.brand.11}" },
+    "fillSubtle": { "$type": "color", "$value": "{color.brand.3}" }
+  }
+}
