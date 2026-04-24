@@ -123,7 +123,7 @@ jobs:
             echo "::error::No MiniBrowser.app under $ROOT" >&2
             exit 1
           fi
-          tar -czf "$ZIP" -C "$(dirname "$FIRST")" "$(basename "$FIRST")"
+          (cd "$(dirname "$FIRST")" && zip -qr "$ZIP" "$(basename "$FIRST")")
           export BASELINE_JSON_DIR="$OUT_ROOT"
           export BASELINE_RUN_ID="$RUN_ID"
           export BASELINE_RUN_ATTEMPT="$RUN_ATTEMPT"
@@ -138,7 +138,7 @@ jobs:
               "runId": os.environ["BASELINE_RUN_ID"],
               "attempt": os.environ["BASELINE_RUN_ATTEMPT"],
               "zip": os.environ["BASELINE_ZIP"],
-              "ipaNote": "App Store IPA requires signing/exportArchive; simulator .tar.gz is the baseline deliverable here.",
+              "ipaNote": "App Store IPA requires signing/exportArchive; simulator .zip of MiniBrowser.app is the baseline deliverable here.",
           }
           out.write_text(json.dumps(doc, indent=2))
           PY
