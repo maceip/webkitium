@@ -73,6 +73,7 @@ jobs:
             printf 'gh=%s\n' "$GH_BIN"
             command -v cmake ninja python3 ruby perl
           } | tee "${RUNNER_TEMP}/ios-ci-environment.txt" || true
+          echo "WEBKITIUM_BROWSER_SHELL_TARGET=ios" >> "$GITHUB_ENV"
 
       - name: Build
         run: |
@@ -106,6 +107,14 @@ jobs:
             sccache --show-stats
           fi
 
+      - name: Baseline package
+        run: |
+          set -euo pipefail
+          export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
+          SRC="${WEBKIT_SRC:?}"
+          export NG_BASELINE_WEBKIT_BUILD="$SRC/WebKitBuild"
+          bash "$GITHUB_WORKSPACE/packaging/baseline-package.sh" ios
+
       - name: Post-build check
         run: |
           set -euo pipefail
@@ -124,4 +133,5 @@ jobs:
             ${{ runner.temp }}/build-webkit-ios.log
             ${{ runner.temp }}/ios-ci-environment.txt
             ${{ runner.temp }}/ios-products.txt
+            ${{ runner.temp }}/baseline-packages
           if-no-files-found: warn

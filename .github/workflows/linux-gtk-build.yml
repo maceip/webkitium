@@ -1,4 +1,7 @@
-name: macos-build
+name: linux-gtk-build
+
+# WebKit GTK port on the Linux ARM64 self-hosted runner (same pool as android-build).
+# Produces arm64 binaries only on this hardware.
 
 on:
   workflow_dispatch:
@@ -7,7 +10,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: webkitium-macos-build
+  group: webkitium-linux-gtk-build
   cancel-in-progress: false
 
 defaults:
@@ -16,35 +19,23 @@ defaults:
 
 jobs:
   build:
-    name: macOS WebKit Build
+    name: Linux GTK WebKit Build (arm64)
     runs-on:
       - self-hosted
-      - macOS
+      - Linux
       - ARM64
-      - webkitium
     timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4
-
-      - name: Ensure Metal Toolchain
-        run: |
-          sudo xcodebuild -license accept 2>/dev/null || true
-          if xcrun --find metal >/dev/null 2>&1; then
-            echo "Metal toolchain already installed"
-          else
-            echo "Installing Metal toolchain..."
-            sudo xcodebuild -downloadComponent MetalToolchain
-          fi
 
       - name: Prepare source
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
-          SRC="${NG_MACOS_WEBKIT_SRC:-$HOME/webkit-src}"
+          SRC="${NG_LINUX_GTK_WEBKIT_SRC:-$HOME/webkit-src-gtk}"
           echo "WEBKIT_SRC=$SRC" >> "$GITHUB_ENV"
-          echo "WEBKITIUM_BROWSER_SHELL_TARGET=macos" >> "$GITHUB_ENV"
+          echo "WEBKITIUM_BROWSER_SHELL_TARGET=linux-gtk" >> "$GITHUB_ENV"
           ARCHIVE="${RUNNER_TEMP}/webkit-pin.tar.gz"
           rm -rf "$SRC"
           mkdir -p "$SRC"
@@ -52,7 +43,12 @@ jobs:
           gh release download webkit-pin \
             --repo "$GITHUB_REPOSITORY" \
             --pattern "webkit-pin.tar.gz.part-*"
-          cat webkit-pin.tar.gz.part-* > "$ARCHIVE"
+          parts=( webkit-pin.tar.gz.part-* )
+          if (( ${#parts[@]} == 0 )); then
+            echo "::error::No tarball parts found after download"
+            exit 1
+          fi
+          cat "${parts[@]}" > "$ARCHIVE"
           rm -f webkit-pin.tar.gz.part-*
           tar -xzf "$ARCHIVE" --strip-components=1 -C "$SRC"
           rm -f "$ARCHIVE"
@@ -60,45 +56,54 @@ jobs:
             echo "::error::Extraction failed — Source/ directory missing"
             exit 1
           fi
-          echo "Source ready at $SRC"
-          for patch in "$GITHUB_WORKSPACE"/webkit/patches/common/*.patch "$GITHUB_WORKSPACE"/webkit/patches/macos/*.patch; do
+          for patch in "$GITHUB_WORKSPACE"/webkit/patches/common/*.patch "$GITHUB_WORKSPACE"/webkit/patches/linux/*.patch; do
             [[ -f "$patch" ]] || continue
             echo "Applying $(basename "$patch")"
             git -C "$SRC" apply --check --whitespace=nowarn --unidiff-zero "$patch"
             git -C "$SRC" apply --whitespace=nowarn --unidiff-zero "$patch"
           done
 
+      - name: Install GTK build dependencies
+        run: |
+          set -euo pipefail
+          SRC="${WEBKIT_SRC:?}"
+          if [[ -f "$SRC/Tools/gtk/install-dependencies" ]]; then
+            sudo env DEBIAN_FRONTEND=noninteractive "$SRC/Tools/gtk/install-dependencies" || {
+              echo "::warning::install-dependencies failed; continuing if the AMI already has GTK deps"
+            }
+          else
+            echo "::warning::Tools/gtk/install-dependencies missing; assuming runner image has deps"
+          fi
+
       - name: Build
         run: |
           set -euo pipefail
-          export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
           SRC="${WEBKIT_SRC:?}"
           cd "$SRC"
-          export WEBKITIUM_BROWSER_SHELL_TARGET=macos
-          JOBS="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
-          perl Tools/Scripts/build-webkit --release --makeargs="-j$JOBS" \
+          JOBS="$(nproc 2>/dev/null || echo 4)"
+          export WEBKITIUM_BROWSER_SHELL_TARGET=linux-gtk
+          perl Tools/Scripts/build-webkit --release --gtk --makeargs="-j$JOBS" \
             -DENABLE_EXPERIMENTAL_FEATURES=ON \
             -DENABLE_WEBXR=OFF
 
       - name: Baseline package
         run: |
           set -euo pipefail
-          export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
           SRC="${WEBKIT_SRC:?}"
           export NG_BASELINE_WEBKIT_BUILD="$SRC/WebKitBuild/Release"
-          bash "$GITHUB_WORKSPACE/packaging/baseline-package.sh" macos
+          bash "$GITHUB_WORKSPACE/packaging/baseline-package.sh" linux-gtk
 
-      - name: Upload Artifacts
+      - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: macos-build-${{ github.run_id }}-${{ github.run_attempt }}
+          name: linux-gtk-build-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             ${{ env.WEBKIT_SRC }}/WebKitBuild/Release/bin
             ${{ env.WEBKIT_SRC }}/WebKitBuild/Release/CMakeCache.txt
             ${{ runner.temp }}/baseline-packages
           if-no-files-found: warn
 
-      - name: Cleanup Source
+      - name: Cleanup source
         if: always()
         run: rm -rf "${WEBKIT_SRC:-}"

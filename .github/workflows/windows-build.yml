@@ -114,6 +114,7 @@ jobs:
             applied=$((applied + 1))
           done
           echo "Applied $applied patches."
+          echo "WEBKITIUM_BROWSER_SHELL_TARGET=windows" >> "$GITHUB_ENV"
 
       # ── Build ──────────────────────────────────────────────────────
       - name: Build
@@ -166,6 +167,15 @@ jobs:
 
           C:\Bootstrap\toolbin\sccache.exe --show-stats
 
+      - name: Baseline package
+        shell: bash
+        env:
+          MSYS2_ARG_CONV_EXCL: "*"
+        run: |
+          set -euo pipefail
+          export NG_BASELINE_WEBKIT_BUILD="$(cygpath -u 'C:/W/webkit-src/WebKitBuild/Release')"
+          bash "$GITHUB_WORKSPACE/packaging/baseline-package.sh" windows
+
       - name: Upload Artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -175,6 +185,7 @@ jobs:
             C:\W\webkit-src\WebKitBuild\Release\bin
             C:\W\webkit-src\WebKitBuild\Release\CMakeCache.txt
             C:\W\webkit-src\WebKitBuild\Release\vcpkg-manifest-install.log
+            ${{ runner.temp }}/baseline-packages
           if-no-files-found: warn
 
       - name: Cleanup Source

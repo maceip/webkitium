@@ -42,6 +42,7 @@ jobs:
             applied=$((applied + 1))
           done
           echo "Applied $applied patches."
+          echo "WEBKITIUM_BROWSER_SHELL_TARGET=android" >> "$GITHUB_ENV"
         env:
           GH_TOKEN: ${{ github.token }}
 
@@ -74,6 +75,12 @@ jobs:
             exit 1
           fi
 
+      - name: Baseline package
+        run: |
+          set -euo pipefail
+          export NG_ANDROID_SOURCE="${NG_ANDROID_SOURCE:-$HOME/webkit/wpe-android}"
+          bash "$GITHUB_WORKSPACE/packaging/baseline-package.sh" android
+
       - name: Upload Artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -81,4 +88,5 @@ jobs:
           name: android-build-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             ~/webkit/wpe-android/*/build/outputs/
+            ${{ runner.temp }}/baseline-packages
           if-no-files-found: warn
