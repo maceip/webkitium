@@ -1,0 +1,17 @@
+diff --git a/Source/WebKit/WebProcess/WebCoreSupport/WebChromeClient.cpp b/Source/WebKit/WebProcess/WebCoreSupport/WebChromeClient.cpp
+--- a/Source/WebKit/WebProcess/WebCoreSupport/WebChromeClient.cpp
++++ b/Source/WebKit/WebProcess/WebCoreSupport/WebChromeClient.cpp
+@@ -1187,7 +1187,12 @@ ChromeClient::DigitalCredentialsRequestData WebChromeClient::digitalCredentialsR
+ #if HAVE(WEBGPU_IMPLEMENTATION)
+ RefPtr<WebCore::WebGPU::GPU> WebChromeClient::createGPUForWebGPU() const
+ {
+-#if ENABLE(GPU_PROCESS)
++    // Windows: route WebGPU through the in-process WebCore::WebGPU::create
++    // path (which lands in our patched GPUImpl/AdapterImpl). The Cocoa
++    // RemoteGPUProxy IPC layer crashes WebKitWebProcess on Windows at
++    // GPUAdapter::info+0x4 (UAF on Ref<GPUAdapterInfo>) before the IPC
++    // ever fires.
++#if ENABLE(GPU_PROCESS) && !PLATFORM(WIN)
+     RefPtr page = m_page.get();
+     if (!page)
+         return nullptr;

@@ -1,0 +1,23 @@
+diff --git a/Source/WebCore/Modules/WebGPU/GPUAdapter.cpp b/Source/WebCore/Modules/WebGPU/GPUAdapter.cpp
+--- a/Source/WebCore/Modules/WebGPU/GPUAdapter.cpp
++++ b/Source/WebCore/Modules/WebGPU/GPUAdapter.cpp
+@@ -125,12 +125,17 @@ void GPUAdapter::requestDevice(ScriptExecutionContext& scriptExecutionContext, c
+         return;
+     }
+
+-    m_backing->requestDevice(convertToBacking(deviceDescriptor), [protectedThis = protect(*this), deviceDescriptor, promise = WTF::move(promise), scriptExecutionContextRef = protect(scriptExecutionContext)](RefPtr<WebGPU::Device>&& device) mutable {
++    // Pre-capture adapter name before the IPC so the reply lambda doesn't
++    // need to dereference protectedThis. On Windows, calling
++    // protectedThis->name() inside the IPC reply hit a poisoned-Ref UAF
++    // and crashed WebKitWebProcess at GPUAdapter::info+0x4.
++    String capturedAdapterName = name();
++    m_backing->requestDevice(convertToBacking(deviceDescriptor), [adapterName = WTFMove(capturedAdapterName), deviceDescriptor, promise = WTF::move(promise), scriptExecutionContextRef = protect(scriptExecutionContext)](RefPtr<WebGPU::Device>&& device) mutable {
+         if (!device.get())
+             promise.reject(Exception(ExceptionCode::OperationError));
+         else {
+             auto queueLabel = deviceDescriptor ? deviceDescriptor->defaultQueue.label : ""_s;
+-            Ref<GPUDevice> gpuDevice = GPUDevice::create(scriptExecutionContextRef.ptr(), device.releaseNonNull(), deviceDescriptor ? WTF::move(queueLabel) : ""_s, GPUAdapterInfo::create(protectedThis->name()));
++            Ref<GPUDevice> gpuDevice = GPUDevice::create(scriptExecutionContextRef.ptr(), device.releaseNonNull(), deviceDescriptor ? WTF::move(queueLabel) : ""_s, GPUAdapterInfo::create(WTFMove(adapterName)));
+             gpuDevice->suspendIfNeeded();
+             promise.resolve(WTF::move(gpuDevice));
+         }
