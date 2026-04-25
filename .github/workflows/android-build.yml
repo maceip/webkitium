@@ -41,6 +41,9 @@ jobs:
           fi
           echo "Source ready at $SRC"
 
+          # Reset any previously applied patches (checkout is persistent)
+          git -C "$SRC" checkout -- . 2>/dev/null || true
+
           # Apply patches (fail fast — silent patch drift wastes hours on Gradle)
           # Android patches target WPE-Android, not the WebKit tree — skip common/.
           applied=0
