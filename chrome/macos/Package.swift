@@ -2,9 +2,11 @@
 //
 // Webkitium macOS shell.
 //
-// Single executable target that depends on the portable color library
-// rooted at browser/color/. No other external dependencies; no CocoaPods,
-// no Homebrew. `swift run webkitium` works from a clean checkout.
+// Depends on the four portable C ABI bridges in browser/:
+//   - color/        palette generation (active)
+//   - extensions/   ExtensionRegistry (wired-but-inactive)
+//   - sync/         loopback sync surface (stub today)
+//   - webauthn/     WebAuthnController (wired-but-inactive)
 
 import PackageDescription
 
@@ -17,15 +19,19 @@ let package = Package(
         .executable(name: "webkitium", targets: ["Webkitium"]),
     ],
     dependencies: [
-        // Same C++ sources the Windows CMake build compiles. One
-        // algorithm, three platforms.
         .package(path: "../../browser/color"),
+        .package(path: "../../browser/extensions"),
+        .package(path: "../../browser/sync"),
+        .package(path: "../../browser/webauthn"),
     ],
     targets: [
         .executableTarget(
             name: "Webkitium",
             dependencies: [
-                .product(name: "WebkitiumColor", package: "color"),
+                .product(name: "WebkitiumColor",      package: "color"),
+                .product(name: "WebkitiumExtensions", package: "extensions"),
+                .product(name: "WebkitiumSync",       package: "sync"),
+                .product(name: "WebkitiumWebAuthn",   package: "webauthn"),
             ],
             path: "Sources/Webkitium"
         ),

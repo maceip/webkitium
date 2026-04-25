@@ -57,6 +57,7 @@ add_library(ng_browser_core STATIC
     color/OklchColor.cpp
     color/SemanticPalette.cpp
     core/Origin.cpp
+    extensions/ExtensionBridgeC.cc
     extensions/ExtensionManifest.cpp
     extensions/ExtensionRegistry.cpp
     extensions/ExtensionRuntime.cpp
@@ -64,9 +65,11 @@ add_library(ng_browser_core STATIC
     sync/LoopbackSyncClient.cpp
     sync/LoopbackSyncRpc.cpp
     sync/LoopbackSyncServer.cpp
+    sync/SyncBridgeC.cc
     sync/SyncTypes.cpp
     tabs/BrowserCommandController.cpp
     tabs/BrowserStateModel.cpp
+    webauthn/WebAuthnBridgeC.cc
     webauthn/WebAuthnController.cpp
     webnn/BackendSelector.cpp
     webnn/InferenceSession.cpp

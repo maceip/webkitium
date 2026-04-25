@@ -10,6 +10,12 @@ struct WebkitiumApp: App {
     // palettes to all views.
     @StateObject private var palette = PaletteProvider()
 
+    // Wired-but-inactive: ExtensionRegistry, sync stub, and
+    // WebAuthnController are constructed at startup.  Settings pages
+    // can read counts/state from this object once they bind it; no
+    // surface invokes the controllers yet.
+    private let services: BrowserServices? = BrowserServices()
+
     var body: some Scene {
         Window("Webkitium", id: "main") {
             RootView()

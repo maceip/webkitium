@@ -1,0 +1,4 @@
+module WebkitiumWebAuthn {
+    header "WebAuthnBridgeC.h"
+    export *
+}

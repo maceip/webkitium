@@ -61,11 +61,28 @@
   </ItemDefinitionGroup>
 
   <ItemGroup>
+    <!-- color/ -->
     <ClCompile Include="..\..\..\browser\color\ColorBridgeC.cc" />
     <ClCompile Include="..\..\..\browser\color\ColorRamp.cpp" />
     <ClCompile Include="..\..\..\browser\color\OklchColor.cpp" />
     <ClCompile Include="..\..\..\browser\color\SemanticPalette.cpp" />
     <ClCompile Include="webkitium_color_exports.cc" />
+
+    <!-- extensions/ -->
+    <ClCompile Include="..\..\..\browser\extensions\ExtensionBridgeC.cc" />
+    <ClCompile Include="..\..\..\browser\extensions\ExtensionManifest.cpp" />
+    <ClCompile Include="..\..\..\browser\extensions\ExtensionRegistry.cpp" />
+    <ClCompile Include="webkitium_extensions_exports.cc" />
+
+    <!-- sync/ (stub today; expands to LoopbackSyncServer when activated) -->
+    <ClCompile Include="..\..\..\browser\sync\SyncBridgeC.cc" />
+    <ClCompile Include="webkitium_sync_exports.cc" />
+
+    <!-- webauthn/ -->
+    <ClCompile Include="..\..\..\browser\core\Origin.cpp" />
+    <ClCompile Include="..\..\..\browser\webauthn\WebAuthnBridgeC.cc" />
+    <ClCompile Include="..\..\..\browser\webauthn\WebAuthnController.cpp" />
+    <ClCompile Include="webkitium_webauthn_exports.cc" />
   </ItemGroup>
 
   <ItemGroup>
@@ -73,6 +90,14 @@
     <ClInclude Include="..\..\..\browser\color\ColorRamp.h" />
     <ClInclude Include="..\..\..\browser\color\OklchColor.h" />
     <ClInclude Include="..\..\..\browser\color\SemanticPalette.h" />
+    <ClInclude Include="..\..\..\browser\core\Origin.h" />
+    <ClInclude Include="..\..\..\browser\core\Result.h" />
+    <ClInclude Include="..\..\..\browser\extensions\ExtensionBridgeC.h" />
+    <ClInclude Include="..\..\..\browser\extensions\ExtensionManifest.h" />
+    <ClInclude Include="..\..\..\browser\extensions\ExtensionRegistry.h" />
+    <ClInclude Include="..\..\..\browser\sync\SyncBridgeC.h" />
+    <ClInclude Include="..\..\..\browser\webauthn\WebAuthnBridgeC.h" />
+    <ClInclude Include="..\..\..\browser\webauthn\WebAuthnController.h" />
   </ItemGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
+import dev.webkitium.services.BrowserServices
 import dev.webkitium.theme.LocalPaletteProvider
 import dev.webkitium.theme.LocalSemantic
 import dev.webkitium.theme.SemanticToken
@@ -26,8 +27,16 @@ import dev.webkitium.theme.WebkitiumTheme
 import dev.webkitium.ui.Omnibar
 
 class MainActivity : ComponentActivity() {
+    // Wired-but-inactive: ExtensionRegistry, Sync stub, and
+    // WebAuthnController are constructed once at activity launch.  No
+    // surface invokes them yet; the holder exists so future Settings
+    // pages can read state without bootstrapping a service-per-call.
+    private var services: BrowserServices? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        services = BrowserServices.create()
+
         // Edge-to-edge + predictive back.  Android 14+ enables the back
         // gesture automatically when android:enableOnBackInvokedCallback
         // is true in the manifest, which it is.
@@ -37,6 +46,12 @@ class MainActivity : ComponentActivity() {
                 RootScreen()
             }
         }
+    }
+
+    override fun onDestroy() {
+        services?.dispose()
+        services = null
+        super.onDestroy()
     }
 }
 

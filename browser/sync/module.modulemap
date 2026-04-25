@@ -1,0 +1,4 @@
+module WebkitiumSync {
+    header "SyncBridgeC.h"
+    export *
+}
