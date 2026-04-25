@@ -113,7 +113,7 @@ jobs:
               source "$HOME/.cargo/env"
             }
             cargo install cargo-c
-            git clone --depth 1 --branch v0.4.2 https://github.com/niceneeded/librice.git "$RUNNER_TEMP/librice"
+            git clone --depth 1 --branch v0.4.2 https://github.com/ystreet/librice.git "$RUNNER_TEMP/librice"
             cd "$RUNNER_TEMP/librice"
             cargo cinstall --release --prefix=/usr --libdir=/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)
             sudo ldconfig
