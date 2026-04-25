@@ -105,7 +105,8 @@ jobs:
           set -euo pipefail
           # librice is a Rust ICE library required by WebKit GTK's WebRTC.
           # Not packaged for Ubuntu — build from source with cargo-c.
-          if pkg-config --atleast-version=0.4.2 rice-proto 2>/dev/null; then
+          if pkg-config --atleast-version=0.4.2 rice-proto 2>/dev/null \
+             && pkg-config --atleast-version=0.4.2 rice-io 2>/dev/null; then
             echo "librice already installed"
           else
             export PATH="$HOME/.cargo/bin:$PATH"
