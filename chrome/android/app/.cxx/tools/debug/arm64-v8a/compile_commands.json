@@ -1,0 +1,77 @@
+[
+{
+  "directory": "/workspace/chrome/android/app/.cxx/Debug/l2y6z452/arm64-v8a",
+  "command": "/home/ubuntu/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ --target=aarch64-none-linux-android34 --sysroot=/home/ubuntu/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/sysroot -Dwebkitium_color_jni_EXPORTS -I/workspace/chrome/android/app/src/main/cpp/../../../../../../browser -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security  -std=c++17 -Wall -Wextra -fno-limit-debug-info  -fPIC -o CMakeFiles/webkitium_color_jni.dir/webkitium_color_jni.cc.o -c /workspace/chrome/android/app/src/main/cpp/webkitium_color_jni.cc",
+  "file": "/workspace/chrome/android/app/src/main/cpp/webkitium_color_jni.cc"
+},
+{
+  "directory": "/workspace/chrome/android/app/.cxx/Debug/l2y6z452/arm64-v8a",
+  "command": "/home/ubuntu/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ --target=aarch64-none-linux-android34 --sysroot=/home/ubuntu/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/sysroot -Dwebkitium_color_jni_EXPORTS -I/workspace/chrome/android/app/src/main/cpp/../../../../../../browser -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security  -std=c++17 -Wall -Wextra -fno-limit-debug-info  -fPIC -o CMakeFiles/webkitium_color_jni.dir/workspace/browser/color/ColorBridgeC.cc.o -c /workspace/browser/color/ColorBridgeC.cc",
+  "file": "/workspace/browser/color/ColorBridgeC.cc"
+},
+{
+  "directory": "/workspace/chrome/android/app/.cxx/Debug/l2y6z452/arm64-v8a",
+  "command": "/home/ubuntu/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ --target=aarch64-none-linux-android34 --sysroot=/home/ubuntu/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/sysroot -Dwebkitium_color_jni_EXPORTS -I/workspace/chrome/android/app/src/main/cpp/../../../../../../browser -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security  -std=c++17 -Wall -Wextra -fno-limit-debug-info  -fPIC -o CMakeFiles/webkitium_color_jni.dir/workspace/browser/color/ColorRamp.cpp.o -c /workspace/browser/color/ColorRamp.cpp",
+  "file": "/workspace/browser/color/ColorRamp.cpp"
+},
+{
+  "directory": "/workspace/chrome/android/app/.cxx/Debug/l2y6z452/arm64-v8a",
+  "command": "/home/ubuntu/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ --target=aarch64-none-linux-android34 --sysroot=/home/ubuntu/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/sysroot -Dwebkitium_color_jni_EXPORTS -I/workspace/chrome/android/app/src/main/cpp/../../../../../../browser -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security  -std=c++17 -Wall -Wextra -fno-limit-debug-info  -fPIC -o CMakeFiles/webkitium_color_jni.dir/workspace/browser/color/OklchColor.cpp.o -c /workspace/browser/color/OklchColor.cpp",
+  "file": "/workspace/browser/color/OklchColor.cpp"
+},
+{
+  "directory": "/workspace/chrome/android/app/.cxx/Debug/l2y6z452/arm64-v8a",
+  "command": "/home/ubuntu/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ --target=aarch64-none-linux-android34 --sysroot=/home/ubuntu/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/sysroot -Dwebkitium_color_jni_EXPORTS -I/workspace/chrome/android/app/src/main/cpp/../../../../../../browser -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security  -std=c++17 -Wall -Wextra -fno-limit-debug-info  -fPIC -o CMakeFiles/webkitium_color_jni.dir/workspace/browser/color/SemanticPalette.cpp.o -c /workspace/browser/color/SemanticPalette.cpp",
+  "file": "/workspace/browser/color/SemanticPalette.cpp"
+},
+{
+  "directory": "/workspace/chrome/android/app/.cxx/Debug/l2y6z452/arm64-v8a",
+  "command": "/home/ubuntu/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ --target=aarch64-none-linux-android34 --sysroot=/home/ubuntu/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/sysroot -Dwebkitium_color_jni_EXPORTS -I/workspace/chrome/android/app/src/main/cpp/../../../../../../browser -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security  -std=c++17 -Wall -Wextra -fno-limit-debug-info  -fPIC -o CMakeFiles/webkitium_color_jni.dir/webkitium_extensions_jni.cc.o -c /workspace/chrome/android/app/src/main/cpp/webkitium_extensions_jni.cc",
+  "file": "/workspace/chrome/android/app/src/main/cpp/webkitium_extensions_jni.cc"
+},
+{
+  "directory": "/workspace/chrome/android/app/.cxx/Debug/l2y6z452/arm64-v8a",
+  "command": "/home/ubuntu/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ --target=aarch64-none-linux-android34 --sysroot=/home/ubuntu/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/sysroot -Dwebkitium_color_jni_EXPORTS -I/workspace/chrome/android/app/src/main/cpp/../../../../../../browser -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security  -std=c++17 -Wall -Wextra -fno-limit-debug-info  -fPIC -o CMakeFiles/webkitium_color_jni.dir/workspace/browser/extensions/ExtensionBridgeC.cc.o -c /workspace/browser/extensions/ExtensionBridgeC.cc",
+  "file": "/workspace/browser/extensions/ExtensionBridgeC.cc"
+},
+{
+  "directory": "/workspace/chrome/android/app/.cxx/Debug/l2y6z452/arm64-v8a",
+  "command": "/home/ubuntu/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ --target=aarch64-none-linux-android34 --sysroot=/home/ubuntu/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/sysroot -Dwebkitium_color_jni_EXPORTS -I/workspace/chrome/android/app/src/main/cpp/../../../../../../browser -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security  -std=c++17 -Wall -Wextra -fno-limit-debug-info  -fPIC -o CMakeFiles/webkitium_color_jni.dir/workspace/browser/extensions/ExtensionManifest.cpp.o -c /workspace/browser/extensions/ExtensionManifest.cpp",
+  "file": "/workspace/browser/extensions/ExtensionManifest.cpp"
+},
+{
+  "directory": "/workspace/chrome/android/app/.cxx/Debug/l2y6z452/arm64-v8a",
+  "command": "/home/ubuntu/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ --target=aarch64-none-linux-android34 --sysroot=/home/ubuntu/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/sysroot -Dwebkitium_color_jni_EXPORTS -I/workspace/chrome/android/app/src/main/cpp/../../../../../../browser -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security  -std=c++17 -Wall -Wextra -fno-limit-debug-info  -fPIC -o CMakeFiles/webkitium_color_jni.dir/workspace/browser/extensions/ExtensionRegistry.cpp.o -c /workspace/browser/extensions/ExtensionRegistry.cpp",
+  "file": "/workspace/browser/extensions/ExtensionRegistry.cpp"
+},
+{
+  "directory": "/workspace/chrome/android/app/.cxx/Debug/l2y6z452/arm64-v8a",
+  "command": "/home/ubuntu/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ --target=aarch64-none-linux-android34 --sysroot=/home/ubuntu/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/sysroot -Dwebkitium_color_jni_EXPORTS -I/workspace/chrome/android/app/src/main/cpp/../../../../../../browser -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security  -std=c++17 -Wall -Wextra -fno-limit-debug-info  -fPIC -o CMakeFiles/webkitium_color_jni.dir/webkitium_sync_jni.cc.o -c /workspace/chrome/android/app/src/main/cpp/webkitium_sync_jni.cc",
+  "file": "/workspace/chrome/android/app/src/main/cpp/webkitium_sync_jni.cc"
+},
+{
+  "directory": "/workspace/chrome/android/app/.cxx/Debug/l2y6z452/arm64-v8a",
+  "command": "/home/ubuntu/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ --target=aarch64-none-linux-android34 --sysroot=/home/ubuntu/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/sysroot -Dwebkitium_color_jni_EXPORTS -I/workspace/chrome/android/app/src/main/cpp/../../../../../../browser -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security  -std=c++17 -Wall -Wextra -fno-limit-debug-info  -fPIC -o CMakeFiles/webkitium_color_jni.dir/workspace/browser/sync/SyncBridgeC.cc.o -c /workspace/browser/sync/SyncBridgeC.cc",
+  "file": "/workspace/browser/sync/SyncBridgeC.cc"
+},
+{
+  "directory": "/workspace/chrome/android/app/.cxx/Debug/l2y6z452/arm64-v8a",
+  "command": "/home/ubuntu/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ --target=aarch64-none-linux-android34 --sysroot=/home/ubuntu/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/sysroot -Dwebkitium_color_jni_EXPORTS -I/workspace/chrome/android/app/src/main/cpp/../../../../../../browser -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security  -std=c++17 -Wall -Wextra -fno-limit-debug-info  -fPIC -o CMakeFiles/webkitium_color_jni.dir/webkitium_webauthn_jni.cc.o -c /workspace/chrome/android/app/src/main/cpp/webkitium_webauthn_jni.cc",
+  "file": "/workspace/chrome/android/app/src/main/cpp/webkitium_webauthn_jni.cc"
+},
+{
+  "directory": "/workspace/chrome/android/app/.cxx/Debug/l2y6z452/arm64-v8a",
+  "command": "/home/ubuntu/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ --target=aarch64-none-linux-android34 --sysroot=/home/ubuntu/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/sysroot -Dwebkitium_color_jni_EXPORTS -I/workspace/chrome/android/app/src/main/cpp/../../../../../../browser -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security  -std=c++17 -Wall -Wextra -fno-limit-debug-info  -fPIC -o CMakeFiles/webkitium_color_jni.dir/workspace/browser/core/Origin.cpp.o -c /workspace/browser/core/Origin.cpp",
+  "file": "/workspace/browser/core/Origin.cpp"
+},
+{
+  "directory": "/workspace/chrome/android/app/.cxx/Debug/l2y6z452/arm64-v8a",
+  "command": "/home/ubuntu/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ --target=aarch64-none-linux-android34 --sysroot=/home/ubuntu/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/sysroot -Dwebkitium_color_jni_EXPORTS -I/workspace/chrome/android/app/src/main/cpp/../../../../../../browser -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security  -std=c++17 -Wall -Wextra -fno-limit-debug-info  -fPIC -o CMakeFiles/webkitium_color_jni.dir/workspace/browser/webauthn/WebAuthnBridgeC.cc.o -c /workspace/browser/webauthn/WebAuthnBridgeC.cc",
+  "file": "/workspace/browser/webauthn/WebAuthnBridgeC.cc"
+},
+{
+  "directory": "/workspace/chrome/android/app/.cxx/Debug/l2y6z452/arm64-v8a",
+  "command": "/home/ubuntu/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++ --target=aarch64-none-linux-android34 --sysroot=/home/ubuntu/android-sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/linux-x86_64/sysroot -Dwebkitium_color_jni_EXPORTS -I/workspace/chrome/android/app/src/main/cpp/../../../../../../browser -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security  -std=c++17 -Wall -Wextra -fno-limit-debug-info  -fPIC -o CMakeFiles/webkitium_color_jni.dir/workspace/browser/webauthn/WebAuthnController.cpp.o -c /workspace/browser/webauthn/WebAuthnController.cpp",
+  "file": "/workspace/browser/webauthn/WebAuthnController.cpp"
+}
+]

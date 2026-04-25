@@ -1,0 +1,17 @@
+# ninja log v5
+10	73	1777159723500417917	CMakeFiles/webkitium_color_jni.dir/webkitium_color_jni.cc.o	4b2a2e8e6fc00f55
+73	98	1777159723524418945	CMakeFiles/webkitium_color_jni.dir/webkitium_extensions_jni.cc.o	fcdf9f196d30d30e
+35	478	1777159723900435036	CMakeFiles/webkitium_color_jni.dir/workspace/browser/color/OklchColor.cpp.o	1612ca49bd59a3ab
+98	550	1777159723972438117	CMakeFiles/webkitium_color_jni.dir/workspace/browser/extensions/ExtensionManifest.cpp.o	46d16bfbdf42ebaa
+23	556	1777159723976438288	CMakeFiles/webkitium_color_jni.dir/workspace/browser/color/ColorBridgeC.cc.o	73555cb3622fde98
+556	627	1777159724040441046	CMakeFiles/webkitium_color_jni.dir/webkitium_sync_jni.cc.o	d76580e5d6415ade
+0	632	1777159724052441566	CMakeFiles/webkitium_color_jni.dir/workspace/browser/color/SemanticPalette.cpp.o	5e419a2c6364c8b7
+632	689	1777159724116444335	CMakeFiles/webkitium_color_jni.dir/webkitium_webauthn_jni.cc.o	fb4c68ba84f6f655
+627	700	1777159724120444508	CMakeFiles/webkitium_color_jni.dir/workspace/browser/sync/SyncBridgeC.cc.o	5943e7bc3bcfbcc0
+30	708	1777159724132445027	CMakeFiles/webkitium_color_jni.dir/workspace/browser/color/ColorRamp.cpp.o	763865f2db6e5b93
+46	727	1777159724148445720	CMakeFiles/webkitium_color_jni.dir/workspace/browser/extensions/ExtensionBridgeC.cc.o	5cf181b63f59a220
+700	1038	1777159724460459221	CMakeFiles/webkitium_color_jni.dir/workspace/browser/webauthn/WebAuthnController.cpp.o	298f5586e399cf68
+550	1083	1777159724508461298	CMakeFiles/webkitium_color_jni.dir/workspace/browser/webauthn/WebAuthnBridgeC.cc.o	a1af7b4282c11e37
+689	1190	1777159724612465798	CMakeFiles/webkitium_color_jni.dir/workspace/browser/core/Origin.cpp.o	2311e752caf75062
+479	1216	1777159724636466837	CMakeFiles/webkitium_color_jni.dir/workspace/browser/extensions/ExtensionRegistry.cpp.o	f562cd1fed085732
+1216	1253	1777159724676468568	/workspace/chrome/android/app/build/intermediates/cxx/Debug/l2y6z452/obj/arm64-v8a/libwebkitium_color_jni.so	ce9a58a7b39450b0
