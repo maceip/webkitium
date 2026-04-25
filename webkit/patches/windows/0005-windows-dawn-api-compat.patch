@@ -264,7 +264,7 @@ diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU
  {
  }
  
-@@ -212,23 +191,61 @@
+@@ -212,23 +191,65 @@
      return true;
  }
  
@@ -279,7 +279,11 @@ diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU
  
 -void AdapterImpl::requestDevice(const DeviceDescriptor& descriptor, CompletionHandler<void(RefPtr<Device>&&)>&& callback)
 +struct DawnRequestDeviceUserdata {
-+    CompletionHandler<void(RefPtr<Device>&&)>&& callback;
++    // Own by value. An &&-typed member would bind to the caller's
++    // rvalue reference and dangle when the caller frame unwinds —
++    // accessing data->callback later was UAF and crashed the process
++    // (rcx=0xfffffffeffffff... poisoned Ref) inside GPUAdapter::info.
++    CompletionHandler<void(RefPtr<Device>&&)> callback;
 +    Ref<ConvertToBackingContext> convertToBackingContext;
 +    WGPUInstance instance { nullptr };
 +};
@@ -295,14 +299,14 @@ diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU
 +    if (!data)
 +        return;
 +    if (status != WGPURequestDeviceStatus_Success || !device) {
-+        data->callback(nullptr);
++        WTF::move(data->callback)(nullptr);
          return;
      }
 -    callback(DeviceImpl::create(adoptWebGPU(device), supportedFeatures(m_backing.get()), supportedLimits(m_backing.get()), m_convertToBackingContext));
 +    auto features = DawnCompat::supportedFeaturesFromDevice(device);
 +    auto limits = DawnCompat::supportedLimitsFromDevice(device);
 +    auto backing = adoptWebGPU(device);
-+    data->callback(DeviceImpl::create(WTF::move(backing), WTF::move(features), WTF::move(limits), data->convertToBackingContext.copyRef(), data->instance));
++    WTF::move(data->callback)(DeviceImpl::create(WTF::move(backing), WTF::move(features), WTF::move(limits), data->convertToBackingContext.copyRef(), data->instance));
 +}
 +
 +void AdapterImpl::requestDevice(const DeviceDescriptor& descriptor, CompletionHandler<void(RefPtr<Device>&&)>&& callback)
@@ -333,7 +337,7 @@ diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU
  #else
      auto label = descriptor.label.utf8();
  
-@@ -370,7 +387,11 @@
+@@ -370,7 +391,11 @@
  
  bool AdapterImpl::xrCompatible()
  {
@@ -834,7 +838,7 @@ diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU
          .label = descriptor.label,
 +#endif
      };
- 
+
      return CommandBufferImpl::create(adoptWebGPU(wgpuCommandEncoderFinish(m_backing.get(), &backingDescriptor)), m_convertToBackingContext);
 @@ -285,7 +344,15 @@
  
