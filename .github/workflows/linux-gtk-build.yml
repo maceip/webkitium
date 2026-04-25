@@ -117,8 +117,11 @@ jobs:
             cd "$RUNNER_TEMP/librice"
             LIBDIR="/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)"
             # Build to a local prefix, then sudo copy into /usr
-            cargo cbuild --release
-            cargo cinstall --release --destdir="$RUNNER_TEMP/rice-install" --prefix=/usr --libdir="$LIBDIR"
+            # Build all C-API crates (rice-proto and rice-io)
+            cargo cbuild --release -p rice-proto
+            cargo cbuild --release -p rice-io
+            cargo cinstall --release -p rice-proto --destdir="$RUNNER_TEMP/rice-install" --prefix=/usr --libdir="$LIBDIR"
+            cargo cinstall --release -p rice-io --destdir="$RUNNER_TEMP/rice-install" --prefix=/usr --libdir="$LIBDIR"
             echo "=== destdir contents ==="
             find "$RUNNER_TEMP/rice-install" -type f | head -30
             sudo cp -a "$RUNNER_TEMP/rice-install/usr/." /usr/
