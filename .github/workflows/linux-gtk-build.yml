@@ -137,9 +137,7 @@ jobs:
           set -euo pipefail
           SRC="${WEBKIT_SRC:?}"
           cd "$SRC"
-          # Limit parallelism to avoid OOM — WebKit objects are memory-heavy
-          TOTAL_CORES="$(nproc 2>/dev/null || echo 4)"
-          JOBS=$(( TOTAL_CORES > 4 ? TOTAL_CORES / 2 : TOTAL_CORES ))
+          JOBS="$(nproc 2>/dev/null || echo 4)"
           export WEBKITIUM_BROWSER_SHELL_TARGET=linux-gtk
           # Thunder (WPE/RDK) is not available on standard Ubuntu
           cp "$GITHUB_WORKSPACE/config/cmake/FindThunder.cmake" "$SRC/Source/cmake/FindThunder.cmake"
