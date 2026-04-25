@@ -141,17 +141,19 @@ jobs:
           export WEBKITIUM_BROWSER_SHELL_TARGET=linux-gtk
           # Thunder (WPE/RDK) is not available on standard Ubuntu
           cp "$GITHUB_WORKSPACE/config/cmake/FindThunder.cmake" "$SRC/Source/cmake/FindThunder.cmake"
-          # Thunder/OpenCDM EME backend is deeply intertwined — empty the GStreamer EME dir
-          find "$SRC/Source/WebCore/platform/graphics/gstreamer/eme" -type f \( -name '*.cpp' -o -name '*.h' \) 2>/dev/null | while read f; do
-            echo "// disabled — no Thunder SDK" > "$f"
-          done
-          # Also empty the platform-level CDM files that reference OpenCDM types
-          for f in "$SRC"/Source/WebCore/platform/encryptedmedia/CDMProxy*.h \
-                   "$SRC"/Source/WebCore/platform/encryptedmedia/CDMProxy*.cpp \
-                   "$SRC"/Source/WebCore/platform/encryptedmedia/CDMOpenCDM*.h \
-                   "$SRC"/Source/WebCore/platform/encryptedmedia/CDMOpenCDM*.cpp; do
+          # Empty only Thunder/OpenCDM-specific files (not CDMProxy base class)
+          for f in "$SRC"/Source/WebCore/platform/encryptedmedia/CDMOpenCDM*.h \
+                   "$SRC"/Source/WebCore/platform/encryptedmedia/CDMOpenCDM*.cpp \
+                   "$SRC"/Source/WebCore/platform/graphics/gstreamer/eme/CDMThunder*.h \
+                   "$SRC"/Source/WebCore/platform/graphics/gstreamer/eme/CDMThunder*.cpp \
+                   "$SRC"/Source/WebCore/platform/graphics/gstreamer/eme/CDMProxyThunder*.h \
+                   "$SRC"/Source/WebCore/platform/graphics/gstreamer/eme/CDMProxyThunder*.cpp \
+                   "$SRC"/Source/WebCore/platform/graphics/gstreamer/eme/CDMProxyThunder*.cpp; do
             [[ -f "$f" ]] && echo "// disabled — no Thunder SDK" > "$f"
           done
+          # Strip Thunder references from CDMFactoryGStreamer (keeps ClearKey registration)
+          sed -i '/Thunder\|CDMProxyFactory\|open_cdm/d' \
+            "$SRC/Source/WebCore/platform/graphics/gstreamer/eme/CDMFactoryGStreamer.cpp" 2>/dev/null || true
           # GCC on ARM64 raises -Werror false positives in WebKit internals
           export CFLAGS="${CFLAGS:-} -Wno-error=stringop-overflow -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
           export CXXFLAGS="${CXXFLAGS:-} -Wno-error=stringop-overflow -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
