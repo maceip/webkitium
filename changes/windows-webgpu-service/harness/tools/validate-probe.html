@@ -129,27 +129,36 @@ function beacon(p) { try { new Image().src = '/beacon?phase=' + encodeURICompone
     await postReport(report);
     return;
   }
+  beacon('pre-adapter-info');
   const info = adapter.info || {};
+  beacon('post-adapter-info');
   const features = Array.from(adapter.features || []);
+  beacon('post-adapter-features');
   const limits = {};
   for (const k in adapter.limits) limits[k] = adapter.limits[k];
+  beacon('post-adapter-limits');
   line('requestAdapter', true, `backend=${info.backend||'?'} vendor=${info.vendor||'?'} device=${info.device||'?'}`, {
     backend: info.backend, vendor: info.vendor, architecture: info.architecture,
     device: info.device, description: info.description,
     features, limits,
   });
 
+  beacon('pre-requestDevice');
   let device;
   try {
     device = await adapter.requestDevice();
+    beacon('post-requestDevice=' + (device ? 'ok' : 'null'));
   } catch (e) {
+    beacon('requestDevice-threw=' + encodeURIComponent((e && e.message) || String(e)));
     line('requestDevice', false, 'threw: ' + (e.message||e));
     pubReport();
+    await postReport(report);
     return;
   }
   if (!device) {
     line('requestDevice', false, 'returned null');
     pubReport();
+    await postReport(report);
     return;
   }
   report.runtime.queueAvailable = !!device.queue;

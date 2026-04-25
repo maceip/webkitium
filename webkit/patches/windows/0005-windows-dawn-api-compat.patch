@@ -264,7 +264,7 @@ diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU
  {
  }
  
-@@ -212,23 +191,57 @@
+@@ -212,23 +191,61 @@
      return true;
  }
  
@@ -309,9 +309,13 @@ diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU
 +{
 +#if PLATFORM(WIN)
 +    auto utf8Label = descriptor.label.utf8();
++    // queueLabel must outlive wgpuAdapterRequestDevice — a CString temporary
++    // would die at end-of-statement leaving deviceDescriptor.defaultQueue.label
++    // pointing at freed memory; Dawn deref'd that and crashed the renderer.
++    CString queueLabel("default"_s);
 +    WGPUDeviceDescriptor deviceDescriptor { };
 +    deviceDescriptor.label = DawnCompat::toDawnStringView(utf8Label);
-+    deviceDescriptor.defaultQueue.label = DawnCompat::toDawnStringView(CString("default"_s));
++    deviceDescriptor.defaultQueue.label = DawnCompat::toDawnStringView(queueLabel);
 +
 +    auto* userdata = new DawnRequestDeviceUserdata {
 +        WTF::move(callback),
@@ -329,7 +333,7 @@ diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU
  #else
      auto label = descriptor.label.utf8();
  
-@@ -370,7 +383,11 @@
+@@ -370,7 +387,11 @@
  
  bool AdapterImpl::xrCompatible()
  {
