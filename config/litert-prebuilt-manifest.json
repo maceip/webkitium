@@ -1,0 +1,105 @@
+{
+  "schema": 1,
+  "description": "LiteRT-LM v0.10.2 prebuilt libraries to package beside the browser binary per platform. These are loaded at runtime via LiteRTLoader — no link-time dependency.",
+  "source": {
+    "repository": "https://github.com/google-ai-edge/LiteRT-LM.git",
+    "tag": "v0.10.2",
+    "path": "prebuilt/"
+  },
+  "platforms": {
+    "windows_x86_64": {
+      "required": [
+        "libLiteRt.dll"
+      ],
+      "gpu": [],
+      "optional": [
+        "libGemmaModelConstraintProvider.dll",
+        "libGemmaModelConstraintProvider.lib",
+        "libLiteRtWebGpuAccelerator.dll",
+        "libLiteRtTopKWebGpuSampler.dll"
+      ],
+      "notes": "GPU (DirectX) is built into libLiteRt.dll — no separate GPU accelerator needed. WebGpu libs are for future Dawn interop."
+    },
+    "macos_arm64": {
+      "required": [
+        "libLiteRt.dylib"
+      ],
+      "gpu": [
+        "libLiteRtMetalAccelerator.dylib",
+        "libLiteRtTopKMetalSampler.dylib"
+      ],
+      "optional": [
+        "libGemmaModelConstraintProvider.dylib",
+        "libLiteRtWebGpuAccelerator.dylib",
+        "libLiteRtTopKWebGpuSampler.dylib"
+      ],
+      "notes": "Metal GPU accelerator loaded at runtime. TopKMetalSampler improves LLM token sampling performance."
+    },
+    "ios_arm64": {
+      "required": [
+        "libLiteRt.dylib"
+      ],
+      "gpu": [
+        "libLiteRtMetalAccelerator.dylib",
+        "libLiteRtTopKMetalSampler.dylib"
+      ],
+      "optional": [
+        "libGemmaModelConstraintProvider.dylib"
+      ],
+      "notes": "Same Metal libraries as macOS."
+    },
+    "linux_x86_64": {
+      "required": [
+        "libLiteRt.so"
+      ],
+      "gpu": [],
+      "optional": [
+        "libGemmaModelConstraintProvider.so",
+        "libLiteRtWebGpuAccelerator.so",
+        "libLiteRtTopKWebGpuSampler.so"
+      ],
+      "notes": "CPU only via XNNPACK (bundled in libLiteRt.so). WebGpu libs for future Dawn."
+    },
+    "linux_arm64": {
+      "required": [
+        "libLiteRt.so"
+      ],
+      "gpu": [],
+      "optional": [
+        "libGemmaModelConstraintProvider.so",
+        "libLiteRtWebGpuAccelerator.so",
+        "libLiteRtTopKWebGpuSampler.so"
+      ],
+      "notes": "Same as x86_64 — CPU only."
+    },
+    "android_arm64": {
+      "required": [],
+      "gpu": [
+        "libLiteRtGpuAccelerator.so",
+        "libLiteRtOpenClAccelerator.so",
+        "libLiteRtTopKOpenClSampler.so"
+      ],
+      "optional": [
+        "libGemmaModelConstraintProvider.so",
+        "libLiteRtWebGpuAccelerator.so",
+        "libLiteRtTopKWebGpuSampler.so"
+      ],
+      "notes": "Core runtime linked via NDK. GPU via native OpenCL/GPU accelerator. TopKOpenClSampler for LLM perf."
+    },
+    "android_x86_64": {
+      "required": [],
+      "gpu": [
+        "libLiteRtGpuAccelerator.so",
+        "libLiteRtOpenClAccelerator.so",
+        "libLiteRtTopKOpenClSampler.so"
+      ],
+      "optional": [
+        "libGemmaModelConstraintProvider.so",
+        "libLiteRtWebGpuAccelerator.so",
+        "libLiteRtTopKWebGpuSampler.so"
+      ],
+      "notes": "Same as arm64."
+    }
+  },
+  "packaging_instructions": "Copy required + gpu files beside the browser binary. Optional files enable additional features (Gemma constrained decoding, future WebGPU interop). Files are stored in Git LFS in the LiteRT-LM repo — run 'git lfs pull' after cloning."
+}

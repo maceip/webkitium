@@ -189,7 +189,7 @@ index 00000000000..b2c3d4e5f6a
 +    if (!loader.isLoaded())
 +        return false;
 +
-+    if (m_device == MLDevicePreference::GPU)
++    if (m_device == MLDevicePreference::GPU && loader.hasGpuAccelerator())
 +        m_useGPU = true;
 +
 +    m_workerThread = std::thread([this] { workerThreadFunc(); });

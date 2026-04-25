@@ -3,17 +3,18 @@ new file mode 100644
 index 00000000000..a1b2c3d4e5f
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/Implementation/LiteRTLoader.h
-@@ -0,0 +1,152 @@
+@@ -0,0 +1,173 @@
 +/*
-+ * Runtime loader for LiteRT (TFLite) shared library.
++ * Runtime loader for LiteRT (TFLite) shared library + platform GPU
++ * accelerator libraries.
 + *
-+ * Instead of linking against libLiteRt at build time (which fails on
-+ * Windows because the prebuilt ships a DLL with no import .lib), we
-+ * load the library at runtime via LoadLibrary/dlopen and resolve
-+ * function pointers via GetProcAddress/dlsym.
-+ *
-+ * This uses the TFLite C API (c_api.h), which is a stable flat C
-+ * interface designed for exactly this kind of dynamic loading.
++ * Loads libLiteRt at runtime (no link-time dependency), then attempts
++ * to load the platform-specific GPU accelerator library:
++ *   Windows:  libLiteRt.dll          (GPU built into core lib)
++ *   macOS:    libLiteRtMetalAccelerator.dylib + libLiteRtTopKMetalSampler.dylib
++ *   iOS:      libLiteRtMetalAccelerator.dylib + libLiteRtTopKMetalSampler.dylib
++ *   Android:  libLiteRtGpuAccelerator.so + libLiteRtOpenClAccelerator.so
++ *   Linux:    CPU only (XNNPACK bundled in libLiteRt.so)
 + */
 +
 +#pragma once
@@ -32,7 +33,6 @@ index 00000000000..a1b2c3d4e5f
 +namespace WebCore {
 +namespace WebNN {
 +
-+// Opaque types matching TFLite C API
 +struct TfLiteModel;
 +struct TfLiteInterpreterOptions;
 +struct TfLiteInterpreter;
@@ -52,26 +52,21 @@ index 00000000000..a1b2c3d4e5f
 +    kTfLiteInt8 = 9,
 +};
 +
-+// Function pointer typedefs for the TFLite C API
 +using PFN_TfLiteModelCreate = TfLiteModel* (*)(const void* data, size_t size);
 +using PFN_TfLiteModelDelete = void (*)(TfLiteModel*);
-+
 +using PFN_TfLiteInterpreterOptionsCreate = TfLiteInterpreterOptions* (*)();
 +using PFN_TfLiteInterpreterOptionsDelete = void (*)(TfLiteInterpreterOptions*);
 +using PFN_TfLiteInterpreterOptionsSetNumThreads = void (*)(TfLiteInterpreterOptions*, int32_t);
 +using PFN_TfLiteInterpreterOptionsAddDelegate = void (*)(TfLiteInterpreterOptions*, TfLiteDelegate*);
-+
 +using PFN_TfLiteInterpreterCreate = TfLiteInterpreter* (*)(const TfLiteModel*, const TfLiteInterpreterOptions*);
 +using PFN_TfLiteInterpreterDelete = void (*)(TfLiteInterpreter*);
 +using PFN_TfLiteInterpreterAllocateTensors = TfLiteStatus (*)(TfLiteInterpreter*);
 +using PFN_TfLiteInterpreterInvoke = TfLiteStatus (*)(TfLiteInterpreter*);
-+
 +using PFN_TfLiteInterpreterGetInputTensorCount = int32_t (*)(const TfLiteInterpreter*);
 +using PFN_TfLiteInterpreterGetInputTensor = TfLiteTensor* (*)(const TfLiteInterpreter*, int32_t);
 +using PFN_TfLiteInterpreterGetOutputTensorCount = int32_t (*)(const TfLiteInterpreter*);
 +using PFN_TfLiteInterpreterGetOutputTensor = const TfLiteTensor* (*)(const TfLiteInterpreter*, int32_t);
 +using PFN_TfLiteInterpreterResizeInputTensor = TfLiteStatus (*)(TfLiteInterpreter*, int32_t, const int32_t* dims, int32_t dims_size);
-+
 +using PFN_TfLiteTensorType = TfLiteType (*)(const TfLiteTensor*);
 +using PFN_TfLiteTensorNumDims = int32_t (*)(const TfLiteTensor*);
 +using PFN_TfLiteTensorDim = int32_t (*)(const TfLiteTensor*, int32_t);
@@ -107,6 +102,14 @@ index 00000000000..a1b2c3d4e5f
 +    PFN_TfLiteTensorCopyToBuffer TensorCopyToBuffer {};
 +};
 +
++enum class GpuAcceleratorKind : uint8_t {
++    None,
++    WindowsDirectX,
++    AppleMetal,
++    AndroidGpu,
++    AndroidOpenCL,
++};
++
 +class LiteRTLoader {
 +public:
 +    static LiteRTLoader& singleton();
@@ -114,20 +117,27 @@ index 00000000000..a1b2c3d4e5f
 +    bool isLoaded() const { return m_loaded; }
 +    const LiteRTAPI& api() const { return m_api; }
 +
++    bool hasGpuAccelerator() const { return m_gpuKind != GpuAcceleratorKind::None; }
++    GpuAcceleratorKind gpuKind() const { return m_gpuKind; }
++
 +private:
 +    LiteRTLoader();
 +    ~LiteRTLoader();
 +
-+    bool load();
++    bool loadCoreLibrary();
++    void loadGpuAccelerator();
 +    void* resolve(const char* name);
 +
 +    bool m_loaded { false };
 +    LiteRTAPI m_api {};
++    GpuAcceleratorKind m_gpuKind { GpuAcceleratorKind::None };
 +
 +#ifdef _WIN32
 +    HMODULE m_handle { nullptr };
++    HMODULE m_gpuHandle { nullptr };
 +#else
 +    void* m_handle { nullptr };
++    void* m_gpuHandle { nullptr };
 +#endif
 +};
 +
@@ -140,7 +150,7 @@ new file mode 100644
 index 00000000000..b2c3d4e5f6a
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/Implementation/LiteRTLoader.cpp
-@@ -0,0 +1,122 @@
+@@ -0,0 +1,186 @@
 +#include "config.h"
 +#include "LiteRTLoader.h"
 +
@@ -157,18 +167,24 @@ index 00000000000..b2c3d4e5f6a
 +
 +LiteRTLoader::LiteRTLoader()
 +{
-+    m_loaded = load();
++    m_loaded = loadCoreLibrary();
++    if (m_loaded)
++        loadGpuAccelerator();
 +}
 +
 +LiteRTLoader::~LiteRTLoader()
 +{
-+    if (m_handle) {
 +#ifdef _WIN32
++    if (m_gpuHandle)
++        FreeLibrary(m_gpuHandle);
++    if (m_handle)
 +        FreeLibrary(m_handle);
 +#else
++    if (m_gpuHandle)
++        dlclose(m_gpuHandle);
++    if (m_handle)
 +        dlclose(m_handle);
 +#endif
-+    }
 +}
 +
 +void* LiteRTLoader::resolve(const char* name)
@@ -182,42 +198,40 @@ index 00000000000..b2c3d4e5f6a
 +#endif
 +}
 +
-+bool LiteRTLoader::load()
++// --- Platform-specific core library loading ---
++
++bool LiteRTLoader::loadCoreLibrary()
 +{
 +#ifdef _WIN32
-+    const wchar_t* dllNames[] = {
++    const wchar_t* names[] = {
 +        L"libLiteRt.dll",
 +        L"LiteRt.dll",
 +        L"tensorflow_lite.dll",
-+        L"tflite.dll",
 +    };
-+    for (auto* name : dllNames) {
-+        m_handle = LoadLibraryExW(name, nullptr,
-+            LOAD_WITH_ALTERED_SEARCH_PATH);
-+        if (m_handle)
-+            break;
++    for (auto* n : names) {
++        m_handle = LoadLibraryExW(n, nullptr, LOAD_WITH_ALTERED_SEARCH_PATH);
++        if (m_handle) break;
 +    }
 +#elif defined(__APPLE__)
-+    const char* soNames[] = {
++    const char* names[] = {
 +        "libLiteRt.dylib",
-+        "libLiteRtMetalAccelerator.dylib",
 +        "@rpath/libLiteRt.dylib",
++        "@executable_path/libLiteRt.dylib",
 +    };
-+    for (auto* name : soNames) {
-+        m_handle = dlopen(name, RTLD_NOW | RTLD_LOCAL);
-+        if (m_handle)
-+            break;
++    for (auto* n : names) {
++        m_handle = dlopen(n, RTLD_NOW | RTLD_LOCAL);
++        if (m_handle) break;
 +    }
++#elif defined(__ANDROID__)
++    m_handle = dlopen("libLiteRt.so", RTLD_NOW | RTLD_LOCAL);
 +#else
-+    const char* soNames[] = {
++    const char* names[] = {
 +        "libLiteRt.so",
 +        "libtensorflow-lite.so",
-+        "libtflite.so",
 +    };
-+    for (auto* name : soNames) {
-+        m_handle = dlopen(name, RTLD_NOW | RTLD_LOCAL);
-+        if (m_handle)
-+            break;
++    for (auto* n : names) {
++        m_handle = dlopen(n, RTLD_NOW | RTLD_LOCAL);
++        if (m_handle) break;
 +    }
 +#endif
 +
@@ -255,6 +269,53 @@ index 00000000000..b2c3d4e5f6a
 +#undef LOAD_SYM
 +
 +    return true;
++}
++
++// --- Platform-specific GPU accelerator loading ---
++//
++// Each platform has different prebuilt GPU libraries from LiteRT-LM.
++// Loading these is optional — if absent, inference runs on CPU via XNNPACK.
++
++void LiteRTLoader::loadGpuAccelerator()
++{
++#ifdef _WIN32
++    // Windows: GPU path (DirectX) is built into libLiteRt.dll itself.
++    // No separate GPU accelerator library needed.
++    m_gpuKind = GpuAcceleratorKind::WindowsDirectX;
++
++#elif defined(__APPLE__)
++    // macOS / iOS: Metal accelerator + Metal sampler
++    m_gpuHandle = dlopen("libLiteRtMetalAccelerator.dylib", RTLD_NOW | RTLD_LOCAL);
++    if (!m_gpuHandle)
++        m_gpuHandle = dlopen("@rpath/libLiteRtMetalAccelerator.dylib", RTLD_NOW | RTLD_LOCAL);
++    if (!m_gpuHandle)
++        m_gpuHandle = dlopen("@executable_path/libLiteRtMetalAccelerator.dylib", RTLD_NOW | RTLD_LOCAL);
++
++    if (m_gpuHandle) {
++        m_gpuKind = GpuAcceleratorKind::AppleMetal;
++        // Also try loading the Metal TopK sampler (optional, for LLM perf)
++        dlopen("libLiteRtTopKMetalSampler.dylib", RTLD_NOW | RTLD_LOCAL);
++    }
++
++#elif defined(__ANDROID__)
++    // Android: try native GPU accelerator first, then OpenCL
++    m_gpuHandle = dlopen("libLiteRtGpuAccelerator.so", RTLD_NOW | RTLD_LOCAL);
++    if (m_gpuHandle) {
++        m_gpuKind = GpuAcceleratorKind::AndroidGpu;
++        // Also load the OpenCL sampler for TopK (optional)
++        dlopen("libLiteRtTopKOpenClSampler.so", RTLD_NOW | RTLD_LOCAL);
++    } else {
++        m_gpuHandle = dlopen("libLiteRtOpenClAccelerator.so", RTLD_NOW | RTLD_LOCAL);
++        if (m_gpuHandle) {
++            m_gpuKind = GpuAcceleratorKind::AndroidOpenCL;
++            dlopen("libLiteRtTopKOpenClSampler.so", RTLD_NOW | RTLD_LOCAL);
++        }
++    }
++
++#else
++    // Linux: no native GPU accelerator in prebuilts, CPU via XNNPACK
++    m_gpuKind = GpuAcceleratorKind::None;
++#endif
 +}
 +
 +} // namespace WebNN

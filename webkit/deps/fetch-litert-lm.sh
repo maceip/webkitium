@@ -110,11 +110,58 @@ done
 
 echo ""
 echo "=== LiteRT-LM ${LITERT_LM_VERSION} fetched successfully ==="
+
+# Auto-detect platform and stage prebuilt libraries
+STAGE_DIR="${2:-}"
+if [ -n "${STAGE_DIR}" ]; then
+    echo ""
+    echo "Staging prebuilt libraries to: ${STAGE_DIR}"
+    mkdir -p "${STAGE_DIR}"
+
+    case "$(uname -s)-$(uname -m)" in
+        MINGW*-*|MSYS*-*|CYGWIN*-*|*-x86_64)
+            if [ -d "${TARGET_DIR}/prebuilt/windows_x86_64" ]; then
+                PLAT_DIR="${TARGET_DIR}/prebuilt/windows_x86_64"
+                echo "  Platform: Windows x86_64"
+                cp -v "${PLAT_DIR}/libLiteRt.dll" "${STAGE_DIR}/" 2>/dev/null || true
+                cp -v "${PLAT_DIR}/libGemmaModelConstraintProvider.dll" "${STAGE_DIR}/" 2>/dev/null || true
+            fi
+            ;;
+        Darwin-arm64)
+            PLAT_DIR="${TARGET_DIR}/prebuilt/macos_arm64"
+            echo "  Platform: macOS arm64"
+            cp -v "${PLAT_DIR}/libLiteRt.dylib" "${STAGE_DIR}/" 2>/dev/null || true
+            cp -v "${PLAT_DIR}/libLiteRtMetalAccelerator.dylib" "${STAGE_DIR}/" 2>/dev/null || true
+            cp -v "${PLAT_DIR}/libLiteRtTopKMetalSampler.dylib" "${STAGE_DIR}/" 2>/dev/null || true
+            cp -v "${PLAT_DIR}/libGemmaModelConstraintProvider.dylib" "${STAGE_DIR}/" 2>/dev/null || true
+            ;;
+        Linux-x86_64)
+            PLAT_DIR="${TARGET_DIR}/prebuilt/linux_x86_64"
+            echo "  Platform: Linux x86_64"
+            cp -v "${PLAT_DIR}/libLiteRt.so" "${STAGE_DIR}/" 2>/dev/null || true
+            cp -v "${PLAT_DIR}/libGemmaModelConstraintProvider.so" "${STAGE_DIR}/" 2>/dev/null || true
+            ;;
+        Linux-aarch64)
+            PLAT_DIR="${TARGET_DIR}/prebuilt/linux_arm64"
+            echo "  Platform: Linux arm64"
+            cp -v "${PLAT_DIR}/libLiteRt.so" "${STAGE_DIR}/" 2>/dev/null || true
+            cp -v "${PLAT_DIR}/libGemmaModelConstraintProvider.so" "${STAGE_DIR}/" 2>/dev/null || true
+            ;;
+        *)
+            echo "  Unknown platform: $(uname -s)-$(uname -m)"
+            echo "  Copy files manually from ${TARGET_DIR}/prebuilt/<your-platform>/"
+            ;;
+    esac
+    echo "  Staging complete."
+fi
+
 echo ""
 echo "Prebuilt libraries to copy beside your browser binary:"
-echo "  Android: prebuilt/android_arm64/libLiteRtGpuAccelerator.so + libLiteRtOpenClAccelerator.so"
-echo "  macOS:   prebuilt/macos_arm64/libLiteRtMetalAccelerator.dylib + libLiteRt.dylib"
 echo "  Windows: prebuilt/windows_x86_64/libLiteRt.dll"
+echo "  macOS:   prebuilt/macos_arm64/libLiteRt.dylib + libLiteRtMetalAccelerator.dylib + libLiteRtTopKMetalSampler.dylib"
+echo "  iOS:     prebuilt/ios_arm64/libLiteRt.dylib + libLiteRtMetalAccelerator.dylib + libLiteRtTopKMetalSampler.dylib"
 echo "  Linux:   prebuilt/linux_x86_64/libLiteRt.so"
+echo "  Android: prebuilt/android_arm64/libLiteRtGpuAccelerator.so + libLiteRtOpenClAccelerator.so + libLiteRtTopKOpenClSampler.so"
 echo ""
-echo "To build from source: cd ${TARGET_DIR} && bazel build //runtime/engine:litert_lm_main"
+echo "Or: ./webkit/deps/fetch-litert-lm.sh [clone-dir] [stage-dir]"
+echo "    to auto-copy the right files for your platform."
