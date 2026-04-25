@@ -116,7 +116,10 @@ jobs:
             git clone --depth 1 --branch v0.4.2 https://github.com/ystreet/librice.git "$RUNNER_TEMP/librice"
             cd "$RUNNER_TEMP/librice"
             LIBDIR="/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)"
-            sudo env PATH="$PATH" cargo cinstall --release --prefix=/usr --libdir="$LIBDIR"
+            # Build to a local prefix, then sudo copy into /usr
+            cargo cbuild --release
+            cargo cinstall --release --destdir="$RUNNER_TEMP/rice-install" --prefix=/usr --libdir="$LIBDIR"
+            sudo cp -a "$RUNNER_TEMP/rice-install/usr/." /usr/
             sudo ldconfig
             echo "librice $(pkg-config --modversion rice-proto) installed"
           fi
