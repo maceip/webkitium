@@ -11,13 +11,13 @@ diff --git a/Source/WebCore/Modules/WebGPU/GPUAdapter.cpp b/Source/WebCore/Modul
 +    // protectedThis->name() inside the IPC reply hit a poisoned-Ref UAF
 +    // and crashed WebKitWebProcess at GPUAdapter::info+0x4.
 +    String capturedAdapterName = name();
-+    m_backing->requestDevice(convertToBacking(deviceDescriptor), [adapterName = WTFMove(capturedAdapterName), deviceDescriptor, promise = WTF::move(promise), scriptExecutionContextRef = protect(scriptExecutionContext)](RefPtr<WebGPU::Device>&& device) mutable {
++    m_backing->requestDevice(convertToBacking(deviceDescriptor), [adapterName = WTF::move(capturedAdapterName), deviceDescriptor, promise = WTF::move(promise), scriptExecutionContextRef = protect(scriptExecutionContext)](RefPtr<WebGPU::Device>&& device) mutable {
          if (!device.get())
              promise.reject(Exception(ExceptionCode::OperationError));
          else {
              auto queueLabel = deviceDescriptor ? deviceDescriptor->defaultQueue.label : ""_s;
 -            Ref<GPUDevice> gpuDevice = GPUDevice::create(scriptExecutionContextRef.ptr(), device.releaseNonNull(), deviceDescriptor ? WTF::move(queueLabel) : ""_s, GPUAdapterInfo::create(protectedThis->name()));
-+            Ref<GPUDevice> gpuDevice = GPUDevice::create(scriptExecutionContextRef.ptr(), device.releaseNonNull(), deviceDescriptor ? WTF::move(queueLabel) : ""_s, GPUAdapterInfo::create(WTFMove(adapterName)));
++            Ref<GPUDevice> gpuDevice = GPUDevice::create(scriptExecutionContextRef.ptr(), device.releaseNonNull(), deviceDescriptor ? WTF::move(queueLabel) : ""_s, GPUAdapterInfo::create(WTF::move(adapterName)));
              gpuDevice->suspendIfNeeded();
              promise.resolve(WTF::move(gpuDevice));
          }
