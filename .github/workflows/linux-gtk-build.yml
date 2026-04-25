@@ -109,11 +109,9 @@ jobs:
             echo "librice already installed"
           else
             export PATH="$HOME/.cargo/bin:$PATH"
-            if ! command -v cargo >/dev/null 2>&1; then
-              curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
-              source "$HOME/.cargo/env"
-            fi
-            rustup default stable 2>/dev/null || true
+            # Ensure Rust toolchain is installed and default is set
+            rustup default stable
+            cargo --version
             cargo install cargo-c
             git clone --depth 1 --branch v0.4.2 https://github.com/ystreet/librice.git "$RUNNER_TEMP/librice"
             cd "$RUNNER_TEMP/librice"
