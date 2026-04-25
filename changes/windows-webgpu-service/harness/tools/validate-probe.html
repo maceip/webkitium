@@ -161,18 +161,23 @@ function beacon(p) { try { new Image().src = '/beacon?phase=' + encodeURICompone
     await postReport(report);
     return;
   }
+  beacon('pre-device-queue');
   report.runtime.queueAvailable = !!device.queue;
+  beacon('post-device-queue=' + !!device.queue);
   line('requestDevice', true, 'ok (queue=' + !!device.queue + ')', {
     features: Array.from(device.features || []),
     limits: (() => { const o = {}; for (const k in device.limits) o[k] = device.limits[k]; return o; })(),
   });
+  beacon('post-line-requestDevice');
 
   // Uncaptured error sink.
   let uncaptured = null;
   device.onuncapturederror = (ev) => { uncaptured = ev.error?.message || String(ev.error); };
 
+  beacon('post-onuncapturederror');
   // Compute smoke (matches harness probeComputeSmoke).
   try {
+    beacon('compute-pre-shader');
     const N = 1024;
     const shader = device.createShaderModule({ code: `
       @group(0) @binding(0) var<storage, read_write> data : array<u32>;
