@@ -264,7 +264,7 @@ diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU
  {
  }
  
-@@ -212,23 +191,65 @@
+@@ -212,23 +191,75 @@
      return true;
  }
  
@@ -295,27 +295,34 @@ diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU
 -    auto device = wgpuAdapterCreateDevice(m_backing.get(), nullptr);
 -    if (!device) {
 -        callback(nullptr);
++    WTFLogAlways("[WebGPU] dawnRequestDeviceCallback enter: status=%u device=%p", static_cast<unsigned>(status), device);
 +    std::unique_ptr<DawnRequestDeviceUserdata> data(static_cast<DawnRequestDeviceUserdata*>(userdata1));
-+    if (!data)
++    if (!data) {
++        WTFLogAlways("[WebGPU] dawnRequestDeviceCallback: null userdata, returning");
 +        return;
++    }
 +    if (status != WGPURequestDeviceStatus_Success || !device) {
++        WTFLogAlways("[WebGPU] dawnRequestDeviceCallback: failure path");
 +        WTF::move(data->callback)(nullptr);
          return;
      }
 -    callback(DeviceImpl::create(adoptWebGPU(device), supportedFeatures(m_backing.get()), supportedLimits(m_backing.get()), m_convertToBackingContext));
++    WTFLogAlways("[WebGPU] dawnRequestDeviceCallback: gathering features/limits");
 +    auto features = DawnCompat::supportedFeaturesFromDevice(device);
 +    auto limits = DawnCompat::supportedLimitsFromDevice(device);
 +    auto backing = adoptWebGPU(device);
-+    WTF::move(data->callback)(DeviceImpl::create(WTF::move(backing), WTF::move(features), WTF::move(limits), data->convertToBackingContext.copyRef(), data->instance));
++    WTFLogAlways("[WebGPU] dawnRequestDeviceCallback: creating DeviceImpl");
++    auto deviceImpl = DeviceImpl::create(WTF::move(backing), WTF::move(features), WTF::move(limits), data->convertToBackingContext.copyRef(), data->instance);
++    WTFLogAlways("[WebGPU] dawnRequestDeviceCallback: invoking spec-layer callback");
++    WTF::move(data->callback)(WTF::move(deviceImpl));
++    WTFLogAlways("[WebGPU] dawnRequestDeviceCallback: spec-layer callback returned");
 +}
 +
 +void AdapterImpl::requestDevice(const DeviceDescriptor& descriptor, CompletionHandler<void(RefPtr<Device>&&)>&& callback)
 +{
 +#if PLATFORM(WIN)
++    WTFLogAlways("[WebGPU] AdapterImpl::requestDevice enter: this=%p instance=%p adapter=%p", this, m_dawnInstance, m_backing.get());
 +    auto utf8Label = descriptor.label.utf8();
-+    // queueLabel must outlive wgpuAdapterRequestDevice — a CString temporary
-+    // would die at end-of-statement leaving deviceDescriptor.defaultQueue.label
-+    // pointing at freed memory; Dawn deref'd that and crashed the renderer.
 +    CString queueLabel("default"_s);
 +    WGPUDeviceDescriptor deviceDescriptor { };
 +    deviceDescriptor.label = DawnCompat::toDawnStringView(utf8Label);
@@ -332,12 +339,15 @@ diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU
 +    callbackInfo.callback = dawnRequestDeviceCallback;
 +    callbackInfo.userdata1 = userdata;
 +
++    WTFLogAlways("[WebGPU] AdapterImpl::requestDevice calling wgpuAdapterRequestDevice");
 +    auto future = wgpuAdapterRequestDevice(m_backing.get(), &deviceDescriptor, callbackInfo);
++    WTFLogAlways("[WebGPU] AdapterImpl::requestDevice waiting for future");
 +    DawnCompat::waitForFuture(m_dawnInstance, future);
++    WTFLogAlways("[WebGPU] AdapterImpl::requestDevice waitForFuture returned");
  #else
      auto label = descriptor.label.utf8();
  
-@@ -370,7 +391,11 @@
+@@ -370,7 +401,11 @@
  
  bool AdapterImpl::xrCompatible()
  {
