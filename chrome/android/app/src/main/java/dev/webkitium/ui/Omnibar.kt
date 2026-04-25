@@ -45,6 +45,7 @@ import dev.webkitium.theme.SemanticToken
 @Composable
 fun Omnibar(
     modifier: Modifier = Modifier,
+    onSubmit: ((String) -> Unit)? = null,
 ) {
     val semantic = LocalSemantic.current
     val focusRequester = remember { FocusRequester() }
@@ -93,6 +94,16 @@ fun Omnibar(
                 semantic[SemanticToken.AccentFill]
             ),
             singleLine = true,
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                imeAction = androidx.compose.ui.text.input.ImeAction.Go
+            ),
+            keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                onGo = {
+                    if (text.isNotBlank()) {
+                        onSubmit?.invoke(text)
+                    }
+                }
+            ),
             decorationBox = { innerTextField ->
                 if (text.isEmpty()) {
                     Text(
