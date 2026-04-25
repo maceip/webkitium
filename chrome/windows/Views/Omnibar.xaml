@@ -4,54 +4,161 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <Border x:Name="Pill"
-            Background="{ThemeResource SurfaceSunken}"
-            BorderBrush="{ThemeResource BorderSubtle}"
-            BorderThickness="1"
-            CornerRadius="8"
-            Padding="8,2"
-            MinHeight="28"
-            HorizontalAlignment="Stretch">
-        <Grid ColumnSpacing="8">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
+    <!--
+        Compact-by-default address bar.
 
-            <!--
-                Lockmark. Symbol.Permissions maps to the padlock glyph.
-            -->
-            <SymbolIcon Grid.Column="0"
-                        Symbol="Permissions"
-                        Foreground="{ThemeResource AccentFill}"
-                        VerticalAlignment="Center" />
+        Rest state (no focus): a 300dp pill with [key] [placeholder /
+        truncated origin] [reload] [extensions] [more].
 
-            <TextBox Grid.Column="1"
-                     x:Name="Input"
-                     PlaceholderText="Search or enter address"
-                     Background="Transparent"
-                     BorderThickness="0"
-                     VerticalAlignment="Center"
-                     VerticalContentAlignment="Center" />
+        Focus state: the pill expands into an overlay that grows
+        downward (and slightly outward) to host a suggestions list.
+        The expansion uses a Popup so it can paint over the tab strip
+        and content area without resizing the pill's parent column.
+    -->
 
-            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2">
-                <Button Width="32" Height="32" Padding="0"
-                        Background="Transparent" BorderBrush="Transparent"
-                        ToolTipService.ToolTip="Reload (Ctrl+R)">
-                    <SymbolIcon Symbol="Refresh" />
-                </Button>
-                <Button Width="32" Height="32" Padding="0"
-                        Background="Transparent" BorderBrush="Transparent"
-                        ToolTipService.ToolTip="Extensions">
-                    <SymbolIcon Symbol="Library" />
-                </Button>
-                <Button Width="32" Height="32" Padding="0"
-                        Background="Transparent" BorderBrush="Transparent"
-                        ToolTipService.ToolTip="More">
-                    <SymbolIcon Symbol="More" />
-                </Button>
-            </StackPanel>
-        </Grid>
-    </Border>
+    <Grid x:Name="Root">
+        <!-- Compact pill, always present. -->
+        <Border x:Name="Pill"
+                Background="{ThemeResource SurfaceSunken}"
+                BorderBrush="{ThemeResource BorderSubtle}"
+                BorderThickness="1"
+                CornerRadius="6"
+                Padding="6,2"
+                MinHeight="26"
+                MaxHeight="28"
+                Width="300">
+            <Grid ColumnSpacing="6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <SymbolIcon Grid.Column="0"
+                            Symbol="Permissions"
+                            Foreground="{ThemeResource AccentFill}"
+                            VerticalAlignment="Center" />
+
+                <TextBox Grid.Column="1"
+                         x:Name="Input"
+                         PlaceholderText="Search or enter address"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         FontSize="12"
+                         Padding="0"
+                         VerticalAlignment="Center"
+                         VerticalContentAlignment="Center"
+                         GotFocus="OnInputGotFocus"
+                         LostFocus="OnInputLostFocus"
+                         KeyDown="OnInputKeyDown" />
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="0">
+                    <Button Width="22" Height="22" Padding="0"
+                            Background="Transparent" BorderBrush="Transparent"
+                            ToolTipService.ToolTip="Reload (Ctrl+R)">
+                        <SymbolIcon Symbol="Refresh" RenderTransformOrigin="0.5,0.5">
+                            <SymbolIcon.RenderTransform>
+                                <ScaleTransform ScaleX="0.65" ScaleY="0.65" />
+                            </SymbolIcon.RenderTransform>
+                        </SymbolIcon>
+                    </Button>
+                    <Button Width="22" Height="22" Padding="0"
+                            Background="Transparent" BorderBrush="Transparent"
+                            ToolTipService.ToolTip="Extensions">
+                        <SymbolIcon Symbol="Library" RenderTransformOrigin="0.5,0.5">
+                            <SymbolIcon.RenderTransform>
+                                <ScaleTransform ScaleX="0.65" ScaleY="0.65" />
+                            </SymbolIcon.RenderTransform>
+                        </SymbolIcon>
+                    </Button>
+                    <Button Width="22" Height="22" Padding="0"
+                            Background="Transparent" BorderBrush="Transparent"
+                            ToolTipService.ToolTip="More">
+                        <SymbolIcon Symbol="More" RenderTransformOrigin="0.5,0.5">
+                            <SymbolIcon.RenderTransform>
+                                <ScaleTransform ScaleX="0.65" ScaleY="0.65" />
+                            </SymbolIcon.RenderTransform>
+                        </SymbolIcon>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!--
+            Expansion overlay. Popup so it floats over neighbouring
+            chrome without disturbing the title-bar layout.
+            HorizontalOffset/VerticalOffset and Width are wired in
+            code-behind from the pill's actual rect.
+        -->
+        <Popup x:Name="ExpandedPopup"
+               IsLightDismissEnabled="True"
+               Closed="OnPopupClosed">
+            <Border x:Name="ExpandedRoot"
+                    Background="{ThemeResource SurfaceOverlay}"
+                    BorderBrush="{ThemeResource BorderDefault}"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Padding="0"
+                    MinHeight="180"
+                    Width="640">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Mirror of the input row, larger, full-width. -->
+                    <Grid Grid.Row="0" Padding="12,10" ColumnSpacing="10"
+                          BorderBrush="{ThemeResource BorderSubtle}"
+                          BorderThickness="0,0,0,1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <SymbolIcon Grid.Column="0"
+                                    Symbol="Permissions"
+                                    Foreground="{ThemeResource AccentFill}"
+                                    VerticalAlignment="Center" />
+                        <TextBox Grid.Column="1"
+                                 x:Name="ExpandedInput"
+                                 PlaceholderText="Search or enter address"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 FontSize="14"
+                                 VerticalAlignment="Center"
+                                 KeyDown="OnExpandedKeyDown"
+                                 TextChanged="OnExpandedTextChanged" />
+                        <Button Grid.Column="2"
+                                Width="24" Height="24" Padding="0"
+                                Background="Transparent" BorderBrush="Transparent"
+                                Click="OnCollapseClicked"
+                                ToolTipService.ToolTip="Close (Esc)">
+                            <SymbolIcon Symbol="Cancel" RenderTransformOrigin="0.5,0.5">
+                                <SymbolIcon.RenderTransform>
+                                    <ScaleTransform ScaleX="0.7" ScaleY="0.7" />
+                                </SymbolIcon.RenderTransform>
+                            </SymbolIcon>
+                        </Button>
+                    </Grid>
+
+                    <!-- Suggestions list. Stub data; replaced when
+                         the omnibox suggestion service lands. -->
+                    <ListView Grid.Row="1"
+                              x:Name="Suggestions"
+                              SelectionMode="Single"
+                              IsItemClickEnabled="True"
+                              ItemClick="OnSuggestionClicked"
+                              Padding="0,4,0,4">
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="Padding" Value="12,6" />
+                                <Setter Property="MinHeight" Value="32" />
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                    </ListView>
+                </Grid>
+            </Border>
+        </Popup>
+    </Grid>
 </UserControl>

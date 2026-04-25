@@ -15,16 +15,14 @@
     </winex:WindowEx.Backdrop>
 
     <!--
-        Layout after user feedback.
-          Row 0: title-bar strip. TabView on the left (favicon-wide
-          tabs, horizontal mode), explicit draggable filler in the
-          middle, system controls reserve on the right.
-          Row 1: content area. The selected tab's BrowserTab
-          UserControl renders here. Each tab owns its own omnibar +
-          WebView2.
-          The vertical rail is removed; it returns only in vertical-
-          tab mode (see BrowserStateModel.tabStripMode) via a future
-          Ctrl+Shift+E toggle.
+        Title-bar layout per design rules.
+          Col 0: Omnibar (compact pill, leading edge).
+          Col 1: TabView (favicon-wide tabs).
+          Col 2: Drag filler (window-drag region between last tab
+                 and the system-controls reserve).
+          Col 3: System controls reserve (min/max/close drawn by OS).
+        Row 1 below: ContentControl hosting the active tab's BrowserTab
+        (just the WebView2 surface).
     -->
     <Grid>
         <Grid.RowDefinitions>
@@ -32,19 +30,22 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- Row 0: title-bar strip. -->
         <Grid Grid.Row="0" x:Name="TitleBarStrip">
             <Grid.ColumnDefinitions>
-                <!-- TabView width sizes to content (favicon-wide tabs). -->
                 <ColumnDefinition Width="Auto" />
-                <!-- Draggable filler. -->
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
-                <!-- Reserve for system min/max/close (drawn by OS). -->
                 <ColumnDefinition Width="140" />
             </Grid.ColumnDefinitions>
 
+            <!-- Compact omnibar at the leading edge. -->
+            <Grid Grid.Column="0" Padding="8,6,4,6" VerticalAlignment="Center">
+                <views:Omnibar x:Name="Omnibar" />
+            </Grid>
+
+            <!-- Tab strip. -->
             <TabView x:Name="TabStrip"
-                     Grid.Column="0"
+                     Grid.Column="1"
                      VerticalAlignment="Stretch"
                      TabWidthMode="SizeToContent"
                      CloseButtonOverlayMode="OnPointerOver"
@@ -52,18 +53,11 @@
                      TabCloseRequested="OnTabClose"
                      SelectionChanged="OnTabSelectionChanged" />
 
-            <!--
-                Explicit drag filler. The Border is visually empty but
-                is a first-class XAML element so SetTitleBar(...) on the
-                containing strip still considers this whole row a drag
-                region. InputNonClientPointerSource marks TabView
-                internals as passthrough, so tab clicks work; everything
-                else drags the window.
-            -->
-            <Border Grid.Column="1" Background="Transparent" />
+            <!-- Drag filler. -->
+            <Border Grid.Column="2" Background="Transparent" />
         </Grid>
 
-        <!-- Row 1: content frame for the active tab. -->
+        <!-- Active tab content (WebView2 only; omnibar lives above). -->
         <ContentControl x:Name="ActiveTabHost"
                         Grid.Row="1"
                         HorizontalContentAlignment="Stretch"

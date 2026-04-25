@@ -25,13 +25,18 @@ public sealed partial class MainWindow : WindowEx
     {
         InitializeComponent();
 
-        // Custom title bar with the TabView occupying the left portion
-        // and a draggable filler + system-controls reserve on the right.
-        // WinUIEx handles the drag region plumbing when SetTitleBar is
-        // given a container that has both interactive and non-interactive
-        // children.
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(TitleBarStrip);
+
+        // Route omnibar submissions to the active tab's WebView2.
+        Omnibar.Submitted += (_, text) =>
+        {
+            if (TabStrip.SelectedItem is TabViewItem item &&
+                _tabs.TryGetValue(item, out var tab))
+            {
+                tab.Navigate(NormalizeUrl(text));
+            }
+        };
 
         // Dev-only: Ctrl+Shift+T cycles test palettes.
         AddAccelerator(VirtualKey.T,
@@ -117,5 +122,17 @@ public sealed partial class MainWindow : WindowEx
         {
             ActiveTabHost.Content = null;
         }
+    }
+
+    private static Uri NormalizeUrl(string text)
+    {
+        var trimmed = text.Trim();
+        if (Uri.TryCreate(trimmed, UriKind.Absolute, out var direct)) return direct;
+        if (trimmed.Contains('.') && !trimmed.Contains(' '))
+        {
+            if (Uri.TryCreate("https://" + trimmed, UriKind.Absolute, out var asHttps)) return asHttps;
+        }
+        // Fall back to a search query.
+        return new Uri("https://duckduckgo.com/?q=" + Uri.EscapeDataString(trimmed));
     }
 }
