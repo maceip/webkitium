@@ -61,6 +61,7 @@ add_library(ng_browser_core STATIC
     extensions/ExtensionManifest.cpp
     extensions/ExtensionRegistry.cpp
     extensions/ExtensionRuntime.cpp
+    extensions/ManifestLoader.cpp
     sync/ChromiumSyncWireAdapter.cpp
     sync/LoopbackSyncClient.cpp
     sync/LoopbackSyncRpc.cpp
@@ -120,3 +121,17 @@ add_executable(ng_color_test
 
 target_link_libraries(ng_color_test PRIVATE ng_browser_core)
 add_test(NAME ng_color_test COMMAND ng_color_test)
+
+add_executable(ng_bridge_test
+    tests/BridgeTest.cpp
+)
+
+target_link_libraries(ng_bridge_test PRIVATE ng_browser_core)
+add_test(NAME ng_bridge_test COMMAND ng_bridge_test)
+
+add_executable(ng_manifest_loader_test
+    tests/ManifestLoaderTest.cpp
+)
+
+target_link_libraries(ng_manifest_loader_test PRIVATE ng_browser_core)
+add_test(NAME ng_manifest_loader_test COMMAND ng_manifest_loader_test)
