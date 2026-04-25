@@ -147,7 +147,7 @@ diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU
 diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
 --- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp	2026-04-16 11:51:32.865982496 +0000
 +++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp	2026-04-16 17:39:28.884548742 +0000
-@@ -30,8 +30,35 @@
+@@ -30,8 +30,30 @@
 
  #include "WebGPUConvertToBackingContext.h"
  #include "WebGPUDeviceImpl.h"
@@ -164,13 +164,8 @@ diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU
 +{
 +    static FILE* sLog = nullptr;
 +    if (!sLog) {
-+        // %TEMP% — sandboxed WebProcess can write to user temp.
-+        const char* tmp = getenv("TEMP");
-+        char path[512] = { 0 };
-+        snprintf(path, sizeof(path), "%s\\webgpu-debug.log", tmp ? tmp : "C:\\Windows\\Temp");
-+        sLog = fopen(path, "a");
++        sLog = fopen("C:\\webgpu-debug.log", "a");
 +        if (!sLog) return;
-+        fprintf(sLog, "[WebGPU] === log opened at %s ===\n", path);
 +    }
 +    va_list ap; va_start(ap, fmt);
 +    vfprintf(sLog, fmt, ap);
@@ -183,7 +178,7 @@ diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU
  #include <wtf/TZoneMallocInlines.h>
 
  namespace WebCore::WebGPU {
-@@ -39,8 +66,7 @@
+@@ -39,8 +61,7 @@
  static String adapterName(WGPUAdapter adapter)
  {
  #if PLATFORM(WIN)
@@ -193,7 +188,7 @@ diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU
  #else
      WGPUAdapterProperties properties;
      wgpuAdapterGetProperties(adapter, &properties);
-@@ -51,64 +77,34 @@
+@@ -51,64 +72,34 @@
  static Ref<SupportedFeatures> supportedFeatures(const Vector<WGPUFeatureName>& features)
  {
      Vector<String> result;
@@ -269,7 +264,7 @@ diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU
  #else
      WGPUSupportedLimits limits;
      auto result = wgpuAdapterGetLimits(adapter, &limits);
-@@ -167,10 +163,17 @@
+@@ -167,10 +158,17 @@
  
  WTF_MAKE_TZONE_ALLOCATED_IMPL(AdapterImpl);
  
@@ -288,7 +283,7 @@ diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU
  {
  }
  
-@@ -212,23 +215,75 @@
+@@ -212,23 +210,75 @@
      return true;
  }
  
@@ -371,7 +366,7 @@ diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU
  #else
      auto label = descriptor.label.utf8();
  
-@@ -370,7 +425,11 @@
+@@ -370,7 +420,11 @@
  
  bool AdapterImpl::xrCompatible()
  {
