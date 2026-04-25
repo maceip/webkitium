@@ -141,8 +141,8 @@ jobs:
           export WEBKITIUM_BROWSER_SHELL_TARGET=linux-gtk
           # Thunder (WPE/RDK) is not available on standard Ubuntu
           cp "$GITHUB_WORKSPACE/config/cmake/FindThunder.cmake" "$SRC/Source/cmake/FindThunder.cmake"
-          # OpenCDM/Thunder references are scattered across WebCore — empty all of them
-          grep -rl 'open_cdm\|OpenCDM\|CDMProxyThunder\|Thunder' "$SRC/Source/WebCore/" --include='*.cpp' --include='*.h' 2>/dev/null | while read f; do
+          # Empty only files that #include Thunder/OpenCDM SDK headers
+          grep -rl '#include.*open_cdm\|#include.*thunder' "$SRC/Source/WebCore/" --include='*.cpp' --include='*.h' 2>/dev/null | while read f; do
             echo "// disabled — no Thunder SDK" > "$f"
           done
           # GCC on ARM64 raises -Werror false positives in WebKit internals
