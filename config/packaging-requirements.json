@@ -1,0 +1,71 @@
+{
+  "schema": 1,
+  "product": {
+    "bundleIdMacIos": "org.webkitium.browser",
+    "displayName": "Webkitium",
+    "minimumOsVersions": {
+      "macos": "13.0",
+      "ios": "16.0",
+      "android": "28",
+      "windows": "10.0.19041"
+    }
+  },
+  "signing": {
+    "macos": {
+      "tool": "codesign / notarytool",
+      "env": ["APPLE_TEAM_ID", "CODESIGN_IDENTITY", "NOTARY_KEYCHAIN_PROFILE"],
+      "notes": "Gatekeeper requires Developer ID + staple; entitlements must match provisioning profile."
+    },
+    "ios": {
+      "tool": "xcodebuild archive + export with signing team",
+      "env": ["APPLE_TEAM_ID", "PROVISIONING_PROFILE_SPECIFIER"],
+      "notes": "Simulator builds unsigned; device/TestFlight need profiles and export plist."
+    },
+    "android": {
+      "tool": "apksigner / jarsigner after zipalign",
+      "env": ["ANDROID_KEYSTORE_PATH", "ANDROID_KEYSTORE_PASSWORD", "ANDROID_KEY_ALIAS"],
+      "notes": "Play signing vs debug; minSdk must cover Credential Manager / FIDO2 APIs you use."
+    },
+    "linux": {
+      "tool": "optional: gpg sign debs / flatpak-builder sign",
+      "env": [],
+      "notes": "Distribution-specific; Flatpak uses builder manifest signing."
+    },
+    "windows": {
+      "tool": "signtool Authenticode",
+      "env": ["WINDOWS_CERT_PATH", "WINDOWS_CERT_PASSWORD"],
+      "notes": "EV cert recommended for SmartScreen; MSI from WiX signs separately."
+    }
+  },
+  "permissionsRationale": {
+    "macos": {
+      "NSBluetoothAlwaysUsageDescription": "Required for security keys and passkeys that connect over Bluetooth (WebAuthn).",
+      "NSBluetoothPeripheralUsageDescription": "Legacy Bluetooth dialog text; keep in sync with Always variant where applicable.",
+      "NSFaceIDUsageDescription": "If using LocalAuthentication for WebAuthn UI.",
+      "NSCameraUsageDescription": "If QR or document capture is added.",
+      "NSMicrophoneUsageDescription": "If WebRTC or voice features are enabled."
+    },
+    "ios": {
+      "NSBluetoothAlwaysUsageDescription": "Required for Bluetooth security keys (WebAuthn / FIDO2).",
+      "com.apple.developer.associated-domains": "Passkeys / web credentials; list applinks: and webcredentials: hosts."
+    },
+    "android": {
+      "BLUETOOTH_CONNECT": "Android 12+ for BLE authenticators.",
+      "BLUETOOTH_SCAN": "Often required with neverForLocation for BLE scan without location.",
+      "android.permission.NFC": "Optional for NFC security keys."
+    },
+    "linux": {
+      "bluez": "Flatpak: org.bluez or device access; desktop: user session Bluetooth via portal where available."
+    },
+    "windows": {
+      "webauthn": "Uses OS WebAuthn API; Authenticode signing for binaries; optional app capability manifests for packaged MSIX."
+    }
+  },
+  "dependencies": {
+    "macos": ["Xcode", "Metal toolchain", "Developer ID Application cert"],
+    "ios": ["Xcode", "Apple Developer Program", "profiles for bundle id"],
+    "android": ["Android SDK/NDK", "Gradle", "keystore for release"],
+    "linux": ["Mesa/Vulkan or GL", "GTK deps per WebKitGTK", "optional: flatpak-builder"],
+    "windows": ["VS Build Tools", "LLVM", "vcpkg", "Authenticode cert"]
+  }
+}

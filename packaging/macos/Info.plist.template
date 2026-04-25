@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleExecutable</key>
+	<string>MiniBrowser</string>
+	<key>CFBundleIdentifier</key>
+	<string>org.webkitium.browser</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Webkitium</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>13.0</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Required for security keys and passkeys that use Bluetooth (WebAuthn).</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Required for Bluetooth security keys (WebAuthn).</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>Copyright © Webkitium</string>
+</dict>
+</plist>

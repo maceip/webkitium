@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.webkitium.browser</id>
+  <metadata_license>MIT</metadata_license>
+  <name>Webkitium</name>
+  <summary>WebKit-based browser shell</summary>
+  <description>
+    <p>Product shell around WebKit. Flatpak/snap manifests should request
+       device=DRI, network, and Bluetooth (org.bluez) if WebAuthn BLE keys are required.</p>
+  </description>
+  <launchable type="desktop-id">io.webkitium.browser.desktop</launchable>
+  <url type="homepage">https://example.invalid/</url>
+  <content_rating type="oars-1.1" />
+</component>

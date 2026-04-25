@@ -10,6 +10,7 @@ These files define **AWS regions**, **S3 prefixes**, **builder instance IDs**, a
 | **`changes.json`** | Enabled WebKit integration **lanes** (`changes/<id>/`). See note inside the file: **`windows-webgpu-service`** is **disabled** when that work lives under **`webkit/patches/windows/`**. |
 | **`windows-webgpu-dawn-green.json`** | Record of a known-green Windows WebGPU run (AMI, commit, `rootPatchDirectory`: **`webkit/patches/windows`**). |
 | **`webkit-build-matrix.json`** | Canonical CI pins (WebKit tarball commit, Dawn/vcpkg baseline, shared CMake toggles). Consumed by workflows and `config/ci_matrix_env.py`. |
+| **`packaging-requirements.json`** | Signing env names, min OS versions, permission rationale strings (WebAuthn / Bluetooth), per-platform dependency checklist for shippable binaries. |
 
 **Self-hosted runner images** (sudo, `gh` auth, disk, private-repo checkout) are documented in **`docs/runner-image-requirements.md`**. Run **`scripts/runners/validate-host-prereqs.sh`** on a new builder before registration.
 

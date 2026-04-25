@@ -1,0 +1,22 @@
+<!--
+  Merge into <manifest> … merge tools can use xmlns:tools.
+  Adjust maxSdkVersion / usesPermissionFlags per your minSdk and Play policy.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+	<!-- Bluetooth / BLE — CTAP2 / hybrid authenticators -->
+	<uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+	<uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+	<uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+	<uses-permission
+		android:name="android.permission.BLUETOOTH_SCAN"
+		android:usesPermissionFlags="neverForLocation"
+		tools:targetApi="s" />
+
+	<!-- Optional: NFC security keys -->
+	<uses-permission android:name="android.permission.NFC" />
+
+	<uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
+	<uses-feature android:name="android.hardware.nfc" android:required="false" />
+</manifest>
