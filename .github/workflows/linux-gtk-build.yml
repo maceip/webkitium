@@ -191,7 +191,7 @@ jobs:
         run: |
           set -euo pipefail
           SRC="${WEBKIT_SRC:?}"
-          ROOT="$SRC/WebKitBuild/Release"
+          ROOT="$SRC/WebKitBuild/GTK/Release"
           PLATFORM=linux-gtk
           RUN_ID="${GITHUB_RUN_ID:-local}"
           RUN_ATTEMPT="${GITHUB_RUN_ATTEMPT:-1}"
@@ -210,8 +210,8 @@ jobs:
         with:
           name: linux-gtk-build-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            ${{ env.WEBKIT_SRC }}/WebKitBuild/Release/bin
-            ${{ env.WEBKIT_SRC }}/WebKitBuild/Release/CMakeCache.txt
+            ${{ env.WEBKIT_SRC }}/WebKitBuild/GTK/Release/bin
+            ${{ env.WEBKIT_SRC }}/WebKitBuild/GTK/Release/CMakeCache.txt
             ${{ runner.temp }}/baseline-packages
           if-no-files-found: warn
 
