@@ -56,8 +56,11 @@ public sealed partial class Omnibar : UserControl
     private void OpenExpanded(string initialText)
     {
         ExpandedInput.Text = initialText;
+        // Top-left aligned with the pill's top-left so the popup
+        // OVERLAYS the address bar entirely (per design rules screenshot).
+        // Width >= pill width, expanding rightward and downward.
         ExpandedPopup.HorizontalOffset = 0;
-        ExpandedPopup.VerticalOffset = Pill.ActualHeight + 4;
+        ExpandedPopup.VerticalOffset = 0;
         ExpandedRoot.Width = Math.Max(Pill.ActualWidth, 640);
         ExpandedPopup.IsOpen = true;
         ExpandedInput.SelectAll();

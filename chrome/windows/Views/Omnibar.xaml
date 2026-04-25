@@ -85,21 +85,22 @@
         </Border>
 
         <!--
-            Expansion overlay. Popup so it floats over neighbouring
-            chrome without disturbing the title-bar layout.
-            HorizontalOffset/VerticalOffset and Width are wired in
-            code-behind from the pill's actual rect.
+            Expansion overlay. Popup positioned so its top-left aligns
+            with the pill top-left; the dropdown OVERLAYS the address
+            bar (the small input is hidden under it). Popup extends
+            rightward and downward from there. Solid opaque
+            background; clicking outside dismisses immediately.
         -->
         <Popup x:Name="ExpandedPopup"
                IsLightDismissEnabled="True"
                Closed="OnPopupClosed">
             <Border x:Name="ExpandedRoot"
-                    Background="{ThemeResource SurfaceOverlay}"
+                    Background="{ThemeResource SurfaceChromeRaised}"
                     BorderBrush="{ThemeResource BorderDefault}"
                     BorderThickness="1"
                     CornerRadius="10"
                     Padding="0"
-                    MinHeight="180"
+                    MinHeight="240"
                     Width="640">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -107,10 +108,16 @@
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <!-- Mirror of the input row, larger, full-width. -->
-                    <Grid Grid.Row="0" Padding="12,10" ColumnSpacing="10"
+                    <!--
+                        Mirror of the rest-state pill, sized to occupy
+                        the same 26 to 28dp band as the compact
+                        omnibar below. Visually replaces the pill
+                        while the dropdown is open.
+                    -->
+                    <Grid Grid.Row="0" Padding="6,2" ColumnSpacing="6"
                           BorderBrush="{ThemeResource BorderSubtle}"
-                          BorderThickness="0,0,0,1">
+                          BorderThickness="0,0,0,1"
+                          MinHeight="28">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
@@ -125,18 +132,20 @@
                                  PlaceholderText="Search or enter address"
                                  Background="Transparent"
                                  BorderThickness="0"
-                                 FontSize="14"
+                                 FontSize="12"
+                                 Padding="0"
                                  VerticalAlignment="Center"
+                                 VerticalContentAlignment="Center"
                                  KeyDown="OnExpandedKeyDown"
                                  TextChanged="OnExpandedTextChanged" />
                         <Button Grid.Column="2"
-                                Width="24" Height="24" Padding="0"
+                                Width="22" Height="22" Padding="0"
                                 Background="Transparent" BorderBrush="Transparent"
                                 Click="OnCollapseClicked"
                                 ToolTipService.ToolTip="Close (Esc)">
                             <SymbolIcon Symbol="Cancel" RenderTransformOrigin="0.5,0.5">
                                 <SymbolIcon.RenderTransform>
-                                    <ScaleTransform ScaleX="0.7" ScaleY="0.7" />
+                                    <ScaleTransform ScaleX="0.6" ScaleY="0.6" />
                                 </SymbolIcon.RenderTransform>
                             </SymbolIcon>
                         </Button>
