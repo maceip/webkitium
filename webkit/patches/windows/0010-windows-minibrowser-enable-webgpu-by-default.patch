@@ -1,0 +1,33 @@
+Windows MiniBrowser: enable WebGPU runtime feature by default.
+
+The Apple Win port ships with WebGPU's runtime feature flag disabled,
+so navigator.gpu.requestAdapter() returns null on every launch even
+though the binding is exposed. The InternalFeatures dialog can flip
+the bit at runtime but the change is in-memory only -- WebKitBrowserWindow
+does not persist it.
+
+Set WebGPUEnabled=true on the freshly-created WKPreferencesRef in
+WebKitBrowserWindow::create() before it is bound to the page
+configuration. This is the only path that runs before the first
+navigation and is independent of the menu/UI state.
+
+The preference key is "WebGPUEnabled", taken verbatim from
+Source/WTF/Scripts/Preferences/UnifiedWebPreferences.yaml.
+
+diff --git a/Tools/MiniBrowser/win/WebKitBrowserWindow.cpp b/Tools/MiniBrowser/win/WebKitBrowserWindow.cpp
+--- a/Tools/MiniBrowser/win/WebKitBrowserWindow.cpp
++++ b/Tools/MiniBrowser/win/WebKitBrowserWindow.cpp
+@@ -148,6 +148,13 @@
+     auto preferences = adoptWK(WKPreferencesCreate());
+     WKPreferencesSetMediaCapabilitiesEnabled(preferences.get(), false);
+     WKPreferencesSetDeveloperExtrasEnabled(preferences.get(), true);
++    // webkitium: turn on the WebGPU runtime feature so navigator.gpu
++    // requestAdapter() resolves on first launch.  The InternalFeatures
++    // dialog only mutates this in-memory and does not persist.
++    {
++        auto webGPUKey = adoptWK(WKStringCreateWithUTF8CString("WebGPUEnabled"));
++        WKPreferencesSetExperimentalFeatureForKey(preferences.get(), true, webGPUKey.get());
++    }
+ 
+     auto pageConf = adoptWK(WKPageConfigurationCreate());
+     WKPageConfigurationSetWebsiteDataStore(pageConf.get(), websiteDataStore.get());
