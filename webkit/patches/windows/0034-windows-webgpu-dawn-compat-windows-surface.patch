@@ -2,7 +2,7 @@ diff --git a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDawnCompat.cpp b
 index 74d6362..ed038f8 100644
 --- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDawnCompat.cpp
 +++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUDawnCompat.cpp
-@@ -290,6 +290,43 @@ void insertDebugMarker(WGPURenderPassEncoder o, const String& label) { wgpuRende
+@@ -304,6 +304,43 @@ void insertDebugMarker(WGPURenderPassEncoder o, const String& label) { wgpuRende
  void pushDebugGroup(WGPURenderBundleEncoder o, const String& label) { wgpuRenderBundleEncoderPushDebugGroup(o, toDawnStringView(label)); }
  void insertDebugMarker(WGPURenderBundleEncoder o, const String& label) { wgpuRenderBundleEncoderInsertDebugMarker(o, toDawnStringView(label)); }
  
