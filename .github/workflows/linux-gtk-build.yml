@@ -100,6 +100,26 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             libopenxr-dev libbacktrace-dev xdg-dbus-proxy 2>/dev/null || true
 
+      - name: Install librice from source
+        run: |
+          set -euo pipefail
+          # librice is a Rust ICE library required by WebKit GTK's WebRTC.
+          # Not packaged for Ubuntu — build from source with cargo-c.
+          if pkg-config --atleast-version=0.4.2 rice-proto 2>/dev/null; then
+            echo "librice already installed"
+          else
+            command -v cargo >/dev/null 2>&1 || {
+              curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+              source "$HOME/.cargo/env"
+            }
+            cargo install cargo-c
+            git clone --depth 1 --branch v0.4.2 https://github.com/niceneeded/librice.git "$RUNNER_TEMP/librice"
+            cd "$RUNNER_TEMP/librice"
+            cargo cinstall --release --prefix=/usr --libdir=/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)
+            sudo ldconfig
+            echo "librice $(pkg-config --modversion rice-proto) installed"
+          fi
+
       - name: Build
         run: |
           set -euo pipefail
@@ -107,34 +127,8 @@ jobs:
           cd "$SRC"
           JOBS="$(nproc 2>/dev/null || echo 4)"
           export WEBKITIUM_BROWSER_SHELL_TARGET=linux-gtk
-          # Overwrite Find modules for packages unavailable on standard Ubuntu
+          # Thunder (WPE/RDK) is not available on standard Ubuntu
           cp "$GITHUB_WORKSPACE/config/cmake/FindThunder.cmake" "$SRC/Source/cmake/FindThunder.cmake"
-          cp "$GITHUB_WORKSPACE/config/cmake/FindRice.cmake" "$SRC/Source/cmake/FindRice.cmake"
-          # librice is not available on Ubuntu. Create stub headers with
-          # enough type definitions to let the rice platform code compile
-          # (it will be dead code with ENABLE_WEB_RTC=OFF).
-          mkdir -p "$SRC/Source/ThirdParty/rice-stubs"
-          cat > "$SRC/Source/ThirdParty/rice-stubs/rice-proto.h" << 'STUB'
-          #pragma once
-          typedef struct _RiceAddress RiceAddress;
-          typedef struct _RiceCandidate RiceCandidate;
-          typedef struct _RiceCredentials RiceCredentials;
-          typedef struct _RiceComponent RiceComponent;
-          typedef struct _RiceStream RiceStream;
-          typedef struct _RiceAgent RiceAgent;
-          typedef struct _RiceGatheringState RiceGatheringState;
-          typedef struct _RiceConnectionState RiceConnectionState;
-          void rice_address_free(RiceAddress*);
-          void rice_candidate_free(RiceCandidate*);
-          void rice_credentials_free(RiceCredentials*);
-          STUB
-          cat > "$SRC/Source/ThirdParty/rice-stubs/rice-io.h" << 'STUB'
-          #pragma once
-          STUB
-          # GStreamerChecks.cmake:67 emits FATAL_ERROR when librice is missing.
-          # Downgrade to WARNING so configure continues with USE_LIBRICE=OFF.
-          sed -i 's/message(FATAL_ERROR.*librice/message(WARNING "librice/' "$SRC/Source/cmake/GStreamerChecks.cmake"
-          # GCC on ARM64 raises -Werror=stringop-overflow false positive in bmalloc.
           # GCC on ARM64 raises -Werror false positives in WebKit internals
           export CFLAGS="${CFLAGS:-} -Wno-error=stringop-overflow -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
           export CXXFLAGS="${CXXFLAGS:-} -Wno-error=stringop-overflow -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
@@ -142,9 +136,7 @@ jobs:
             -DENABLE_EXPERIMENTAL_FEATURES="${WEBKIT_CMAKE_ENABLE_EXPERIMENTAL_FEATURES:-ON}" \
             -DENABLE_WEBXR="${WEBKIT_CMAKE_ENABLE_WEBXR:-OFF}" \
             -DENABLE_THUNDER=OFF \
-            -DENABLE_BUBBLEWRAP_SANDBOX=OFF \
-            -DUSE_LIBRICE=OFF \
-            -DENABLE_WEB_RTC=OFF
+            -DENABLE_BUBBLEWRAP_SANDBOX=OFF
 
       - name: Baseline package
         run: |
