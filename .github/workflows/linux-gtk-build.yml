@@ -151,9 +151,12 @@ jobs:
                    "$SRC"/Source/WebCore/platform/graphics/gstreamer/eme/CDMProxyThunder*.cpp; do
             [[ -f "$f" ]] && echo "// disabled — no Thunder SDK" > "$f"
           done
-          # Strip Thunder references from CDMFactoryGStreamer (keeps ClearKey registration)
+          # Strip Thunder references from shared files
           sed -i '/Thunder\|CDMProxyFactory\|open_cdm/d' \
             "$SRC/Source/WebCore/platform/graphics/gstreamer/eme/CDMFactoryGStreamer.cpp" 2>/dev/null || true
+          # CDMProxy.h bakes in OpenCDMSession — stub the type
+          sed -i '1i struct OpenCDMSession;' \
+            "$SRC/Source/WebCore/platform/encryptedmedia/CDMProxy.h"
           # GCC on ARM64 raises -Werror false positives in WebKit internals
           export CFLAGS="${CFLAGS:-} -Wno-error=stringop-overflow -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
           export CXXFLAGS="${CXXFLAGS:-} -Wno-error=stringop-overflow -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
