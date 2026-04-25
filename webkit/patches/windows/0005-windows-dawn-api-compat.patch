@@ -147,8 +147,8 @@ diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU
 diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp
 --- a/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp	2026-04-16 11:51:32.865982496 +0000
 +++ b/Source/WebCore/Modules/WebGPU/Implementation/WebGPUAdapterImpl.cpp	2026-04-16 17:39:28.884548742 +0000
-@@ -30,8 +30,11 @@
- 
+@@ -30,8 +30,30 @@
+
  #include "WebGPUConvertToBackingContext.h"
  #include "WebGPUDeviceImpl.h"
 +#include "WebGPUDawnCompat.h"
@@ -156,10 +156,29 @@ diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU
 +#if !PLATFORM(WIN)
  #include <wtf/BlockPtr.h>
 +#endif
++
++#if PLATFORM(WIN)
++#include <cstdarg>
++#include <cstdio>
++static void webgpuDebugTrace(const char* fmt, ...)
++{
++    static FILE* sLog = nullptr;
++    if (!sLog) {
++        sLog = fopen("C:\\webgpu-debug.log", "a");
++        if (!sLog) return;
++    }
++    va_list ap; va_start(ap, fmt);
++    vfprintf(sLog, fmt, ap);
++    fputc('\n', sLog);
++    fflush(sLog);
++    va_end(ap);
++}
++#define DBG_TRACE(...) webgpuDebugTrace(__VA_ARGS__)
++#endif
  #include <wtf/TZoneMallocInlines.h>
- 
+
  namespace WebCore::WebGPU {
-@@ -39,8 +42,7 @@
+@@ -39,8 +61,7 @@
  static String adapterName(WGPUAdapter adapter)
  {
  #if PLATFORM(WIN)
@@ -169,7 +188,7 @@ diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU
  #else
      WGPUAdapterProperties properties;
      wgpuAdapterGetProperties(adapter, &properties);
-@@ -51,64 +53,34 @@
+@@ -51,64 +72,34 @@
  static Ref<SupportedFeatures> supportedFeatures(const Vector<WGPUFeatureName>& features)
  {
      Vector<String> result;
@@ -245,7 +264,7 @@ diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU
  #else
      WGPUSupportedLimits limits;
      auto result = wgpuAdapterGetLimits(adapter, &limits);
-@@ -167,10 +139,17 @@
+@@ -167,10 +158,17 @@
  
  WTF_MAKE_TZONE_ALLOCATED_IMPL(AdapterImpl);
  
@@ -264,7 +283,7 @@ diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU
  {
  }
  
-@@ -212,23 +191,75 @@
+@@ -212,23 +210,75 @@
      return true;
  }
  
@@ -295,7 +314,7 @@ diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU
 -    auto device = wgpuAdapterCreateDevice(m_backing.get(), nullptr);
 -    if (!device) {
 -        callback(nullptr);
-+    WTFLogAlways("[WebGPU] dawnRequestDeviceCallback enter: status=%u device=%p", static_cast<unsigned>(status), device);
++    DBG_TRACE("[WebGPU] dawnRequestDeviceCallback enter: status=%u device=%p", static_cast<unsigned>(status), device);
 +    std::unique_ptr<DawnRequestDeviceUserdata> data(static_cast<DawnRequestDeviceUserdata*>(userdata1));
 +    if (!data) {
 +        WTFLogAlways("[WebGPU] dawnRequestDeviceCallback: null userdata, returning");
@@ -307,21 +326,21 @@ diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU
          return;
      }
 -    callback(DeviceImpl::create(adoptWebGPU(device), supportedFeatures(m_backing.get()), supportedLimits(m_backing.get()), m_convertToBackingContext));
-+    WTFLogAlways("[WebGPU] dawnRequestDeviceCallback: gathering features/limits");
++    DBG_TRACE("[WebGPU] dawnRequestDeviceCallback: gathering features/limits");
 +    auto features = DawnCompat::supportedFeaturesFromDevice(device);
 +    auto limits = DawnCompat::supportedLimitsFromDevice(device);
 +    auto backing = adoptWebGPU(device);
-+    WTFLogAlways("[WebGPU] dawnRequestDeviceCallback: creating DeviceImpl");
++    DBG_TRACE("[WebGPU] dawnRequestDeviceCallback: creating DeviceImpl");
 +    auto deviceImpl = DeviceImpl::create(WTF::move(backing), WTF::move(features), WTF::move(limits), data->convertToBackingContext.copyRef(), data->instance);
-+    WTFLogAlways("[WebGPU] dawnRequestDeviceCallback: invoking spec-layer callback");
++    DBG_TRACE("[WebGPU] dawnRequestDeviceCallback: invoking spec-layer callback");
 +    WTF::move(data->callback)(WTF::move(deviceImpl));
-+    WTFLogAlways("[WebGPU] dawnRequestDeviceCallback: spec-layer callback returned");
++    DBG_TRACE("[WebGPU] dawnRequestDeviceCallback: spec-layer callback returned");
 +}
 +
 +void AdapterImpl::requestDevice(const DeviceDescriptor& descriptor, CompletionHandler<void(RefPtr<Device>&&)>&& callback)
 +{
 +#if PLATFORM(WIN)
-+    WTFLogAlways("[WebGPU] AdapterImpl::requestDevice enter: this=%p instance=%p adapter=%p", this, m_dawnInstance, m_backing.get());
++    DBG_TRACE("[WebGPU] AdapterImpl::requestDevice enter: this=%p instance=%p adapter=%p", this, m_dawnInstance, m_backing.get());
 +    auto utf8Label = descriptor.label.utf8();
 +    CString queueLabel("default"_s);
 +    WGPUDeviceDescriptor deviceDescriptor { };
@@ -339,15 +358,15 @@ diff -ruN '--exclude=.git' a/Source/WebCore/Modules/WebGPU/Implementation/WebGPU
 +    callbackInfo.callback = dawnRequestDeviceCallback;
 +    callbackInfo.userdata1 = userdata;
 +
-+    WTFLogAlways("[WebGPU] AdapterImpl::requestDevice calling wgpuAdapterRequestDevice");
++    DBG_TRACE("[WebGPU] AdapterImpl::requestDevice calling wgpuAdapterRequestDevice");
 +    auto future = wgpuAdapterRequestDevice(m_backing.get(), &deviceDescriptor, callbackInfo);
-+    WTFLogAlways("[WebGPU] AdapterImpl::requestDevice waiting for future");
++    DBG_TRACE("[WebGPU] AdapterImpl::requestDevice waiting for future");
 +    DawnCompat::waitForFuture(m_dawnInstance, future);
-+    WTFLogAlways("[WebGPU] AdapterImpl::requestDevice waitForFuture returned");
++    DBG_TRACE("[WebGPU] AdapterImpl::requestDevice waitForFuture returned");
  #else
      auto label = descriptor.label.utf8();
  
-@@ -370,7 +401,11 @@
+@@ -370,7 +420,11 @@
  
  bool AdapterImpl::xrCompatible()
  {
