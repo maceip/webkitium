@@ -148,7 +148,8 @@ jobs:
             -DENABLE_EXPERIMENTAL_FEATURES="${WEBKIT_CMAKE_ENABLE_EXPERIMENTAL_FEATURES:-ON}" \
             -DENABLE_WEBXR="${WEBKIT_CMAKE_ENABLE_WEBXR:-OFF}" \
             -DENABLE_THUNDER=OFF \
-            -DENABLE_BUBBLEWRAP_SANDBOX=OFF
+            -DENABLE_BUBBLEWRAP_SANDBOX=OFF \
+            -DUSE_OPENCDM=OFF
 
       - name: Baseline package
         run: |
