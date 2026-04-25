@@ -148,6 +148,34 @@ jobs:
           sudo cp "$OCDM/Source/ocdm/open_cdm.h" /usr/include/
           sudo cp "$OCDM/Source/ocdm/open_cdm_ext.h" /usr/include/
           sudo cp "$OCDM/Source/ocdm/adapter/open_cdm_adapter.h" /usr/include/
+          # Create stub libocdm.so — headers compile but no library to link against.
+          LIBDIR="/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)"
+          cat > /tmp/ocdm_stub.c << 'OCDM'
+          #include <stdint.h>
+          #include <stddef.h>
+          typedef int OpenCDMError;
+          typedef struct {} OpenCDMSystem;
+          typedef struct {} OpenCDMSession;
+          typedef struct {} OpenCDMSessionCallbacks;
+          OpenCDMError opencdm_create_system(void*a,...){return 0;}
+          OpenCDMError opencdm_destruct_system(void*a){return 0;}
+          OpenCDMError opencdm_is_type_supported(void*a,...){return 0;}
+          OpenCDMError opencdm_system_supports_server_certificate(void*a,...){return 0;}
+          OpenCDMError opencdm_system_set_server_certificate(void*a,...){return 0;}
+          OpenCDMError opencdm_construct_session(void*a,...){return 0;}
+          OpenCDMError opencdm_destruct_session(void*a){return 0;}
+          OpenCDMError opencdm_session_update(void*a,...){return 0;}
+          OpenCDMError opencdm_session_load(void*a){return 0;}
+          OpenCDMError opencdm_session_remove(void*a){return 0;}
+          OpenCDMError opencdm_session_close(void*a){return 0;}
+          int opencdm_session_status(void*a,...){return 0;}
+          const char* opencdm_session_id(void*a){return "";}
+          void* opencdm_get_system_session(void*a,...){return NULL;}
+          int opencdm_gstreamer_session_decrypt(void*a,...){return 0;}
+          OCDM
+          gcc -shared -fPIC -o /tmp/libocdm.so /tmp/ocdm_stub.c
+          sudo cp /tmp/libocdm.so "$LIBDIR/libocdm.so"
+          sudo ldconfig
           # GCC on ARM64 raises -Werror false positives in WebKit internals
           export CFLAGS="${CFLAGS:-} -Wno-error=stringop-overflow -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
           export CXXFLAGS="${CXXFLAGS:-} -Wno-error=stringop-overflow -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
