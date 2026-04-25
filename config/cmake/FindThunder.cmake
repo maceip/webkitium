@@ -1,7 +1,4 @@
 # Stub: Thunder (WPE/RDK framework) is not installed on this runner.
-# Overrides WebKit's Source/cmake/FindThunder.cmake so configure
-# completes. ENABLE_THUNDER=OFF ensures nothing links against it.
-set(THUNDER_FOUND TRUE)
-set(Thunder_FOUND TRUE)
-set(THUNDER_INCLUDE_DIR "/usr/include")
-set(THUNDER_LIBRARY "")
+# Report as NOT found so CMake disables all Thunder/OpenCDM code paths.
+set(THUNDER_FOUND FALSE)
+set(Thunder_FOUND FALSE)
