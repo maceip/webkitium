@@ -119,9 +119,13 @@ jobs:
             # Build to a local prefix, then sudo copy into /usr
             cargo cbuild --release
             cargo cinstall --release --destdir="$RUNNER_TEMP/rice-install" --prefix=/usr --libdir="$LIBDIR"
+            echo "=== destdir contents ==="
+            find "$RUNNER_TEMP/rice-install" -type f | head -30
             sudo cp -a "$RUNNER_TEMP/rice-install/usr/." /usr/
             sudo ldconfig
-            echo "librice $(pkg-config --modversion rice-proto) installed"
+            pkg-config --modversion rice-proto
+            pkg-config --modversion rice-io
+            echo "librice installed OK"
           fi
 
       - name: Build
