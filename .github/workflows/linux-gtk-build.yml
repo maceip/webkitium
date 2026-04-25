@@ -139,24 +139,15 @@ jobs:
           cd "$SRC"
           JOBS="$(nproc 2>/dev/null || echo 4)"
           export WEBKITIUM_BROWSER_SHELL_TARGET=linux-gtk
-          # Thunder (WPE/RDK) is not available on standard Ubuntu
+          # Thunder (WPE/RDK) is not available — stub FindThunder, install OpenCDM headers
           cp "$GITHUB_WORKSPACE/config/cmake/FindThunder.cmake" "$SRC/Source/cmake/FindThunder.cmake"
-          # Empty only Thunder/OpenCDM-specific files (not CDMProxy base class)
-          for f in "$SRC"/Source/WebCore/platform/encryptedmedia/CDMOpenCDM*.h \
-                   "$SRC"/Source/WebCore/platform/encryptedmedia/CDMOpenCDM*.cpp \
-                   "$SRC"/Source/WebCore/platform/graphics/gstreamer/eme/CDMThunder*.h \
-                   "$SRC"/Source/WebCore/platform/graphics/gstreamer/eme/CDMThunder*.cpp \
-                   "$SRC"/Source/WebCore/platform/graphics/gstreamer/eme/CDMProxyThunder*.h \
-                   "$SRC"/Source/WebCore/platform/graphics/gstreamer/eme/CDMProxyThunder*.cpp \
-                   "$SRC"/Source/WebCore/platform/graphics/gstreamer/eme/CDMProxyThunder*.cpp; do
-            [[ -f "$f" ]] && echo "// disabled — no Thunder SDK" > "$f"
-          done
-          # Strip Thunder references from shared files
-          sed -i '/Thunder\|CDMProxyFactory\|open_cdm/d' \
-            "$SRC/Source/WebCore/platform/graphics/gstreamer/eme/CDMFactoryGStreamer.cpp" 2>/dev/null || true
-          # CDMProxy.h uses OpenCDMSession in unique_ptr — needs complete type
-          sed -i '1i struct OpenCDMSession {};' \
-            "$SRC/Source/WebCore/platform/encryptedmedia/CDMProxy.h"
+          OCDM="$RUNNER_TEMP/thunder-ocdm"
+          if [[ ! -d "$OCDM" ]]; then
+            git clone --depth 1 https://github.com/rdkcentral/ThunderClientLibraries.git "$OCDM"
+          fi
+          sudo cp "$OCDM/Source/ocdm/open_cdm.h" /usr/include/
+          sudo cp "$OCDM/Source/ocdm/open_cdm_ext.h" /usr/include/
+          sudo cp "$OCDM/Source/ocdm/adapter/open_cdm_adapter.h" /usr/include/
           # GCC on ARM64 raises -Werror false positives in WebKit internals
           export CFLAGS="${CFLAGS:-} -Wno-error=stringop-overflow -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
           export CXXFLAGS="${CXXFLAGS:-} -Wno-error=stringop-overflow -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
