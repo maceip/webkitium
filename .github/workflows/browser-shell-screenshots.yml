@@ -42,11 +42,11 @@ jobs:
         run: |
           $env:PATH = "$env:RUNNER_TEMP\dotnet;$env:PATH"
           $env:DOTNET_ROOT = "$env:RUNNER_TEMP\dotnet"
-          # Remove native project reference that requires full VS C++ workload
+          # Remove native sidecar build target + DLL copy that requires full VS C++ workload
           $csproj = "chrome\windows\webkitium.csproj"
           $content = Get-Content $csproj -Raw
-          $content = $content -replace '(?s)<ProjectReference[^>]*native[^>]*>.*?</ProjectReference>', ''
-          $content = $content -replace '<ProjectReference[^>]*native[^/]*/>', ''
+          $content = $content -replace '(?s)<Target Name="BuildNativeSidecar".*?</Target>', ''
+          $content = $content -replace '(?s)<None Include="\$\(SolutionDir\)x64.*?</None>', ''
           Set-Content $csproj $content
           cd chrome\windows
           dotnet build webkitium.csproj -c Debug 2>&1 || echo "Build attempted"
