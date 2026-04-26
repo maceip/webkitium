@@ -2,6 +2,9 @@ name: browser-shell-screenshots
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - macprime-fix-tier1-tier2-minibrowser-gaps-e4f3
 
 permissions:
   contents: read
