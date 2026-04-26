@@ -100,14 +100,16 @@ public sealed partial class BrowserTab : UserControl
 
     public void OpenDevTools() { PART_WebView.CoreWebView2?.OpenDevToolsWindow(); }
 
+    private double _zoomFactor = 1.0;
+
     public void SetZoom(double factor)
     {
-        if (PART_WebView.CoreWebView2 is not null)
-            PART_WebView.CoreWebView2.Settings.IsZoomControlEnabled = true;
-        PART_WebView.ZoomFactor = factor;
+        _zoomFactor = factor;
+        PART_WebView.CoreWebView2?.ExecuteScriptAsync(
+            $"document.body.style.zoom = '{factor * 100}%'");
     }
 
-    public double GetZoom() => PART_WebView.ZoomFactor;
+    public double GetZoom() => _zoomFactor;
 
     public void FindInPage(string query, bool forward = true)
     {
@@ -135,7 +137,10 @@ public sealed partial class BrowserTab : UserControl
 
         var file = await picker.PickSaveFileAsync();
         if (file is not null)
-            await PART_WebView.CoreWebView2.PrintToPdfAsync(file.Path);
+        {
+            var printSettings = PART_WebView.CoreWebView2.Environment.CreatePrintSettings();
+            await PART_WebView.CoreWebView2.PrintToPdfAsync(file.Path, printSettings);
+        }
     }
 
     public void LoadErrorPage(string failedUrl, string errorMessage)
