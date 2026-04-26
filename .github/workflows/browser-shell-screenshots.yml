@@ -65,14 +65,21 @@ jobs:
           Start-Sleep -Seconds 10
           # Try PrintWindow via compiled C# helper
           $csFile = "$env:GITHUB_WORKSPACE\scripts\ci\win-capture.cs"
+          Write-Host "C# file: $csFile exists=$(Test-Path $csFile)"
           $captured = $false
           if (Test-Path $csFile) {
             try {
               Add-Type -Path $csFile -ErrorAction Stop
+              Write-Host "WinCapture type loaded"
               foreach ($t in @("Webkitium", "webkitium")) {
-                if ([WinCapture]::Capture($t, $outPath)) { $captured = $true; Write-Host "PrintWindow OK ($t)"; break }
+                Write-Host "Trying PrintWindow for title '$t'..."
+                $result = [WinCapture]::Capture($t, $outPath)
+                Write-Host "Result: $result"
+                if ($result) { $captured = $true; Write-Host "PrintWindow OK ($t)"; break }
               }
-            } catch { Write-Host "PrintWindow failed: $_" }
+            } catch { Write-Host "PrintWindow error: $_" }
+          } else {
+            Write-Host "C# capture file not found at $csFile"
           }
           if (-not $captured) {
             try {
@@ -162,10 +169,13 @@ jobs:
           fi
           echo "Binary: ${APP:-NOT FOUND}"
           if [[ -n "$APP" ]]; then
+            # Launch in foreground of the WindowServer
             "$APP" &
             APP_PID=$!
-            sleep 8
-            screencapture -x "$RUNNER_TEMP/screenshot_macos_shell.png"
+            sleep 10
+            # Try screencapture; if headless, try window-specific capture
+            screencapture -x -l $(osascript -e 'tell application "System Events" to get id of first window of (first process whose name is "webkitium")' 2>/dev/null || echo "0") "$RUNNER_TEMP/screenshot_macos_shell.png" 2>/dev/null \
+              || screencapture -x "$RUNNER_TEMP/screenshot_macos_shell.png"
             kill $APP_PID 2>/dev/null || true
           else
             echo "::error::Binary not found after successful build"
