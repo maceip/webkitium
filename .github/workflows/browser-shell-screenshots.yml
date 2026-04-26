@@ -68,9 +68,9 @@ jobs:
           $captured = $false
           if (Test-Path $csFile) {
             try {
-              Add-Type -Path $csFile -ReferencedAssemblies System.Drawing -ErrorAction Stop
+              Add-Type -Path $csFile -ErrorAction Stop
               foreach ($t in @("Webkitium", "webkitium")) {
-                if ([WinCapture]::Capture($t, $outPath)) { $captured = $true; Write-Host "PrintWindow OK"; break }
+                if ([WinCapture]::Capture($t, $outPath)) { $captured = $true; Write-Host "PrintWindow OK ($t)"; break }
               }
             } catch { Write-Host "PrintWindow failed: $_" }
           }
@@ -113,20 +113,23 @@ jobs:
           set -euo pipefail
           export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
 
-          # Build the color bridge C++ as a static lib manually
+          # Build the color bridge C++ as a static lib
           cd browser/color
           clang++ -std=c++17 -O2 -fPIC -I.. -c ColorBridgeC.cc ColorRamp.cpp OklchColor.cpp SemanticPalette.cpp
           ar rcs libWebkitiumColor.a ColorBridgeC.o ColorRamp.o OklchColor.o SemanticPalette.o
-          COLOR_LIB="$(pwd)/libWebkitiumColor.a"
-          COLOR_HEADERS="$(pwd)"
-          echo "Color lib: $COLOR_LIB"
+          COLOR_ABS="$(pwd)"
+          echo "Color lib: $COLOR_ABS/libWebkitiumColor.a"
           cd ../../chrome/macos
 
           # Remove files that depend on extensions/sync/webauthn C bridges
           rm -f Sources/Webkitium/Services/BrowserServices.swift
           sed -i '' 's/private let services.*$//' Sources/Webkitium/WebkitiumApp.swift
 
-          # Replace Package.swift with a minimal one that uses systemLibrary for color
+          # Copy color bridge headers + modulemap into the package tree
+          mkdir -p CWebkitiumColor
+          cp ../../browser/color/ColorBridgeC.h CWebkitiumColor/
+          cp ../../browser/color/module.modulemap CWebkitiumColor/
+
           cat > Package.swift << 'PKGEOF'
           // swift-tools-version: 5.9
           import PackageDescription
@@ -135,7 +138,7 @@ jobs:
               platforms: [.macOS(.v14)],
               products: [.executable(name: "webkitium", targets: ["Webkitium"])],
               targets: [
-                  .systemLibrary(name: "WebkitiumColor", path: "../../browser/color"),
+                  .systemLibrary(name: "WebkitiumColor", path: "CWebkitiumColor"),
                   .executableTarget(
                       name: "Webkitium",
                       dependencies: ["WebkitiumColor"],
