@@ -10,8 +10,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: webkitium-shell-screenshots
-  cancel-in-progress: true
+  group: webkitium-shell-screenshots-${{ github.sha }}
+  cancel-in-progress: false
 
 jobs:
   windows:
