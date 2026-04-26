@@ -37,15 +37,26 @@ jobs:
             echo "$env:RUNNER_TEMP\dotnet" | Out-File -Append -FilePath $env:GITHUB_PATH
           }
 
+      - name: Find .NET SDK version
+        id: dotnetsdk
+        shell: pwsh
+        run: |
+          $sdkDir = "$env:RUNNER_TEMP\dotnet\sdk"
+          $ver = Get-ChildItem $sdkDir -Directory | Sort-Object Name | Select-Object -Last 1
+          echo "DOTNET_SDK_VER=$($ver.Name)" >> $env:GITHUB_OUTPUT
+          echo "SDK version: $($ver.Name)"
+
       - name: Build WinUI shell
         shell: cmd
+        env:
+          DOTNET_SDK_VER: ${{ steps.dotnetsdk.outputs.DOTNET_SDK_VER }}
         run: |
           call "C:\BuildTools\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64
           set "DOTNET_ROOT=%RUNNER_TEMP%\dotnet"
           set "PATH=%RUNNER_TEMP%\dotnet;%PATH%"
-          set "MSBuildSDKsPath=%RUNNER_TEMP%\dotnet\sdk\9.0.313\Sdks"
+          set "MSBuildSDKsPath=%RUNNER_TEMP%\dotnet\sdk\%DOTNET_SDK_VER%\Sdks"
           cd chrome\windows
-          dotnet build webkitium.csproj -c Debug 2>&1 || echo "Build attempted"
+          msbuild webkitium.csproj /p:Configuration=Debug /p:Platform=x64 /restore /p:RestorePackagesConfig=true 2>&1 || echo "Build attempted"
 
       - name: Launch and screenshot
         shell: pwsh
