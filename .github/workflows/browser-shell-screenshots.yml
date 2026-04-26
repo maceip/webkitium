@@ -155,7 +155,12 @@ jobs:
         run: |
           set -euo pipefail
           export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
-          APP="$(find chrome/macos/.build -name 'Webkitium' -type f -perm +111 2>/dev/null | head -1)"
+          # SPM puts the binary in .build/debug/webkitium (lowercase)
+          APP="$(find chrome/macos/.build -name 'webkitium' -type f -perm +111 2>/dev/null | head -1)"
+          if [[ -z "$APP" ]]; then
+            APP="$(find chrome/macos/.build -name 'Webkitium' -type f -perm +111 2>/dev/null | head -1)"
+          fi
+          echo "Binary: ${APP:-NOT FOUND}"
           if [[ -n "$APP" ]]; then
             "$APP" &
             APP_PID=$!
@@ -163,8 +168,9 @@ jobs:
             screencapture -x "$RUNNER_TEMP/screenshot_macos_shell.png"
             kill $APP_PID 2>/dev/null || true
           else
-            echo "Binary not found, taking desktop screenshot"
-            screencapture -x "$RUNNER_TEMP/screenshot_macos_shell.png"
+            echo "::error::Binary not found after successful build"
+            find chrome/macos/.build -type f -perm +111 2>/dev/null | head -10
+            exit 1
           fi
 
       - name: Upload screenshot
