@@ -40,8 +40,9 @@ jobs:
       - name: Build WinUI shell
         shell: cmd
         run: |
+          call "C:\BuildTools\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64
           cd chrome\windows
-          dotnet build webkitium.csproj -c Debug 2>&1 || echo "Build attempted"
+          msbuild webkitium.csproj /p:Configuration=Debug /p:Platform=x64 /restore 2>&1 || dotnet build webkitium.csproj -c Debug 2>&1 || echo "Build attempted"
 
       - name: Launch and screenshot
         shell: pwsh
