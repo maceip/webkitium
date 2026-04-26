@@ -58,48 +58,36 @@ jobs:
           if (-not $exe) {
             $exe = Get-ChildItem -Recurse chrome\windows\bin -Filter "*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
           }
+          if (-not $exe) { Write-Host "No exe found"; exit 1 }
+          Write-Host "Exe: $($exe.FullName)"
           $outPath = "$env:RUNNER_TEMP\screenshot_windows_shell.png"
-          # Check for interactive session
-          $sessionId = (Get-Process -Id $PID).SessionId
-          Write-Host "Session ID: $sessionId"
-          query user 2>&1 | Write-Host
-          if ($exe) {
-            Write-Host "Found exe: $($exe.FullName)"
-            $proc = Start-Process -FilePath $exe.FullName -PassThru -ErrorAction SilentlyContinue
-            Start-Sleep -Seconds 10
-          } else {
-            Write-Host "No exe found"
-          }
-          # Try multiple screenshot methods
+          $proc = Start-Process -FilePath $exe.FullName -PassThru -ErrorAction SilentlyContinue
+          Start-Sleep -Seconds 10
+          # Try PrintWindow via compiled C# helper
+          $csFile = "$env:GITHUB_WORKSPACE\scripts\ci\win-capture.cs"
           $captured = $false
-          # Method 1: CopyFromScreen
-          try {
-            Add-Type -AssemblyName System.Windows.Forms
-            Add-Type -AssemblyName System.Drawing
-            $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-            if ($bounds.Width -gt 0 -and $bounds.Height -gt 0) {
-              $bmp = New-Object System.Drawing.Bitmap($bounds.Width, $bounds.Height)
-              $gfx = [System.Drawing.Graphics]::FromImage($bmp)
-              $gfx.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
-              $bmp.Save($outPath)
-              $gfx.Dispose(); $bmp.Dispose()
-              $captured = $true
-              Write-Host "CopyFromScreen succeeded"
-            }
-          } catch { Write-Host "CopyFromScreen failed: $_" }
-          # Method 2: nircmd
-          if (-not $captured) {
-            foreach ($p in @("C:\Bootstrap\toolbin\nircmd.exe", "C:\tools\nircmd.exe")) {
-              if (Test-Path $p) { & $p savescreenshot $outPath; $captured = $true; break }
-            }
+          if (Test-Path $csFile) {
+            try {
+              Add-Type -Path $csFile -ReferencedAssemblies System.Drawing -ErrorAction Stop
+              foreach ($t in @("Webkitium", "webkitium")) {
+                if ([WinCapture]::Capture($t, $outPath)) { $captured = $true; Write-Host "PrintWindow OK"; break }
+              }
+            } catch { Write-Host "PrintWindow failed: $_" }
           }
-          # Method 3: screenshot via PowerShell + Win32
           if (-not $captured) {
-            Write-Host "All screenshot methods failed on headless runner"
-            Write-Host "Build succeeded. Exe at: $($exe.FullName)"
-            exit 1
+            try {
+              Add-Type -AssemblyName System.Windows.Forms
+              Add-Type -AssemblyName System.Drawing
+              $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+              $bmp = New-Object System.Drawing.Bitmap($b.Width, $b.Height)
+              $g = [System.Drawing.Graphics]::FromImage($bmp)
+              $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+              $bmp.Save($outPath); $g.Dispose(); $bmp.Dispose()
+              $captured = $true; Write-Host "CopyFromScreen OK"
+            } catch { Write-Host "CopyFromScreen failed: $_" }
           }
-          if ($proc) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
+          Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+          if (-not $captured) { Write-Host "No screenshot method worked"; exit 1 }
           Write-Host "Screenshot: $outPath"
 
       - name: Upload screenshot
@@ -124,18 +112,40 @@ jobs:
         run: |
           set -euo pipefail
           export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
-          cd chrome/macos
+
+          # Build the color bridge C++ as a static lib manually
+          cd browser/color
+          clang++ -std=c++17 -O2 -fPIC -I.. -c ColorBridgeC.cc ColorRamp.cpp OklchColor.cpp SemanticPalette.cpp
+          ar rcs libWebkitiumColor.a ColorBridgeC.o ColorRamp.o OklchColor.o SemanticPalette.o
+          COLOR_LIB="$(pwd)/libWebkitiumColor.a"
+          COLOR_HEADERS="$(pwd)"
+          echo "Color lib: $COLOR_LIB"
+          cd ../../chrome/macos
+
           # Remove files that depend on extensions/sync/webauthn C bridges
           rm -f Sources/Webkitium/Services/BrowserServices.swift
           sed -i '' 's/private let services.*$//' Sources/Webkitium/WebkitiumApp.swift
-          # Strip non-color package deps from Package.swift
-          sed -i '' '/.package(path:.*extensions/d' Package.swift
-          sed -i '' '/.package(path:.*sync/d' Package.swift
-          sed -i '' '/.package(path:.*webauthn/d' Package.swift
-          sed -i '' '/.product(name: "WebkitiumExtensions/d' Package.swift
-          sed -i '' '/.product(name: "WebkitiumSync/d' Package.swift
-          sed -i '' '/.product(name: "WebkitiumWebAuthn/d' Package.swift
-          cat Package.swift
+
+          # Replace Package.swift with a minimal one that uses systemLibrary for color
+          cat > Package.swift << 'PKGEOF'
+          // swift-tools-version: 5.9
+          import PackageDescription
+          let package = Package(
+              name: "webkitium",
+              platforms: [.macOS(.v14)],
+              products: [.executable(name: "webkitium", targets: ["Webkitium"])],
+              targets: [
+                  .systemLibrary(name: "WebkitiumColor", path: "../../browser/color"),
+                  .executableTarget(
+                      name: "Webkitium",
+                      dependencies: ["WebkitiumColor"],
+                      path: "Sources/Webkitium",
+                      linkerSettings: [.unsafeFlags(["-L../../browser/color", "-lWebkitiumColor", "-lc++"])]
+                  ),
+              ]
+          )
+          PKGEOF
+
           swift build 2>&1
 
       - name: Launch and screenshot
