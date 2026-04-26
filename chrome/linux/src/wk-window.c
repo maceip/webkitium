@@ -350,6 +350,9 @@ wk_window_constructed (GObject *object)
 
   /* Keyboard shortcuts (Tier 1 + Tier 2) */
   install_shortcuts (self);
+
+  /* Load a default page so the WebView isn't blank on startup */
+  wk_tab_content_load_uri (self->tab_content, "https://example.com");
 }
 
 static void

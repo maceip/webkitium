@@ -126,13 +126,17 @@ wk_tab_content_constructed (GObject *object)
   self->zoom_level = 1.0;
 
 #if HAVE_WEBKIT
-  WebKitWebContext *ctx = webkit_web_context_get_default ();
+  /* Cookie persistence via network session */
+  g_autofree char *data_dir = g_build_filename (
+    g_get_user_data_dir (), "webkitium", NULL);
+  g_autofree char *cache_dir = g_build_filename (
+    g_get_user_cache_dir (), "webkitium", NULL);
+  g_mkdir_with_parents (data_dir, 0700);
+  g_mkdir_with_parents (cache_dir, 0700);
 
-  /* Cookie persistence */
-  WebKitCookieManager *cookies = webkit_web_context_get_cookie_manager (ctx);
-  g_autofree char *cookie_path = g_build_filename (
-    g_get_user_data_dir (), "webkitium", "cookies.sqlite", NULL);
-  g_mkdir_with_parents (g_path_get_dirname (cookie_path), 0700);
+  WebKitNetworkSession *session = webkit_network_session_new (data_dir, cache_dir);
+  WebKitCookieManager *cookies = webkit_network_session_get_cookie_manager (session);
+  g_autofree char *cookie_path = g_build_filename (data_dir, "cookies.sqlite", NULL);
   webkit_cookie_manager_set_persistent_storage (cookies, cookie_path,
     WEBKIT_COOKIE_PERSISTENT_STORAGE_SQLITE);
 
@@ -143,7 +147,7 @@ wk_tab_content_constructed (GObject *object)
   self->web_view = WEBKIT_WEB_VIEW (
     g_object_new (WEBKIT_TYPE_WEB_VIEW,
                   "settings", settings,
-                  "web-context", ctx,
+                  "network-session", session,
                   NULL));
   gtk_widget_set_hexpand (GTK_WIDGET (self->web_view), TRUE);
   gtk_widget_set_vexpand (GTK_WIDGET (self->web_view), TRUE);
