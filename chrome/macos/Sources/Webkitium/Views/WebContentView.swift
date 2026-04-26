@@ -131,8 +131,8 @@ struct WebContentView: NSViewRepresentable {
         }
 
         func webView(_ webView: WKWebView,
-                      requestMediaCapturePermissionFor origin: WKSecurityOrigin,
-                      initiatedByFrame frame: WKFrameInfo,
+                      decideMediaCapturePermissionsFor origin: WKSecurityOrigin,
+                      initiatedBy frame: WKFrameInfo,
                       type: WKMediaCaptureType) async -> WKPermissionDecision {
             parent.onPermissionRequest?(origin.host, type.description)
             return .prompt
