@@ -120,27 +120,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build color bridge
-        run: |
-          set -euo pipefail
-          export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
-          cd browser/color
-          # Build the color bridge as a static library with SwiftPM
-          swift build --package-path . 2>&1 || {
-            # Fallback: compile directly with clang
-            clang++ -std=c++17 -c -I.. ColorRamp.cpp OklchColor.cpp SemanticPalette.cpp ColorBridgeC.cc -fPIC
-            ar rcs libWebkitiumColor.a ColorRamp.o OklchColor.o SemanticPalette.o ColorBridgeC.o
-            echo "Built libWebkitiumColor.a manually"
-          }
-
       - name: Build macOS shell
         run: |
           set -euo pipefail
           export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
           cd chrome/macos
-          # Exclude BrowserServices.swift (depends on extensions/sync/webauthn C bridges)
-          mv Sources/Webkitium/Services/BrowserServices.swift Sources/Webkitium/Services/BrowserServices.swift.bak 2>/dev/null || true
+          # Remove files that depend on extensions/sync/webauthn C bridges
+          rm -f Sources/Webkitium/Services/BrowserServices.swift
           sed -i '' 's/private let services.*$//' Sources/Webkitium/WebkitiumApp.swift
+          # Strip non-color package deps from Package.swift
+          sed -i '' '/.package(path:.*extensions/d' Package.swift
+          sed -i '' '/.package(path:.*sync/d' Package.swift
+          sed -i '' '/.package(path:.*webauthn/d' Package.swift
+          sed -i '' '/.product(name: "WebkitiumExtensions/d' Package.swift
+          sed -i '' '/.product(name: "WebkitiumSync/d' Package.swift
+          sed -i '' '/.product(name: "WebkitiumWebAuthn/d' Package.swift
+          cat Package.swift
           swift build 2>&1
 
       - name: Launch and screenshot
