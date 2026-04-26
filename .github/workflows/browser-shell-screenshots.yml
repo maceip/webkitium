@@ -1,0 +1,279 @@
+name: browser-shell-screenshots
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: webkitium-shell-screenshots
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    name: Windows Shell Screenshot
+    runs-on:
+      - self-hosted
+      - Windows
+      - X64
+      - webkitium
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build browser core
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd browser
+          mkdir -p build && cd build
+          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER="C:/Program Files/LLVM/bin/clang-cl.exe" \
+            -DCMAKE_CXX_COMPILER="C:/Program Files/LLVM/bin/clang-cl.exe"
+          cmake --build . --target ng_browser_core
+
+      - name: Build WinUI shell
+        shell: cmd
+        run: |
+          cd chrome\windows
+          dotnet build webkitium.csproj -c Debug
+
+      - name: Launch and screenshot
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Recurse chrome\windows\bin -Filter "webkitium.exe" | Select-Object -First 1
+          if (-not $exe) { Write-Error "webkitium.exe not found"; exit 1 }
+          $proc = Start-Process -FilePath $exe.FullName -PassThru
+          Start-Sleep -Seconds 8
+
+          Add-Type -AssemblyName System.Windows.Forms
+          Add-Type -AssemblyName System.Drawing
+          $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bmp = New-Object System.Drawing.Bitmap($bounds.Width, $bounds.Height)
+          $gfx = [System.Drawing.Graphics]::FromImage($bmp)
+          $gfx.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
+          $outPath = "$env:RUNNER_TEMP\screenshot_windows_shell.png"
+          $bmp.Save($outPath)
+          $gfx.Dispose()
+          $bmp.Dispose()
+
+          Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+          Write-Host "Screenshot saved to $outPath"
+
+      - name: Upload screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshot-windows
+          path: ${{ runner.temp }}/screenshot_windows_shell.png
+
+  macos:
+    name: macOS Shell Screenshot
+    runs-on:
+      - self-hosted
+      - macOS
+      - ARM64
+      - webkitium
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build macOS shell
+        run: |
+          set -euo pipefail
+          export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
+          cd chrome/macos
+          swift build 2>&1 | tail -20
+
+      - name: Launch and screenshot
+        run: |
+          set -euo pipefail
+          export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
+          APP="$(find chrome/macos/.build -name 'Webkitium' -type f -perm +111 2>/dev/null | head -1)"
+          if [[ -z "$APP" ]]; then
+            echo "::error::Built binary not found"
+            exit 1
+          fi
+          "$APP" &
+          APP_PID=$!
+          sleep 8
+          screencapture -x "$RUNNER_TEMP/screenshot_macos_shell.png"
+          kill $APP_PID 2>/dev/null || true
+          echo "Screenshot saved"
+
+      - name: Upload screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshot-macos
+          path: ${{ runner.temp }}/screenshot_macos_shell.png
+
+  ios:
+    name: iOS Simulator Screenshot
+    runs-on:
+      - self-hosted
+      - macOS
+      - ARM64
+      - webkitium
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Boot simulator and screenshot
+        run: |
+          set -euo pipefail
+          export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
+
+          # Find an available iPhone simulator
+          RUNTIME=$(xcrun simctl list runtimes -j | python3 -c "
+          import sys, json
+          rts = json.load(sys.stdin)['runtimes']
+          ios = [r for r in rts if r['isAvailable'] and 'iOS' in r['name']]
+          print(ios[-1]['identifier'] if ios else '')
+          ")
+          if [[ -z "$RUNTIME" ]]; then
+            echo "::error::No iOS simulator runtime found"
+            exit 1
+          fi
+          echo "Runtime: $RUNTIME"
+
+          DEVICE_TYPE="com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro"
+          SIM_UDID=$(xcrun simctl create "WebkitiumTest" "$DEVICE_TYPE" "$RUNTIME")
+          echo "Created simulator: $SIM_UDID"
+
+          xcrun simctl boot "$SIM_UDID"
+          sleep 5
+
+          # Open Safari to example.com as a stand-in for the WKWebView experience
+          # (chrome/ios doesn't exist yet; this shows the iOS WebKit rendering)
+          xcrun simctl openurl "$SIM_UDID" "https://example.com"
+          sleep 5
+
+          xcrun simctl io "$SIM_UDID" screenshot "$RUNNER_TEMP/screenshot_ios_simulator.png"
+
+          xcrun simctl shutdown "$SIM_UDID"
+          xcrun simctl delete "$SIM_UDID"
+          echo "iOS screenshot saved"
+
+      - name: Upload screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshot-ios
+          path: ${{ runner.temp }}/screenshot_ios_simulator.png
+
+  linux:
+    name: Linux GTK Screenshot
+    runs-on:
+      - self-hosted
+      - Linux
+      - ARM64
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libadwaita-1-dev libwebkitgtk-6.0-dev \
+            meson pkg-config xvfb imagemagick 2>/dev/null || true
+
+      - name: Build Linux shell
+        run: |
+          set -euo pipefail
+          cd chrome/linux
+          meson setup builddir
+          ninja -C builddir
+
+      - name: Launch in Xvfb and screenshot
+        run: |
+          set -euo pipefail
+          export DISPLAY=:99
+          Xvfb :99 -screen 0 1280x800x24 &
+          XVFB_PID=$!
+          sleep 2
+
+          cd chrome/linux
+          GDK_BACKEND=x11 ./builddir/webkitium &
+          APP_PID=$!
+          sleep 6
+
+          import -window root "$RUNNER_TEMP/screenshot_linux_shell.png"
+
+          kill $APP_PID 2>/dev/null || true
+          kill $XVFB_PID 2>/dev/null || true
+          echo "Linux screenshot saved"
+
+      - name: Upload screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshot-linux
+          path: ${{ runner.temp }}/screenshot_linux_shell.png
+
+  android:
+    name: Android Screenshot
+    runs-on:
+      - self-hosted
+      - Linux
+      - ARM64
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Android APK
+        run: |
+          set -euo pipefail
+          export ANDROID_HOME="${ANDROID_HOME:-$HOME/Android/Sdk}"
+          cd chrome/android
+          chmod +x gradlew 2>/dev/null || true
+          ./gradlew assembleDebug
+
+      - name: Upload to Device Farm and screenshot
+        env:
+          DEVICEFARM_PROJECT_ARN: ${{ secrets.DEVICEFARM_PROJECT_ARN }}
+          AWS_REGION: us-west-2
+        run: |
+          set -euo pipefail
+          APK="$(find chrome/android -name '*.apk' -path '*/debug/*' | head -1)"
+          [[ -f "$APK" ]] || { echo "::error::APK not found"; exit 1; }
+
+          # Upload APK
+          UPLOAD=$(aws devicefarm create-upload \
+            --project-arn "$DEVICEFARM_PROJECT_ARN" \
+            --name "webkitium-debug.apk" \
+            --type ANDROID_APP \
+            --region us-west-2 --output json)
+          UPLOAD_ARN=$(echo "$UPLOAD" | python3 -c "import sys,json; print(json.load(sys.stdin)['upload']['arn'])")
+          UPLOAD_URL=$(echo "$UPLOAD" | python3 -c "import sys,json; print(json.load(sys.stdin)['upload']['url'])")
+          curl -sSf -T "$APK" "$UPLOAD_URL"
+          sleep 5
+
+          # Run fuzz test (captures screenshots automatically)
+          RUN=$(aws devicefarm schedule-run \
+            --project-arn "$DEVICEFARM_PROJECT_ARN" \
+            --app-arn "$UPLOAD_ARN" \
+            --device-pool-arn "arn:aws:devicefarm:us-west-2::devicepool:082d10e5-d7d7-48a5-ba5c-b33d66efa1f5" \
+            --name "shell-screenshot" \
+            --test '{"type":"BUILTIN_FUZZ","parameters":{"event_count":"50","throttle":"100"}}' \
+            --execution-configuration '{"jobTimeoutMinutes":5}' \
+            --region us-west-2 --output json)
+          RUN_ARN=$(echo "$RUN" | python3 -c "import sys,json; print(json.load(sys.stdin)['run']['arn'])")
+
+          # Poll
+          for i in $(seq 1 20); do
+            STATUS=$(aws devicefarm get-run --arn "$RUN_ARN" --region us-west-2 --query 'run.status' --output text)
+            echo "status=$STATUS"
+            [[ "$STATUS" == "COMPLETED" ]] && break
+            sleep 15
+          done
+
+          # Download first screenshot
+          JOB=$(aws devicefarm list-jobs --arn "$RUN_ARN" --region us-west-2 --query 'jobs[0].arn' --output text)
+          SCREENSHOT_URL=$(aws devicefarm list-artifacts --arn "$JOB" --type SCREENSHOT --region us-west-2 \
+            --query 'artifacts[-1].url' --output text)
+          curl -sSf -o "$RUNNER_TEMP/screenshot_android_device.png" "$SCREENSHOT_URL"
+          echo "Android screenshot saved"
+
+      - name: Upload screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshot-android
+          path: ${{ runner.temp }}/screenshot_android_device.png
