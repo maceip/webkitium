@@ -38,12 +38,16 @@ jobs:
           }
 
       - name: Build WinUI shell
-        shell: cmd
+        shell: pwsh
         run: |
-          call "C:\BuildTools\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64
-          set "DOTNET_ROOT=%RUNNER_TEMP%\dotnet"
-          set "PATH=%RUNNER_TEMP%\dotnet;%PATH%"
-          set "VCTargetsPath=C:\BuildTools\MSBuild\Microsoft\VC\v170\"
+          $env:PATH = "$env:RUNNER_TEMP\dotnet;$env:PATH"
+          $env:DOTNET_ROOT = "$env:RUNNER_TEMP\dotnet"
+          # Remove native project reference that requires full VS C++ workload
+          $csproj = "chrome\windows\webkitium.csproj"
+          $content = Get-Content $csproj -Raw
+          $content = $content -replace '(?s)<ProjectReference[^>]*native[^>]*>.*?</ProjectReference>', ''
+          $content = $content -replace '<ProjectReference[^>]*native[^/]*/>', ''
+          Set-Content $csproj $content
           cd chrome\windows
           dotnet build webkitium.csproj -c Debug 2>&1 || echo "Build attempted"
 
