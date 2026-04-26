@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UserControl
+    x:Class="Webkitium.Views.FindBar"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Border Background="{ThemeResource SurfaceChromeRaised}"
+            BorderBrush="{ThemeResource BorderDefault}"
+            BorderThickness="1"
+            CornerRadius="8"
+            Padding="8,4"
+            Width="320"
+            Height="36">
+        <Grid ColumnSpacing="4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBox x:Name="FindInput"
+                     Grid.Column="0"
+                     PlaceholderText="Find in page"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     FontSize="12"
+                     Padding="4,2"
+                     VerticalAlignment="Center"
+                     KeyDown="OnFindKeyDown" />
+
+            <Button Grid.Column="1" Width="24" Height="24" Padding="0"
+                    Background="Transparent" BorderBrush="Transparent"
+                    Click="OnPrevious"
+                    ToolTipService.ToolTip="Previous (Shift+Enter)">
+                <SymbolIcon Symbol="Up" RenderTransformOrigin="0.5,0.5">
+                    <SymbolIcon.RenderTransform>
+                        <ScaleTransform ScaleX="0.6" ScaleY="0.6" />
+                    </SymbolIcon.RenderTransform>
+                </SymbolIcon>
+            </Button>
+
+            <Button Grid.Column="2" Width="24" Height="24" Padding="0"
+                    Background="Transparent" BorderBrush="Transparent"
+                    Click="OnNext"
+                    ToolTipService.ToolTip="Next (Enter)">
+                <SymbolIcon Symbol="Forward" RenderTransformOrigin="0.5,0.5">
+                    <SymbolIcon.RenderTransform>
+                        <ScaleTransform ScaleX="0.6" ScaleY="0.6" />
+                    </SymbolIcon.RenderTransform>
+                </SymbolIcon>
+            </Button>
+
+            <Button Grid.Column="3" Width="24" Height="24" Padding="0"
+                    Background="Transparent" BorderBrush="Transparent"
+                    Click="OnClose"
+                    ToolTipService.ToolTip="Close (Esc)">
+                <SymbolIcon Symbol="Cancel" RenderTransformOrigin="0.5,0.5">
+                    <SymbolIcon.RenderTransform>
+                        <ScaleTransform ScaleX="0.6" ScaleY="0.6" />
+                    </SymbolIcon.RenderTransform>
+                </SymbolIcon>
+            </Button>
+        </Grid>
+    </Border>
+</UserControl>

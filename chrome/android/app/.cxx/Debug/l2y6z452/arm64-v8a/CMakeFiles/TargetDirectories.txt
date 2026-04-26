@@ -1,0 +1,3 @@
+/workspace/chrome/android/app/.cxx/Debug/l2y6z452/arm64-v8a/CMakeFiles/webkitium_color_jni.dir
+/workspace/chrome/android/app/.cxx/Debug/l2y6z452/arm64-v8a/CMakeFiles/edit_cache.dir
+/workspace/chrome/android/app/.cxx/Debug/l2y6z452/arm64-v8a/CMakeFiles/rebuild_cache.dir

@@ -1,0 +1,27 @@
+{
+  "buildFiles": [
+    "/workspace/chrome/android/app/src/main/cpp/CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "/home/ubuntu/android-sdk/cmake/3.22.1/bin/ninja",
+      "-C",
+      "/workspace/chrome/android/app/.cxx/Debug/l2y6z452/x86_64",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "/home/ubuntu/android-sdk/cmake/3.22.1/bin/ninja",
+    "-C",
+    "/workspace/chrome/android/app/.cxx/Debug/l2y6z452/x86_64",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "webkitium_color_jni::@6890427a1f51a3e7e1df": {
+      "artifactName": "webkitium_color_jni",
+      "abi": "x86_64",
+      "output": "/workspace/chrome/android/app/build/intermediates/cxx/Debug/l2y6z452/obj/x86_64/libwebkitium_color_jni.so",
+      "runtimeFiles": []
+    }
+  }
+}
