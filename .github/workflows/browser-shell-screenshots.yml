@@ -65,21 +65,33 @@ jobs:
           Start-Sleep -Seconds 10
           # Try PrintWindow via compiled C# helper
           $csFile = "$env:GITHUB_WORKSPACE\scripts\ci\win-capture.cs"
+          # Check if process survived
+          if ($proc) {
+            Write-Host "Process alive: $(!$proc.HasExited), PID: $($proc.Id)"
+            if ($proc.HasExited) {
+              Write-Host "Exit code: $($proc.ExitCode)"
+            } else {
+              Write-Host "Main window title: '$($proc.MainWindowTitle)'"
+              Write-Host "Main window handle: $($proc.MainWindowHandle)"
+            }
+          }
           Write-Host "C# file: $csFile exists=$(Test-Path $csFile)"
           $captured = $false
           if (Test-Path $csFile) {
             try {
               Add-Type -Path $csFile -ErrorAction Stop
-              Write-Host "WinCapture type loaded"
-              foreach ($t in @("Webkitium", "webkitium")) {
+              # Try the process's own window title first
+              $titles = @("Webkitium", "webkitium")
+              if ($proc -and -not $proc.HasExited -and $proc.MainWindowTitle) {
+                $titles = @($proc.MainWindowTitle) + $titles
+              }
+              foreach ($t in $titles) {
                 Write-Host "Trying PrintWindow for title '$t'..."
                 $result = [WinCapture]::Capture($t, $outPath)
                 Write-Host "Result: $result"
-                if ($result) { $captured = $true; Write-Host "PrintWindow OK ($t)"; break }
+                if ($result) { $captured = $true; break }
               }
             } catch { Write-Host "PrintWindow error: $_" }
-          } else {
-            Write-Host "C# capture file not found at $csFile"
           }
           if (-not $captured) {
             try {
