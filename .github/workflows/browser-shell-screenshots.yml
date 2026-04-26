@@ -21,9 +21,21 @@ jobs:
       - Windows
       - X64
       - webkitium
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+
+      - name: Ensure .NET SDK
+        shell: pwsh
+        run: |
+          if (Get-Command dotnet -ErrorAction SilentlyContinue) {
+            dotnet --version
+          } else {
+            Write-Host "Installing .NET SDK..."
+            Invoke-WebRequest -Uri "https://dot.net/v1/dotnet-install.ps1" -OutFile "$env:RUNNER_TEMP\dotnet-install.ps1"
+            & "$env:RUNNER_TEMP\dotnet-install.ps1" -Channel 9.0 -InstallDir "$env:RUNNER_TEMP\dotnet"
+            echo "$env:RUNNER_TEMP\dotnet" | Out-File -Append -FilePath $env:GITHUB_PATH
+          }
 
       - name: Build WinUI shell
         shell: cmd
@@ -36,14 +48,13 @@ jobs:
         run: |
           $exe = Get-ChildItem -Recurse chrome\windows -Filter "webkitium.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $exe) {
-            # If dotnet build didn't produce exe, try finding via bin
             $exe = Get-ChildItem -Recurse chrome\windows\bin -Filter "*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
           }
           if ($exe) {
             $proc = Start-Process -FilePath $exe.FullName -PassThru -ErrorAction SilentlyContinue
-            Start-Sleep -Seconds 8
+            Start-Sleep -Seconds 10
           } else {
-            Write-Host "No executable found, taking desktop screenshot as-is"
+            Write-Host "No executable found, taking desktop screenshot"
             Start-Sleep -Seconds 2
           }
 
@@ -75,14 +86,23 @@ jobs:
       - macOS
       - ARM64
       - webkitium
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build macOS shell
+      - name: Build browser core + macOS shell
         run: |
           set -euo pipefail
           export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
+
+          # Build the C++ browser core first (provides the C bridge .a libraries)
+          cd browser
+          mkdir -p build && cd build
+          cmake .. -DCMAKE_BUILD_TYPE=Release 2>&1 || true
+          cmake --build . --target ng_browser_core 2>&1 || true
+          cd ../..
+
+          # Now build the Swift shell
           cd chrome/macos
           swift build 2>&1 || true
 
@@ -137,21 +157,43 @@ jobs:
           fi
           echo "Runtime: $RUNTIME"
 
-          DEVICE_TYPE="com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro"
-          SIM_UDID=$(xcrun simctl create "WebkitiumTest" "$DEVICE_TYPE" "$RUNTIME" 2>/dev/null || \
-                     xcrun simctl create "WebkitiumTest" "com.apple.CoreSimulator.SimDeviceType.iPhone-15-Pro" "$RUNTIME")
+          # Try iPhone 16 Pro, fall back to 15 Pro, then any iPhone
+          SIM_UDID=""
+          for dtype in "iPhone-16-Pro" "iPhone-15-Pro" "iPhone-15" "iPhone-14"; do
+            SIM_UDID=$(xcrun simctl create "WebkitiumTest" \
+              "com.apple.CoreSimulator.SimDeviceType.$dtype" "$RUNTIME" 2>/dev/null) && break
+          done
+          if [[ -z "$SIM_UDID" ]]; then
+            echo "::error::Could not create any simulator device"
+            exit 1
+          fi
           echo "Created simulator: $SIM_UDID"
 
           xcrun simctl boot "$SIM_UDID"
-          sleep 5
+          # Wait longer for full boot (previous run timed out at 5s)
+          sleep 15
 
-          xcrun simctl openurl "$SIM_UDID" "https://example.com"
+          # Load a local HTML page to avoid network timeout
+          HTML_FILE="$RUNNER_TEMP/webkitium_test.html"
+          cat > "$HTML_FILE" << 'HTML'
+          <!DOCTYPE html>
+          <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+          <title>Webkitium</title>
+          <style>body{font-family:-apple-system,sans-serif;padding:40px 20px;background:#f5f5f5;}
+          h1{font-size:26px;margin-bottom:12px;}p{color:#555;line-height:1.5;}</style>
+          </head><body>
+          <h1>Example Domain</h1>
+          <p>This domain is for use in documentation examples without needing permission.</p>
+          <p><a href="#">Learn more</a></p>
+          </body></html>
+HTML
+          xcrun simctl openurl "$SIM_UDID" "file://$HTML_FILE" 2>/dev/null || true
           sleep 5
 
           xcrun simctl io "$SIM_UDID" screenshot "$RUNNER_TEMP/screenshot_ios_simulator.png"
 
-          xcrun simctl shutdown "$SIM_UDID"
-          xcrun simctl delete "$SIM_UDID"
+          xcrun simctl shutdown "$SIM_UDID" 2>/dev/null || true
+          xcrun simctl delete "$SIM_UDID" 2>/dev/null || true
 
       - name: Upload screenshot
         if: always()
@@ -180,9 +222,8 @@ jobs:
         run: |
           set -euo pipefail
           cd chrome/linux
-          # Create symlink for browser/ so meson doesn't use absolute paths
           ln -sf ../../browser browser_link
-          sed 's|meson.project_source_root() / '\''\.\.'\'' / '\''\.\.'\'' / '\''browser'\''|'\''browser_link'\''|' meson.build > meson.build.patched
+          sed "s|meson.project_source_root() / '\.\.' / '\.\.' / 'browser'|'browser_link'|" meson.build > meson.build.patched
           mv meson.build.patched meson.build
           meson setup builddir
           ninja -C builddir
