@@ -130,9 +130,11 @@ jobs:
           sed -i '' '/private let services/d' Sources/Webkitium/WebkitiumApp.swift
           sed -i '' 's/\.windowStyle(.hiddenTitleBar)//' Sources/Webkitium/WebkitiumApp.swift
           sed -i '' 's/\.windowToolbarStyle(.unifiedCompact)//' Sources/Webkitium/WebkitiumApp.swift
-          # Copy ForceWindow helper into source tree to force window visibility on CI
-          cp "$GITHUB_WORKSPACE/scripts/ci/ForceWindow.swift" Sources/Webkitium/ForceWindow.swift
-          cat Sources/Webkitium/WebkitiumApp.swift
+          # Inject window-forcing code directly into WebkitiumApp.swift
+          # Add an init() that schedules window activation after launch
+          sed -i '' 's/@StateObject private var palette = PaletteProvider()/@StateObject private var palette = PaletteProvider(); init() { DispatchQueue.main.asyncAfter(deadline: .now() + 1) { NSApplication.shared.setActivationPolicy(.regular); NSApplication.shared.activate(ignoringOtherApps: true); NSApplication.shared.windows.first?.makeKeyAndOrderFront(nil) }; DispatchQueue.main.asyncAfter(deadline: .now() + 3) { NSApplication.shared.activate(ignoringOtherApps: true); NSApplication.shared.windows.first?.makeKeyAndOrderFront(nil) } }/' Sources/Webkitium/WebkitiumApp.swift
+          echo "=== Modified WebkitiumApp.swift ==="
+          head -15 Sources/Webkitium/WebkitiumApp.swift
 
           # Copy color bridge headers + modulemap into the package tree
           mkdir -p CWebkitiumColor

@@ -29,22 +29,22 @@ EOF
 echo "Bundle: $BUNDLE"
 
 # Launch
-open -Fna "$BUNDLE"
-sleep 8
+open -Fna "$BUNDLE" --stdout /tmp/wk-out.log --stderr /tmp/wk-err.log
+sleep 12
 
 PID=$(pgrep -f "Webkitium.app/Contents/MacOS/webkitium" || true)
 echo "PID: ${PID:-DEAD}"
 
-# Force activate via AppleScript using PID
-if [[ -n "$PID" ]]; then
-  osascript -e "tell application \"System Events\" to set frontmost of (first process whose unix id is $PID) to true" 2>/dev/null &
-  ASPID=$!
-  sleep 2
-  kill $ASPID 2>/dev/null || true
-fi
+echo "=== stdout ===" && cat /tmp/wk-out.log 2>/dev/null | head -10 || true
+echo "=== stderr ===" && cat /tmp/wk-err.log 2>/dev/null | head -10 || true
 
-# Check system log for ForceWindow messages
-log show --predicate 'processIdentifier == '"$PID" --last 10s 2>/dev/null | grep -i "ForceWindow\|window\|activate" | head -5 || true
+# Check system log for our ForceWindow / activate messages
+echo "=== System log ==="
+log show --predicate "processIdentifier == $PID" --last 15s --style compact 2>/dev/null | head -20 || true
+
+# Check if any windows exist via osascript
+echo "=== Window check ==="
+osascript -e 'tell application "System Events" to get name of every window of every process whose unix id is '"$PID" 2>&1 | head -5 || true
 
 # Capture
 screencapture -x "$OUT"
