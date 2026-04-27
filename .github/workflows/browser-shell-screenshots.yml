@@ -153,6 +153,9 @@ jobs:
           # Remove files that depend on extensions/sync/webauthn C bridges
           rm -f Sources/Webkitium/Services/BrowserServices.swift
           sed -i '' 's/private let services.*$//' Sources/Webkitium/WebkitiumApp.swift
+          # Remove window styles that may prevent window from showing on macOS 26
+          sed -i '' 's/\.windowStyle(.hiddenTitleBar)//' Sources/Webkitium/WebkitiumApp.swift
+          sed -i '' 's/\.windowToolbarStyle(.unifiedCompact)//' Sources/Webkitium/WebkitiumApp.swift
 
           # Copy color bridge headers + modulemap into the package tree
           mkdir -p CWebkitiumColor
