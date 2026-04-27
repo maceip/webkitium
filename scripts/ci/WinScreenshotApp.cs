@@ -96,7 +96,7 @@ public class WinScreenshotApp : Form
         {
             DrawToBitmap(bmp, new Rectangle(0, 0, Width, Height));
             bmp.Save(outPath, ImageFormat.Png);
-            Console.WriteLine($"Screenshot saved: {outPath} ({Width}x{Height})");
+            Console.WriteLine("Screenshot saved: " + outPath + " (" + Width + "x" + Height + ")");
         }
         Application.Exit();
     }

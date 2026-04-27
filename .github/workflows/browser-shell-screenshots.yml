@@ -88,9 +88,21 @@ jobs:
           $exeOut = "$env:RUNNER_TEMP\WinScreenshotApp.exe"
           Write-Host "Compiling WinForms screenshot app..."
           $env:WEBKITIUM_SCREENSHOT_PATH = $outPath
-          # Use csc.exe from .NET Framework (always available on Windows)
-          $csc = "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
-          & $csc /target:winexe /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /out:$exeOut $csFile 2>&1 | Write-Host
+          # Create a minimal .csproj and use dotnet build
+          $projDir = "$env:RUNNER_TEMP\WinScreenshotApp"
+          New-Item -ItemType Directory -Force -Path $projDir | Out-Null
+          Copy-Item $csFile "$projDir\WinScreenshotApp.cs"
+          @"
+          <Project Sdk="Microsoft.NET.Sdk">
+            <PropertyGroup>
+              <OutputType>WinExe</OutputType>
+              <TargetFramework>net8.0-windows</TargetFramework>
+              <UseWindowsForms>true</UseWindowsForms>
+            </PropertyGroup>
+          </Project>
+          "@ | Set-Content "$projDir\WinScreenshotApp.csproj"
+          dotnet build "$projDir\WinScreenshotApp.csproj" -c Release -o "$env:RUNNER_TEMP\WinScreenshotBuild" 2>&1 | Write-Host
+          $exeOut = "$env:RUNNER_TEMP\WinScreenshotBuild\WinScreenshotApp.exe"
           if (-not (Test-Path $exeOut)) {
             Write-Host "::error::Compilation failed"
             exit 1
