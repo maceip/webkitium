@@ -27,13 +27,21 @@ cat > "$BUNDLE/Contents/Info.plist" <<'EOF'
 EOF
 
 echo "Launching $BUNDLE"
-open -a "$BUNDLE"
-sleep 5
-PID=$(pgrep -f "Webkitium.app/Contents/MacOS/webkitium" || true)
-echo "PID: ${PID:-NONE}"
+# Launch directly to capture all output
+"$BUNDLE/Contents/MacOS/webkitium" > /tmp/webkitium-stdout.log 2> /tmp/webkitium-stderr.log &
+APP_PID=$!
+sleep 8
 
-# Just use screencapture. The app window may or may not be visible.
+echo "PID: $APP_PID alive: $(kill -0 $APP_PID 2>/dev/null && echo YES || echo NO)"
+echo "=== STDOUT ==="
+head -20 /tmp/webkitium-stdout.log 2>/dev/null || true
+echo "=== STDERR ==="
+head -20 /tmp/webkitium-stderr.log 2>/dev/null || true
+echo "=== WINDOW LIST ==="
+# List all windows with their owners
+/usr/sbin/system_profiler SPDisplaysDataType 2>/dev/null | head -10 || true
+
 screencapture -x "$OUT"
 
-pkill -f "Webkitium.app/Contents/MacOS/webkitium" 2>/dev/null || true
+kill $APP_PID 2>/dev/null || true
 echo "Done: $OUT"
