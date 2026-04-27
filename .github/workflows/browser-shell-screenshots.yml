@@ -109,7 +109,7 @@ jobs:
             </PropertyGroup>
           </Project>
           "@ | Set-Content "$projDir\WinScreenshotApp.csproj"
-          dotnet build "$projDir\WinScreenshotApp.csproj" -c Release -o "$env:RUNNER_TEMP\WinScreenshotBuild" 2>&1 | Write-Host
+          dotnet publish "$projDir\WinScreenshotApp.csproj" -c Release -r win-x64 --self-contained -o "$env:RUNNER_TEMP\WinScreenshotBuild" 2>&1 | Write-Host
           $exeOut = "$env:RUNNER_TEMP\WinScreenshotBuild\WinScreenshotApp.exe"
           if (-not (Test-Path $exeOut)) {
             Write-Host "::error::Compilation failed"
