@@ -35,15 +35,24 @@ jobs:
             & "$env:RUNNER_TEMP\dotnet-install.ps1" -Channel 8.0 -InstallDir "C:\dotnet"
             echo "C:\dotnet" | Out-File -Append -FilePath $env:GITHUB_PATH
           }
-          # WebView2 Runtime (required for WinUI WebView2 control)
+          # WebView2 Runtime
           $wv2 = Get-ItemProperty "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" -ErrorAction SilentlyContinue
           if (-not $wv2) {
             Write-Host "Installing WebView2 Runtime..."
             Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/p/?LinkId=2124703" -OutFile "$env:RUNNER_TEMP\MicrosoftEdgeWebview2Setup.exe"
             Start-Process -FilePath "$env:RUNNER_TEMP\MicrosoftEdgeWebview2Setup.exe" -ArgumentList "/silent /install" -Wait -ErrorAction SilentlyContinue
-            Write-Host "WebView2 installed"
           } else {
             Write-Host "WebView2 already installed: $($wv2.pv)"
+          }
+          # WindowsAppSDK Runtime (required for WinUI 3 XAML to render)
+          Write-Host "Installing WindowsAppSDK Runtime 1.6..."
+          $wasdk = "$env:RUNNER_TEMP\windowsappruntimeinstall-x64.exe"
+          Invoke-WebRequest -Uri "https://aka.ms/windowsappsdk/1.6/latest/windowsappruntimeinstall-x64.exe" -OutFile $wasdk -ErrorAction SilentlyContinue
+          if (Test-Path $wasdk) {
+            Start-Process -FilePath $wasdk -ArgumentList "--quiet" -Wait -ErrorAction SilentlyContinue
+            Write-Host "WindowsAppSDK Runtime installed"
+          } else {
+            Write-Host "::warning::Could not download WindowsAppSDK Runtime"
           }
 
       - name: Build WinUI shell
