@@ -27,21 +27,26 @@ cat > "$BUNDLE/Contents/Info.plist" <<'EOF'
 </dict></plist>
 EOF
 
-echo "Launching $BUNDLE"
+echo "=== Session info ==="
+who
+echo "---"
+stat -f '%Su' /dev/console
+echo "---"
+defaults read /Library/Preferences/com.apple.loginwindow 2>/dev/null | head -5 || true
+echo "---"
+launchctl print gui/$(stat -f %u /dev/console) 2>/dev/null | head -3 || true
+echo "=== Launching ==="
+
 open -Fna "$BUNDLE"
 sleep 8
 
-# Check
 PID=$(pgrep -f "Webkitium.app/Contents/MacOS/webkitium" || true)
 echo "PID: ${PID:-DEAD}"
 
-# Activate
+# Try activate
 osascript -e 'tell application "Webkitium" to activate' &
-ASCRIPT_PID=$!
-sleep 3
-kill $ASCRIPT_PID 2>/dev/null || true
+ASCRIPT=$!; sleep 3; kill $ASCRIPT 2>/dev/null || true
 
-# Capture
 screencapture -x "$OUT"
 
 kill $PID 2>/dev/null || true
