@@ -107,20 +107,25 @@ jobs:
             Write-Host "::error::Compilation failed"
             exit 1
           }
-          Write-Host "Running in session 1 via PsExec..."
+          # Launch the WinForms app in session 1 in background, then capture
           $psexecPath = "$env:RUNNER_TEMP\PsExec64.exe"
           if (-not (Test-Path $psexecPath)) {
             Invoke-WebRequest -Uri "https://live.sysinternals.com/PsExec64.exe" -OutFile $psexecPath -ErrorAction Stop
           }
-          # Set the env var for the screenshot path via PsExec
-          & $psexecPath -accepteula -nobanner -i 1 cmd.exe /c "set WEBKITIUM_SCREENSHOT_PATH=$outPath && $exeOut" 2>&1 | Write-Host
-          Start-Sleep -Seconds 3
-          if (Test-Path $outPath) {
-            Write-Host "Screenshot captured: $outPath"
+          # Launch in background (-d flag) so PsExec returns immediately
+          & $psexecPath -accepteula -nobanner -i 1 -d $exeOut 2>&1 | Write-Host
+          Start-Sleep -Seconds 12
+          # The app captures itself via DrawToBitmap after 8 seconds
+          # Check if the default output file exists
+          $defaultOut = "C:\actions-runner\_work\_temp\screenshot_windows_shell.png"
+          if (Test-Path $defaultOut) {
+            if ($defaultOut -ne $outPath) { Copy-Item $defaultOut $outPath }
+            Write-Host "Self-capture screenshot: $outPath"
           } else {
-            Write-Host "Self-capture failed, trying PsExec CopyFromScreen..."
+            Write-Host "Self-capture not found, taking CopyFromScreen from session 1..."
             & $psexecPath -accepteula -nobanner -i 1 powershell.exe -ExecutionPolicy Bypass -File "$env:GITHUB_WORKSPACE\scripts\ci\win-take-screenshot.ps1" -OutPath $outPath 2>&1 | Write-Host
           }
+          Get-Process -Name WinScreenshotApp -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
           if (-not (Test-Path $outPath)) { exit 1 }
 
       - name: Upload screenshot
