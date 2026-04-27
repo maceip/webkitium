@@ -23,32 +23,54 @@ cat > "$BUNDLE/Contents/Info.plist" <<'EOF'
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>NSHighResolutionCapable</key><true/>
-<key>LSBackgroundOnly</key><false/>
 </dict></plist>
 EOF
 
-echo "=== Session info ==="
-who
-echo "---"
-stat -f '%Su' /dev/console
-echo "---"
-defaults read /Library/Preferences/com.apple.loginwindow 2>/dev/null | head -5 || true
-echo "---"
-launchctl print gui/$(stat -f %u /dev/console) 2>/dev/null | head -3 || true
-echo "=== Launching ==="
+echo "Bundle: $BUNDLE"
 
-open -Fna "$BUNDLE"
-sleep 8
+# Use Swift to launch the app and force-activate it
+swift - "$BUNDLE" "$OUT" <<'SWIFT'
+import Cocoa
+import Foundation
 
-PID=$(pgrep -f "Webkitium.app/Contents/MacOS/webkitium" || true)
-echo "PID: ${PID:-DEAD}"
+let bundle = CommandLine.arguments[1]
+let outPath = CommandLine.arguments[2]
 
-# Try activate
-osascript -e 'tell application "Webkitium" to activate' &
-ASCRIPT=$!; sleep 3; kill $ASCRIPT 2>/dev/null || true
+let url = URL(fileURLWithPath: bundle)
+let config = NSWorkspace.OpenConfiguration()
+config.activates = true
+config.createsNewApplicationInstance = true
 
-screencapture -x "$OUT"
+let sem = DispatchSemaphore(value: 0)
+var app: NSRunningApplication?
 
-kill $PID 2>/dev/null || true
-pkill -f "Webkitium.app" 2>/dev/null || true
+NSWorkspace.shared.openApplication(at: url, configuration: config) { runningApp, error in
+    if let error = error {
+        print("Launch error: \(error)")
+    }
+    app = runningApp
+    sem.signal()
+}
+sem.wait()
+print("Launched: \(app?.localizedName ?? "nil") pid=\(app?.processIdentifier ?? 0)")
+
+// Wait for window to appear
+Thread.sleep(forTimeInterval: 8)
+
+// Force activate
+app?.activate()
+NSApplication.shared.activate(ignoringOtherApps: true)
+Thread.sleep(forTimeInterval: 2)
+
+// Take screenshot using screencapture
+let task = Process()
+task.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+task.arguments = ["-x", outPath]
+try task.run()
+task.waitUntilExit()
+print("Screenshot: \(outPath)")
+
+app?.terminate()
+SWIFT
+
 echo "Done: $OUT"
