@@ -28,7 +28,7 @@ cat > "$BUNDLE/Contents/Info.plist" <<'EOF'
 EOF
 
 # Ensure PyObjC for Quartz window capture
-pip3 install --quiet pyobjc-framework-Quartz 2>/dev/null || true
+python3 -m pip install --quiet pyobjc-framework-Quartz pyobjc-framework-Cocoa 2>&1 || true
 
 # Launch the app
 open -a "$BUNDLE"
