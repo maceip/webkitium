@@ -28,44 +28,26 @@ EOF
 
 echo "Bundle: $BUNDLE"
 
-# Launch the app
-open -Fna "$BUNDLE" --stdout /tmp/wk-stdout.log --stderr /tmp/wk-stderr.log
-sleep 3
+# Launch
+open -Fna "$BUNDLE"
+sleep 8
 
 PID=$(pgrep -f "Webkitium.app/Contents/MacOS/webkitium" || true)
 echo "PID: ${PID:-DEAD}"
 
-if [[ -z "$PID" ]]; then
-  echo "App did not start via open, trying direct launch..."
-  "$BUNDLE/Contents/MacOS/webkitium" &>/tmp/wk-direct.log &
-  PID=$!
-  sleep 5
+# Force activate via AppleScript using PID
+if [[ -n "$PID" ]]; then
+  osascript -e "tell application \"System Events\" to set frontmost of (first process whose unix id is $PID) to true" 2>/dev/null &
+  ASPID=$!
+  sleep 2
+  kill $ASPID 2>/dev/null || true
 fi
 
-# Use AppleScript to force the app to front and open its window
-osascript <<'AS' &
-tell application "System Events"
-  set frontmost of (first process whose unix id is THEPID) to true
-end tell
-AS
-ASPID=$!
-sleep 2
-kill $ASPID 2>/dev/null || true
+# Check system log for ForceWindow messages
+log show --predicate 'processIdentifier == '"$PID" --last 10s 2>/dev/null | grep -i "ForceWindow\|window\|activate" | head -5 || true
 
-# Also try clicking on the app's dock icon via AppleScript
-osascript -e 'tell application "Webkitium" to activate' &
-ASPID2=$!
-sleep 3
-kill $ASPID2 2>/dev/null || true
-
-echo "=== stdout ===" && head -20 /tmp/wk-stdout.log 2>/dev/null || true
-echo "=== stderr ===" && head -20 /tmp/wk-stderr.log 2>/dev/null || true
-
-# Capture the screen
+# Capture
 screencapture -x "$OUT"
-
-# Also try window-specific capture
-screencapture -x -l"$(osascript -e 'tell application "System Events" to get id of first window of (first process whose unix id is '"$PID"')' 2>/dev/null || echo 0)" "${OUT%.png}_window.png" 2>/dev/null || true
 
 kill "$PID" 2>/dev/null || true
 echo "Done: $OUT"

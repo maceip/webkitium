@@ -70,25 +70,26 @@ jobs:
           Write-Host "=== Sessions ==="
           qwinsta 2>&1 | Write-Host
 
-          # Try launching in the interactive gui-harness session (session 1)
-          # Method 1: PsExec (if available)
-          $psexec = Get-Command PsExec -ErrorAction SilentlyContinue
-          if (-not $psexec) { $psexec = Get-Command PsExec64 -ErrorAction SilentlyContinue }
-
-          $launched = $false
-          if ($psexec) {
-            Write-Host "Using PsExec to launch in session 1..."
-            & $psexec.Source -accepteula -i 1 -d "$($exe.FullName)" 2>&1 | Write-Host
-            $launched = $true
-          } else {
-            Write-Host "PsExec not available, trying direct launch..."
-            $proc = Start-Process -FilePath $exe.FullName -PassThru -ErrorAction SilentlyContinue
-            Start-Sleep -Seconds 5
-            Write-Host "Process: alive=$(-not $proc.HasExited) handle=$($proc.MainWindowHandle)"
-            $launched = $true
+          # Download PsExec to launch in the interactive gui-harness session (session 1)
+          $psexecPath = "$env:RUNNER_TEMP\PsExec64.exe"
+          if (-not (Test-Path $psexecPath)) {
+            Write-Host "Downloading PsExec..."
+            Invoke-WebRequest -Uri "https://live.sysinternals.com/PsExec64.exe" -OutFile $psexecPath -ErrorAction Stop
           }
 
+          Write-Host "Launching in session 1 via PsExec..."
+          & $psexecPath -accepteula -nobanner -i 1 -d "$($exe.FullName)" 2>&1 | Write-Host
           Start-Sleep -Seconds 15
+
+          # Check if the process is running with a window
+          $wkProc = Get-Process -Name webkitium -ErrorAction SilentlyContinue
+          if ($wkProc) {
+            Write-Host "Process running: pid=$($wkProc.Id) handle=$($wkProc.MainWindowHandle)"
+          } else {
+            Write-Host "Process not found, trying direct launch as fallback..."
+            Start-Process -FilePath $exe.FullName -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 10
+          }
 
           # Try CopyFromScreen (works if we have desktop access)
           $captured = $false
