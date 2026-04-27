@@ -84,8 +84,16 @@ jobs:
           $outPath = "$env:RUNNER_TEMP\screenshot_windows_shell.png"
           # Compile and run a self-capturing WinForms browser app
           # WinForms works in any session without WindowsAppSDK Runtime
+          # Kill any leftover instances from previous runs
+          Get-Process -Name WinScreenshotApp -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+          Get-Process -Name webkitium -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+          Start-Sleep -Seconds 2
           $csFile = "$env:GITHUB_WORKSPACE\scripts\ci\WinScreenshotApp.cs"
           $exeOut = "$env:RUNNER_TEMP\WinScreenshotApp.exe"
+          # Clean stale build artifacts
+          Remove-Item -Force "$exeOut" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "$env:RUNNER_TEMP\WinScreenshotApp" -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "$env:RUNNER_TEMP\WinScreenshotBuild" -ErrorAction SilentlyContinue
           Write-Host "Compiling WinForms screenshot app..."
           $env:WEBKITIUM_SCREENSHOT_PATH = $outPath
           # Create a minimal .csproj and use dotnet build
