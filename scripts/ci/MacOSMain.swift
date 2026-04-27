@@ -1,20 +1,23 @@
-/// CI-only entry point that replaces the SwiftUI @main App with a pure
-/// AppKit NSWindow hosting the SwiftUI RootView.  This works around
-/// SwiftUI Window scenes not opening on headless EC2 Mac runners.
 import Cocoa
 import SwiftUI
 
-// We re-use RootView, PaletteProvider, BrowserState, etc. from the main target.
-// This file is compiled INTO the same target, replacing WebkitiumApp.swift.
+@main
+struct WebkitiumCI {
+    static func main() {
+        let app = NSApplication.shared
+        app.setActivationPolicy(.regular)
 
-let app = NSApplication.shared
-app.setActivationPolicy(.regular)
+        let delegate = WebkitiumAppDelegate()
+        app.delegate = delegate
+        app.run()
+    }
+}
 
-class AppDelegate: NSObject, NSApplicationDelegate {
+class WebkitiumAppDelegate: NSObject, NSApplicationDelegate {
     var window: NSWindow!
-    let palette = PaletteProvider()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        let palette = PaletteProvider()
         let rootView = RootView()
             .environmentObject(palette)
             .frame(minWidth: 720, minHeight: 480)
@@ -30,11 +33,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.isReleasedWhenClosed = false
         window.center()
         window.makeKeyAndOrderFront(nil)
-
         NSApp.activate(ignoringOtherApps: true)
     }
 }
-
-let delegate = AppDelegate()
-app.delegate = delegate
-app.run()
