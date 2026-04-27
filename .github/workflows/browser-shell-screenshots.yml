@@ -77,58 +77,21 @@ jobs:
             Invoke-WebRequest -Uri "https://live.sysinternals.com/PsExec64.exe" -OutFile $psexecPath -ErrorAction Stop
           }
 
-          Write-Host "Launching in session 1 via PsExec..."
+          # Launch app in session 1
+          Write-Host "Launching app in session 1 via PsExec..."
           & $psexecPath -accepteula -nobanner -i 1 -d "$($exe.FullName)" 2>&1 | Write-Host
           Start-Sleep -Seconds 15
 
-          # Check if the process is running with a window
-          $wkProc = Get-Process -Name webkitium -ErrorAction SilentlyContinue
-          if ($wkProc) {
-            Write-Host "Process running: pid=$($wkProc.Id) handle=$($wkProc.MainWindowHandle)"
-          } else {
-            Write-Host "Process not found, trying direct launch as fallback..."
-            Start-Process -FilePath $exe.FullName -ErrorAction SilentlyContinue
-            Start-Sleep -Seconds 10
-          }
-
-          # Try CopyFromScreen (works if we have desktop access)
-          $captured = $false
-          try {
-            Add-Type -AssemblyName System.Windows.Forms, System.Drawing
-            $s = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-            if ($s.Width -gt 0 -and $s.Height -gt 0) {
-              $bmp = New-Object System.Drawing.Bitmap($s.Width, $s.Height)
-              $g = [System.Drawing.Graphics]::FromImage($bmp)
-              $g.CopyFromScreen($s.Location, [System.Drawing.Point]::Empty, $s.Size)
-              $bmp.Save($outPath); $g.Dispose(); $bmp.Dispose()
-              $captured = $true
-              Write-Host "CopyFromScreen OK: $($s.Width)x$($s.Height)"
-            }
-          } catch {
-            Write-Host "CopyFromScreen failed: $_"
-          }
-
-          # Method 2: PrintWindow on the specific window
-          if (-not $captured) {
-            Write-Host "Trying PrintWindow..."
-            try {
-              Add-Type -Path "$env:GITHUB_WORKSPACE\scripts\ci\win-capture.cs" -ErrorAction Stop
-              if ([WinCapture]::Capture("Webkitium", $outPath)) {
-                $captured = $true
-                Write-Host "PrintWindow OK"
-              } else {
-                Write-Host "PrintWindow: window not found"
-              }
-            } catch {
-              Write-Host "PrintWindow error: $_"
-            }
-          }
+          # Take screenshot FROM session 1 using PsExec
+          Write-Host "Taking screenshot from session 1..."
+          & $psexecPath -accepteula -nobanner -i 1 powershell.exe -ExecutionPolicy Bypass -File "$env:GITHUB_WORKSPACE\scripts\ci\win-take-screenshot.ps1" -OutPath $outPath 2>&1 | Write-Host
 
           Get-Process -Name webkitium -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-          if (-not $captured -or -not (Test-Path $outPath)) {
+          if (-not (Test-Path $outPath)) {
             Write-Host "::error::No screenshot captured"
             exit 1
           }
+          Write-Host "Screenshot: $outPath"
 
       - name: Upload screenshot
         if: always()
