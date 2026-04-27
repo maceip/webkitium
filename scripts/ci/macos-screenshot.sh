@@ -100,25 +100,24 @@ w.makeKeyAndOrderFront(nil)
 
 DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
     let outPath = CommandLine.arguments[1]
-    // Try window-level capture first
     let windowID = w.windowNumber
-    print("Window ID: \(windowID), visible: \(w.isVisible)")
-    let task = Process()
-    task.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-    task.arguments = ["-x", "-l\(windowID)", outPath]
-    try? task.run()
-    task.waitUntilExit()
-    // Check if file was created and has content
-    let fm = FileManager.default
-    if !fm.fileExists(atPath: outPath) || (try? fm.attributesOfItem(atPath: outPath)[.size] as? Int) == 0 {
-        print("Window capture failed, trying full screen")
-        let t2 = Process()
-        t2.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-        t2.arguments = ["-x", outPath]
-        try? t2.run()
-        t2.waitUntilExit()
+    print("Window \(windowID) visible=\(w.isVisible) frame=\(w.frame)")
+    // Use bitmapImageRepForCachingDisplay to render the window contents directly
+    if let view = w.contentView,
+       let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
+        view.cacheDisplay(in: view.bounds, to: rep)
+        if let data = rep.representation(using: .png, properties: [:]) {
+            try? data.write(to: URL(fileURLWithPath: outPath))
+            print("Captured via bitmapImageRepForCachingDisplay")
+        }
+    } else {
+        print("bitmapImageRep failed, using screencapture")
+        let t = Process()
+        t.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+        t.arguments = ["-x", outPath]
+        try? t.run()
+        t.waitUntilExit()
     }
-    print("Screenshot captured: \(outPath)")
     app.terminate(nil)
 }
 app.run()
