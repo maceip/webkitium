@@ -27,16 +27,56 @@ cat > "$BUNDLE/Contents/Info.plist" <<'EOF'
 </dict></plist>
 EOF
 
-# Get the GUI user's UID for launching into their session
-GUI_UID=$(stat -f %u /dev/console 2>/dev/null || id -u)
-echo "GUI session UID: $GUI_UID, current UID: $(id -u)"
+# Launch the app
+open -a "$BUNDLE"
+sleep 8
 
-# Launch into the GUI session
-sudo launchctl asuser "$GUI_UID" open -a "$BUNDLE" 2>/dev/null \
-  || open -a "$BUNDLE" 2>/dev/null \
-  || "$BUNDLE/Contents/MacOS/webkitium" &
-sleep 10
+# List all windows via Quartz CGWindowList to find ours
+python3 << 'PYEOF'
+import sys
+try:
+    import Quartz
+    wl = Quartz.CGWindowListCopyWindowInfo(
+        Quartz.kCGWindowListOptionAll, Quartz.kCGNullWindowID)
+    print(f"Total windows: {len(wl)}")
+    for w in wl:
+        name = w.get('kCGWindowOwnerName', '')
+        layer = w.get('kCGWindowLayer', -1)
+        bounds = w.get('kCGWindowBounds', {})
+        if layer == 0 and bounds.get('Width', 0) > 100:
+            print(f"  [{name}] {bounds.get('Width')}x{bounds.get('Height')} layer={layer}")
+except Exception as e:
+    print(f"Quartz error: {e}")
+PYEOF
 
-screencapture -x "$OUT"
+# Try to capture the specific webkitium window via Quartz
+python3 -c "
+import sys
+try:
+    import Quartz
+    from Cocoa import NSBitmapImageRep
+    wl = Quartz.CGWindowListCopyWindowInfo(Quartz.kCGWindowListOptionAll, Quartz.kCGNullWindowID)
+    for w in wl:
+        if 'webkitium' in w.get('kCGWindowOwnerName','').lower():
+            wid = w['kCGWindowNumber']
+            bounds = w.get('kCGWindowBounds', {})
+            print(f'Found: wid={wid} {bounds}')
+            img = Quartz.CGWindowListCreateImage(
+                Quartz.CGRectNull,
+                Quartz.kCGWindowListOptionIncludingWindow,
+                wid,
+                Quartz.kCGWindowImageBoundsIgnoreFraming)
+            if img:
+                rep = NSBitmapImageRep.alloc().initWithCGImage_(img)
+                data = rep.representationUsingType_properties_(4, None)  # 4 = PNG
+                data.writeToFile_atomically_('$OUT', True)
+                print('Captured via Quartz')
+                sys.exit(0)
+    print('No webkitium window found, capturing full screen')
+except Exception as e:
+    print(f'Quartz capture failed: {e}')
+sys.exit(1)
+" 2>&1 || screencapture -x "$OUT"
+
 pkill -f "Webkitium.app/Contents/MacOS/webkitium" 2>/dev/null || true
 echo "Screenshot saved: $OUT"
