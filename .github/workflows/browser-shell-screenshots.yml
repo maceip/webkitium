@@ -163,6 +163,8 @@ jobs:
           sed -i '' 's/\.windowToolbarStyle(.unifiedCompact)//' Sources/Webkitium/WebkitiumApp.swift
           # Force the app to activate and show its window
           sed -i '' 's/@StateObject private var palette = PaletteProvider()/@StateObject private var palette = PaletteProvider(); init() { DispatchQueue.main.asyncAfter(deadline: .now() + 1) { NSApplication.shared.activate(ignoringOtherApps: true) } }/' Sources/Webkitium/WebkitiumApp.swift
+          echo "=== Modified WebkitiumApp.swift ==="
+          cat Sources/Webkitium/WebkitiumApp.swift
 
           # Copy color bridge headers + modulemap into the package tree
           mkdir -p CWebkitiumColor
