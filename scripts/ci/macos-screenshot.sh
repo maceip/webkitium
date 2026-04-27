@@ -10,17 +10,27 @@ if [[ -z "$APP" || ! -f "$APP" ]]; then
   exit 1
 fi
 
-# Run the binary directly -- it's now a pure AppKit app (MacOSMain.swift)
-# that creates an NSWindow, so it should show up immediately
-"$APP" &
+echo "Running $APP with WEBKITIUM_SCREENSHOT_PATH=$OUT"
+# Run the binary directly with the screenshot path
+# MacOSMain.swift will create an NSWindow, wait 8 seconds, capture it, and exit
+WEBKITIUM_SCREENSHOT_PATH="$OUT" "$APP" &
 PID=$!
-echo "Launched PID=$PID"
-sleep 10
 
-echo "Alive: $(kill -0 $PID 2>/dev/null && echo YES || echo NO)"
+# Wait for the app to finish (it exits after taking the screenshot)
+for i in $(seq 1 30); do
+  if ! kill -0 $PID 2>/dev/null; then
+    echo "App exited after ${i}s"
+    break
+  fi
+  sleep 1
+done
 
-# Capture
-screencapture -x "$OUT"
-
+# Kill if still running
 kill $PID 2>/dev/null || true
-echo "Done: $OUT ($(wc -c < "$OUT") bytes)"
+
+if [[ -f "$OUT" ]]; then
+  echo "Screenshot: $OUT ($(wc -c < "$OUT") bytes)"
+else
+  echo "ERROR: Screenshot not created! Falling back to screencapture..."
+  screencapture -x "$OUT"
+fi
