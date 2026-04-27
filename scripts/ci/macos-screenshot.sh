@@ -24,29 +24,26 @@ cat > "$BUNDLE/Contents/Info.plist" <<'EOF'
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>NSHighResolutionCapable</key><true/>
 <key>LSBackgroundOnly</key><false/>
-<key>NSSupportsAutomaticTermination</key><false/>
 </dict></plist>
 EOF
 
 echo "Launching $BUNDLE"
-# Launch via open with -F (fresh) -n (new instance) -a (application)
-open -Fna "$BUNDLE" --stdout /tmp/webkitium-stdout.log --stderr /tmp/webkitium-stderr.log
+open -Fna "$BUNDLE"
+sleep 8
+
+# Check
+PID=$(pgrep -f "Webkitium.app/Contents/MacOS/webkitium" || true)
+echo "PID: ${PID:-DEAD}"
+
+# Activate
+osascript -e 'tell application "Webkitium" to activate' &
+ASCRIPT_PID=$!
 sleep 3
-# Click on it in the Dock to force window creation
-osascript -e 'tell application "System Events" to click (first process whose bundle identifier is "dev.webkitium.Browser")' 2>/dev/null || true
-sleep 5
-APP_PID=$(pgrep -f "Webkitium.app/Contents/MacOS/webkitium" || true)
+kill $ASCRIPT_PID 2>/dev/null || true
 
-echo "PID: $APP_PID alive: $(kill -0 $APP_PID 2>/dev/null && echo YES || echo NO)"
-echo "=== STDOUT ==="
-head -20 /tmp/webkitium-stdout.log 2>/dev/null || true
-echo "=== STDERR ==="
-head -20 /tmp/webkitium-stderr.log 2>/dev/null || true
-echo "=== WINDOW LIST ==="
-# List all windows with their owners
-/usr/sbin/system_profiler SPDisplaysDataType 2>/dev/null | head -10 || true
-
+# Capture
 screencapture -x "$OUT"
 
-kill $APP_PID 2>/dev/null || true
+kill $PID 2>/dev/null || true
+pkill -f "Webkitium.app" 2>/dev/null || true
 echo "Done: $OUT"
