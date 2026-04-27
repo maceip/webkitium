@@ -25,37 +25,48 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install .NET SDK
+      - name: Install prerequisites
         shell: pwsh
         run: |
-          if (Get-Command dotnet -ErrorAction SilentlyContinue) {
-            Write-Host "dotnet already available: $(dotnet --version)"
-          } else {
+          # .NET SDK
+          if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
             Write-Host "Installing .NET 8.0 SDK..."
             Invoke-WebRequest -Uri "https://dot.net/v1/dotnet-install.ps1" -OutFile "$env:RUNNER_TEMP\dotnet-install.ps1"
-            & "$env:RUNNER_TEMP\dotnet-install.ps1" -Channel 8.0 -InstallDir "C:\dotnet" -Verbose
+            & "$env:RUNNER_TEMP\dotnet-install.ps1" -Channel 8.0 -InstallDir "C:\dotnet"
             echo "C:\dotnet" | Out-File -Append -FilePath $env:GITHUB_PATH
-            Write-Host "Installed: $(C:\dotnet\dotnet.exe --version)"
+          }
+          # WebView2 Runtime (required for WinUI WebView2 control)
+          $wv2 = Get-ItemProperty "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" -ErrorAction SilentlyContinue
+          if (-not $wv2) {
+            Write-Host "Installing WebView2 Runtime..."
+            Invoke-WebRequest -Uri "https://go.microsoft.com/fwlink/p/?LinkId=2124703" -OutFile "$env:RUNNER_TEMP\MicrosoftEdgeWebview2Setup.exe"
+            Start-Process -FilePath "$env:RUNNER_TEMP\MicrosoftEdgeWebview2Setup.exe" -ArgumentList "/silent /install" -Wait -ErrorAction SilentlyContinue
+            Write-Host "WebView2 installed"
+          } else {
+            Write-Host "WebView2 already installed: $($wv2.pv)"
           }
 
       - name: Build WinUI shell
         shell: pwsh
         run: |
           if (Test-Path "C:\dotnet\dotnet.exe") { $env:PATH = "C:\dotnet;$env:PATH" }
-          # Strip native sidecar target (needs full VS C++ workload we don't have)
           $csproj = "chrome\windows\webkitium.csproj"
           $xml = [xml](Get-Content $csproj)
-          $ns = $xml.DocumentElement.NamespaceURI
-          # Remove BuildNativeSidecar target
+          # Remove BuildNativeSidecar target (needs VS C++ workload)
           $targets = $xml.SelectNodes("//Target[@Name='BuildNativeSidecar']")
           foreach ($t in $targets) { $t.ParentNode.RemoveChild($t) | Out-Null }
-          # Remove native DLL copy
           $nones = $xml.SelectNodes("//None[contains(@Include, 'native')]")
           foreach ($n in $nones) { $n.ParentNode.RemoveChild($n) | Out-Null }
           $xml.Save($csproj)
-          Write-Host "Stripped native sidecar from csproj"
+          # Patch App.xaml.cs to skip BrowserServices (needs native DLL)
+          $appCs = "chrome\windows\App.xaml.cs"
+          (Get-Content $appCs) -replace 'Services = new BrowserServices\(\);', '// Services = new BrowserServices(); // stripped for CI' | Set-Content $appCs
           cd chrome\windows
-          dotnet build webkitium.csproj -c Debug
+          dotnet build webkitium.csproj -c Debug 2>&1
+          Write-Host "Build complete"
+          # List output
+          Get-ChildItem -Recurse bin\Debug -Filter "*.exe" | ForEach-Object { Write-Host "  $($_.FullName)" }
+          Get-ChildItem -Recurse bin\Debug -Filter "*.dll" | Where-Object { $_.Name -like "webkitium*" } | ForEach-Object { Write-Host "  $($_.FullName)" }
 
       - name: Launch and screenshot
         shell: pwsh
@@ -126,15 +137,10 @@ jobs:
 
           # Remove files that depend on extensions/sync/webauthn C bridges
           rm -f Sources/Webkitium/Services/BrowserServices.swift
-          # Remove services line but preserve @main
-          sed -i '' '/private let services/d' Sources/Webkitium/WebkitiumApp.swift
-          sed -i '' 's/\.windowStyle(.hiddenTitleBar)//' Sources/Webkitium/WebkitiumApp.swift
-          sed -i '' 's/\.windowToolbarStyle(.unifiedCompact)//' Sources/Webkitium/WebkitiumApp.swift
-          # Inject window-forcing code directly into WebkitiumApp.swift
-          # Add an init() that schedules window activation after launch
-          sed -i '' 's/@StateObject private var palette = PaletteProvider()/@StateObject private var palette = PaletteProvider(); init() { DispatchQueue.main.asyncAfter(deadline: .now() + 1) { NSApplication.shared.setActivationPolicy(.regular); NSApplication.shared.activate(ignoringOtherApps: true); NSApplication.shared.windows.first?.makeKeyAndOrderFront(nil) }; DispatchQueue.main.asyncAfter(deadline: .now() + 3) { NSApplication.shared.activate(ignoringOtherApps: true); NSApplication.shared.windows.first?.makeKeyAndOrderFront(nil) } }/' Sources/Webkitium/WebkitiumApp.swift
-          echo "=== Modified WebkitiumApp.swift ==="
-          head -15 Sources/Webkitium/WebkitiumApp.swift
+          # Replace SwiftUI @main App with AppKit NSWindow hosting SwiftUI views
+          # SwiftUI Window scenes refuse to open on headless EC2 Mac runners
+          rm -f Sources/Webkitium/WebkitiumApp.swift
+          cp "$GITHUB_WORKSPACE/scripts/ci/MacOSMain.swift" Sources/Webkitium/MacOSMain.swift
 
           # Copy color bridge headers + modulemap into the package tree
           mkdir -p CWebkitiumColor
