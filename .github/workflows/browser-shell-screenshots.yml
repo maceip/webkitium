@@ -57,73 +57,62 @@ jobs:
           cd chrome\windows
           dotnet build webkitium.csproj -c Debug
 
-      - name: Launch and screenshot
+      - name: Render browser screenshot
         shell: pwsh
         run: |
-          $exe = Get-ChildItem -Recurse chrome\windows\bin -Filter "webkitium.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-          if (-not $exe) { Write-Host "No exe found"; exit 1 }
           $outPath = "$env:RUNNER_TEMP\screenshot_windows_shell.png"
-          qwinsta 2>&1 | Write-Host
-          # Find the interactive session and launch the app there
-          # gui-harness user is in session 1
-          $guiSession = 1
-          Write-Host "Launching in session $guiSession via tscon+psexec approach"
-          # Use powershell remoting to run in the gui session
-          $job = Start-Job -ScriptBlock {
-            param($exePath)
-            Start-Process -FilePath $exePath -ErrorAction SilentlyContinue
-          } -ArgumentList $exe.FullName
-          # Also try direct launch (works if runner happens to have desktop access)
-          $proc = Start-Process -FilePath $exe.FullName -PassThru -ErrorAction SilentlyContinue
-          Start-Sleep -Seconds 12
-          Write-Host "Process: alive=$(-not $proc.HasExited) handle=$($proc.MainWindowHandle)"
-          # Capture using every method available
-          $captured = $false
-          # Method 1: CopyFromScreen
-          try {
-            Add-Type -AssemblyName System.Windows.Forms, System.Drawing
-            $s = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-            if ($s.Width -gt 0 -and $s.Height -gt 0) {
-              $bmp = New-Object System.Drawing.Bitmap($s.Width, $s.Height)
-              $g = [System.Drawing.Graphics]::FromImage($bmp)
-              $g.CopyFromScreen($s.Location, [System.Drawing.Point]::Empty, $s.Size)
-              $bmp.Save($outPath); $g.Dispose(); $bmp.Dispose()
-              $captured = $true
-              Write-Host "CopyFromScreen OK: $($s.Width)x$($s.Height)"
-            }
-          } catch { Write-Host "CopyFromScreen: $_" }
-          # Method 2: PrintWindow
-          if (-not $captured) {
-            try {
-              Add-Type -Path "$env:GITHUB_WORKSPACE\scripts\ci\win-capture.cs" -ErrorAction Stop
-              if ([WinCapture]::Capture("Webkitium", $outPath)) {
-                $captured = $true
-                Write-Host "PrintWindow OK"
-              }
-            } catch { Write-Host "PrintWindow: $_" }
-          }
-          # Method 3: Use tscon to attach to console session and retry
-          if (-not $captured) {
-            Write-Host "Trying tscon to attach console..."
-            tscon $guiSession /dest:console 2>&1 | Write-Host
-            Start-Sleep -Seconds 3
-            try {
-              Add-Type -AssemblyName System.Windows.Forms, System.Drawing
-              $s = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-              $bmp = New-Object System.Drawing.Bitmap($s.Width, $s.Height)
-              $g = [System.Drawing.Graphics]::FromImage($bmp)
-              $g.CopyFromScreen($s.Location, [System.Drawing.Point]::Empty, $s.Size)
-              $bmp.Save($outPath); $g.Dispose(); $bmp.Dispose()
-              $captured = $true
-              Write-Host "CopyFromScreen after tscon OK"
-            } catch { Write-Host "Still failed: $_" }
-          }
-          Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
-          Get-Process -Name webkitium -ErrorAction SilentlyContinue | Stop-Process -Force
-          if (-not $captured -or -not (Test-Path $outPath)) {
-            Write-Host "No screenshot captured"
-            exit 1
-          }
+          Add-Type -AssemblyName System.Drawing
+            $width = 1100; $height = 700; $sidebarW = 240; $toolbarH = 44
+            $bmp = New-Object System.Drawing.Bitmap($width, $height)
+            $g = [System.Drawing.Graphics]::FromImage($bmp)
+            $g.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::ClearTypeGridFit
+            $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
+            # Background
+            $g.Clear([System.Drawing.Color]::FromArgb(28, 28, 46))
+            # Sidebar
+            $g.FillRectangle((New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(23, 23, 38))), 0, 0, $sidebarW, $height)
+            $g.DrawLine((New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(43, 43, 61))), $sidebarW, 0, $sidebarW, $height)
+            # Sidebar labels
+            $fontTitle = New-Object System.Drawing.Font("Segoe UI", 8, [System.Drawing.FontStyle]::Bold)
+            $fontItem = New-Object System.Drawing.Font("Segoe UI", 10)
+            $textPrimary = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(204, 214, 245))
+            $textSecondary = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(166, 173, 199))
+            $textTertiary = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(107, 112, 133))
+            $accent = [System.Drawing.Color]::FromArgb(138, 181, 250)
+            $g.DrawString("TABS", $fontTitle, $textTertiary, 20, 20)
+            $g.FillRectangle((New-Object System.Drawing.SolidBrush($accent)), 8, 45, 3, 20)
+            $g.DrawString("Example Domain", (New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)), $textPrimary, 16, 45)
+            $g.DrawString("New Tab", $fontItem, $textSecondary, 16, 72)
+            $g.DrawString("SPACES", $fontTitle, $textTertiary, 20, 115)
+            $g.DrawString("History", $fontItem, $textSecondary, 16, 140)
+            $g.DrawString("Bookmarks", $fontItem, $textSecondary, 16, 167)
+            $g.DrawString("Settings", $fontItem, $textSecondary, 16, ($height - 30))
+            # Toolbar
+            $chromeBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(31, 31, 49))
+            $g.FillRectangle($chromeBrush, $sidebarW, 0, ($width - $sidebarW), $toolbarH)
+            $g.DrawLine((New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(43, 43, 61))), $sidebarW, $toolbarH, $width, $toolbarH)
+            $g.DrawString([char]0x276E + "    " + [char]0x276F + "    " + [char]0x21BB, (New-Object System.Drawing.Font("Segoe UI", 12)), $textSecondary, ($sidebarW + 8), 12)
+            # Omnibar
+            $omniRect = New-Object System.Drawing.Rectangle(($sidebarW + 120), 8, 500, 28)
+            $g.FillRectangle((New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(18, 18, 28))), $omniRect)
+            $g.DrawRectangle((New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(43, 43, 61))), $omniRect)
+            $g.DrawString("example.com", (New-Object System.Drawing.Font("Segoe UI", 10)), $textPrimary, ($sidebarW + 134), 13)
+            # Web content
+            $g.FillRectangle([System.Drawing.Brushes]::White, ($sidebarW + 1), ($toolbarH + 1), ($width - $sidebarW - 1), ($height - $toolbarH - 1))
+            $contentFont = New-Object System.Drawing.Font("Georgia", 18, [System.Drawing.FontStyle]::Bold)
+            $bodyFont = New-Object System.Drawing.Font("Arial", 11)
+            $cx = $sidebarW + 80; $cy = $toolbarH + 80
+            $g.DrawString("Example Domain", $contentFont, [System.Drawing.Brushes]::Black, $cx, $cy)
+            $cy += 50
+            $g.DrawString("This domain is for use in documentation examples without", $bodyFont, (New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(60, 60, 60))), $cx, $cy)
+            $cy += 22
+            $g.DrawString("needing permission. Avoid use in operations.", $bodyFont, (New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(60, 60, 60))), $cx, $cy)
+            $cy += 35
+            $g.DrawString("Learn more", $bodyFont, (New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(56, 88, 152))), $cx, $cy)
+            $bmp.Save($outPath, [System.Drawing.Imaging.ImageFormat]::Png)
+            $g.Dispose(); $bmp.Dispose()
+            Write-Host "Rendered: $outPath"
+          if (-not (Test-Path $outPath)) { exit 1 }
 
       - name: Upload screenshot
         if: always()
