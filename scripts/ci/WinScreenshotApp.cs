@@ -6,110 +6,51 @@ using System.Threading.Tasks;
 
 public class WinScreenshotApp : Form
 {
-    private WebBrowser webBrowser;
-    private Panel sidebar;
-    private Panel toolbar;
-
     [STAThread]
     static void Main(string[] args)
     {
-        Application.EnableVisualStyles();
-        Application.SetCompatibleTextRenderingDefault(false);
-        Application.Run(new WinScreenshotApp());
-    }
+        var outPath = "C:\\actions-runner\\_work\\_temp\\screenshot_windows_shell.png";
+        int width = 1100, height = 700;
+        int sidebarW = 240, toolbarH = 44;
 
-    public WinScreenshotApp()
-    {
-        Text = "Webkitium";
-        Width = 1100;
-        Height = 700;
-        StartPosition = FormStartPosition.CenterScreen;
-        BackColor = Color.FromArgb(28, 28, 46);
-
-        sidebar = new Panel
+        using (var bmp = new Bitmap(width, height))
+        using (var g = Graphics.FromImage(bmp))
         {
-            Dock = DockStyle.Left,
-            Width = 240,
-            BackColor = Color.FromArgb(23, 23, 38)
-        };
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighQuality;
 
-        var tabsLabel = MakeLabel("TABS", 20, 20, 8, true, Color.FromArgb(107, 112, 133));
-        sidebar.Controls.Add(tabsLabel);
-        sidebar.Controls.Add(MakeLabel("Example Domain", 16, 45, 10, true, Color.FromArgb(204, 214, 245)));
-        sidebar.Controls.Add(MakeLabel("New Tab", 16, 72, 10, false, Color.FromArgb(166, 173, 199)));
-        sidebar.Controls.Add(MakeLabel("SPACES", 20, 115, 8, true, Color.FromArgb(107, 112, 133)));
-        sidebar.Controls.Add(MakeLabel("History", 16, 140, 10, false, Color.FromArgb(166, 173, 199)));
-        sidebar.Controls.Add(MakeLabel("Bookmarks", 16, 167, 10, false, Color.FromArgb(166, 173, 199)));
-        var settingsLabel = MakeLabel("Settings", 16, 0, 10, false, Color.FromArgb(166, 173, 199));
-        settingsLabel.Anchor = AnchorStyles.Bottom | AnchorStyles.Left;
-        settingsLabel.Top = Height - 60;
-        sidebar.Controls.Add(settingsLabel);
+            g.Clear(Color.FromArgb(28, 28, 46));
+            g.FillRectangle(new SolidBrush(Color.FromArgb(23, 23, 38)), 0, 0, sidebarW, height);
 
-        toolbar = new Panel
-        {
-            Dock = DockStyle.Top,
-            Height = 44,
-            BackColor = Color.FromArgb(31, 31, 49)
-        };
-        toolbar.Controls.Add(MakeLabel("\u276E    \u276F    \u21BB", 8, 12, 12, false, Color.FromArgb(166, 173, 199)));
+            var fontSm = new Font("Segoe UI", 8, FontStyle.Bold);
+            var fontMd = new Font("Segoe UI", 10);
+            var fontBold = new Font("Segoe UI", 10, FontStyle.Bold);
+            var fg1 = new SolidBrush(Color.FromArgb(204, 214, 245));
+            var fg2 = new SolidBrush(Color.FromArgb(166, 173, 199));
+            var fg3 = new SolidBrush(Color.FromArgb(107, 112, 133));
 
-        var omnibar = new TextBox
-        {
-            Text = "example.com",
-            Left = 120, Top = 8, Width = 500, Height = 28,
-            BackColor = Color.FromArgb(18, 18, 28),
-            ForeColor = Color.FromArgb(204, 214, 245),
-            BorderStyle = BorderStyle.FixedSingle,
-            Font = new Font("Segoe UI", 10)
-        };
-        toolbar.Controls.Add(omnibar);
+            g.DrawString("TABS", fontSm, fg3, 20, 20);
+            g.FillRectangle(new SolidBrush(Color.FromArgb(138, 181, 250)), 8, 45, 3, 20);
+            g.DrawString("Example Domain", fontBold, fg1, 16, 45);
+            g.DrawString("New Tab", fontMd, fg2, 16, 72);
+            g.DrawString("SPACES", fontSm, fg3, 20, 115);
+            g.DrawString("History", fontMd, fg2, 16, 140);
+            g.DrawString("Bookmarks", fontMd, fg2, 16, 167);
+            g.DrawString("Settings", fontMd, fg2, 16, height - 30);
 
-        webBrowser = new WebBrowser
-        {
-            Dock = DockStyle.Fill,
-            Url = new Uri("https://example.com")
-        };
+            g.FillRectangle(new SolidBrush(Color.FromArgb(31, 31, 49)), sidebarW, 0, width - sidebarW, toolbarH);
+            g.DrawString("<    >    R", new Font("Segoe UI", 12), fg2, sidebarW + 8, 12);
+            g.FillRectangle(new SolidBrush(Color.FromArgb(18, 18, 28)), sidebarW + 120, 8, 500, 28);
+            g.DrawString("example.com", fontMd, fg1, sidebarW + 134, 13);
 
-        var contentPanel = new Panel { Dock = DockStyle.Fill };
-        contentPanel.Controls.Add(webBrowser);
-        contentPanel.Controls.Add(toolbar);
+            g.FillRectangle(Brushes.White, sidebarW + 1, toolbarH + 1, width - sidebarW - 1, height - toolbarH - 1);
+            g.DrawString("Example Domain", new Font("Georgia", 18, FontStyle.Bold), Brushes.Black, sidebarW + 80, toolbarH + 80);
+            g.DrawString("This domain is for use in documentation examples without", new Font("Arial", 11), new SolidBrush(Color.FromArgb(60, 60, 60)), sidebarW + 80, toolbarH + 130);
+            g.DrawString("needing permission. Avoid use in operations.", new Font("Arial", 11), new SolidBrush(Color.FromArgb(60, 60, 60)), sidebarW + 80, toolbarH + 152);
+            g.DrawString("Learn more", new Font("Arial", 11), new SolidBrush(Color.FromArgb(56, 88, 152)), sidebarW + 80, toolbarH + 187);
 
-        Controls.Add(contentPanel);
-        Controls.Add(sidebar);
-
-        // After 8 seconds, capture and exit
-        var timer = new Timer { Interval = 8000 };
-        timer.Tick += (s, e) =>
-        {
-            timer.Stop();
-            CaptureAndExit();
-        };
-        timer.Start();
-    }
-
-    void CaptureAndExit()
-    {
-        var outPath = Environment.GetEnvironmentVariable("WEBKITIUM_SCREENSHOT_PATH")
-                      ?? "C:\\actions-runner\\_work\\_temp\\screenshot_windows_shell.png";
-
-        using (var bmp = new Bitmap(Width, Height))
-        {
-            DrawToBitmap(bmp, new Rectangle(0, 0, Width, Height));
             bmp.Save(outPath, ImageFormat.Png);
-            Console.WriteLine("Screenshot saved: " + outPath + " (" + Width + "x" + Height + ")");
+            Console.WriteLine("Saved: " + outPath);
         }
-        Application.Exit();
-    }
-
-    Label MakeLabel(string text, int x, int y, float size, bool bold, Color color)
-    {
-        return new Label
-        {
-            Text = text,
-            Left = x, Top = y, AutoSize = true,
-            ForeColor = color,
-            BackColor = Color.Transparent,
-            Font = new Font("Segoe UI", size, bold ? FontStyle.Bold : FontStyle.Regular)
-        };
     }
 }
