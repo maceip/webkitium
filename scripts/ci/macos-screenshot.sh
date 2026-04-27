@@ -30,7 +30,18 @@ EOF
 
 echo "Launching $BUNDLE"
 open -a "$BUNDLE"
-sleep 10
+sleep 5
+
+# Bring to front
+osascript -e 'tell application "Webkitium" to activate' 2>/dev/null || true
+# Also try by process name
+osascript -e 'tell application "System Events" to set frontmost of process "webkitium" to true' 2>/dev/null || true
+sleep 5
+
+# List visible windows for debugging
+osascript -e 'tell application "System Events" to get name of every process whose visible is true' 2>/dev/null || true
+osascript -e 'tell application "System Events" to get {name, position, size} of every window of process "webkitium"' 2>/dev/null || true
+
 screencapture -x "$OUT"
 pkill -f "$BUNDLE/Contents/MacOS/webkitium" 2>/dev/null || true
 echo "Screenshot saved: $OUT"
