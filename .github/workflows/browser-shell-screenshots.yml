@@ -162,13 +162,14 @@ jobs:
           fi
           echo "Binary: ${APP:-NOT FOUND}"
           if [[ -n "$APP" ]]; then
-            # Launch in foreground of the WindowServer
             "$APP" &
             APP_PID=$!
-            sleep 10
-            # Try screencapture; if headless, try window-specific capture
-            screencapture -x -l $(osascript -e 'tell application "System Events" to get id of first window of (first process whose name is "webkitium")' 2>/dev/null || echo "0") "$RUNNER_TEMP/screenshot_macos_shell.png" 2>/dev/null \
-              || screencapture -x "$RUNNER_TEMP/screenshot_macos_shell.png"
+            sleep 8
+            # Bring app to front
+            osascript -e 'tell application "webkitium" to activate' 2>/dev/null || true
+            sleep 3
+            # Capture the frontmost window
+            screencapture -x "$RUNNER_TEMP/screenshot_macos_shell.png"
             kill $APP_PID 2>/dev/null || true
           else
             echo "::error::Binary not found after successful build"
