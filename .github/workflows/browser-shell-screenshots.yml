@@ -162,15 +162,7 @@ jobs:
           fi
           echo "Binary: ${APP:-NOT FOUND}"
           if [[ -n "$APP" ]]; then
-            "$APP" &
-            APP_PID=$!
-            sleep 8
-            # Bring app to front
-            osascript -e 'tell application "webkitium" to activate' 2>/dev/null || true
-            sleep 3
-            # Capture the frontmost window
-            screencapture -x "$RUNNER_TEMP/screenshot_macos_shell.png"
-            kill $APP_PID 2>/dev/null || true
+            bash "$GITHUB_WORKSPACE/scripts/ci/macos-screenshot.sh" "$APP" "$RUNNER_TEMP/screenshot_macos_shell.png"
           else
             echo "::error::Binary not found after successful build"
             find chrome/macos/.build -type f -perm +111 2>/dev/null | head -10
