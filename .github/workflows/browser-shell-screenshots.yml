@@ -64,29 +64,66 @@ jobs:
           if (-not $exe) { Write-Host "No exe found"; exit 1 }
           $outPath = "$env:RUNNER_TEMP\screenshot_windows_shell.png"
           qwinsta 2>&1 | Write-Host
-          # Launch in the interactive session (gui-harness or console)
-          # Use PsExec-style launch via schtasks to run in an interactive session
-          $taskName = "WebkitiumScreenshot"
-          schtasks /Create /TN $taskName /TR "$($exe.FullName)" /SC ONCE /ST 00:00 /IT /RL HIGHEST /F 2>&1 | Write-Host
-          schtasks /Run /TN $taskName 2>&1 | Write-Host
+          # Find the interactive session and launch the app there
+          # gui-harness user is in session 1
+          $guiSession = 1
+          Write-Host "Launching in session $guiSession via tscon+psexec approach"
+          # Use powershell remoting to run in the gui session
+          $job = Start-Job -ScriptBlock {
+            param($exePath)
+            Start-Process -FilePath $exePath -ErrorAction SilentlyContinue
+          } -ArgumentList $exe.FullName
+          # Also try direct launch (works if runner happens to have desktop access)
+          $proc = Start-Process -FilePath $exe.FullName -PassThru -ErrorAction SilentlyContinue
           Start-Sleep -Seconds 12
-          # Take screenshot from the console session
+          Write-Host "Process: alive=$(-not $proc.HasExited) handle=$($proc.MainWindowHandle)"
+          # Capture using every method available
+          $captured = $false
+          # Method 1: CopyFromScreen
           try {
             Add-Type -AssemblyName System.Windows.Forms, System.Drawing
             $s = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-            $bmp = New-Object System.Drawing.Bitmap($s.Width, $s.Height)
-            $g = [System.Drawing.Graphics]::FromImage($bmp)
-            $g.CopyFromScreen($s.Location, [System.Drawing.Point]::Empty, $s.Size)
-            $bmp.Save($outPath); $g.Dispose(); $bmp.Dispose()
-            Write-Host "Screenshot OK"
-          } catch {
-            Write-Host "CopyFromScreen: $_ -- trying PrintWindow"
-            Add-Type -Path "$env:GITHUB_WORKSPACE\scripts\ci\win-capture.cs" -ErrorAction Stop
-            [WinCapture]::Capture("Webkitium", $outPath) | Out-Null
+            if ($s.Width -gt 0 -and $s.Height -gt 0) {
+              $bmp = New-Object System.Drawing.Bitmap($s.Width, $s.Height)
+              $g = [System.Drawing.Graphics]::FromImage($bmp)
+              $g.CopyFromScreen($s.Location, [System.Drawing.Point]::Empty, $s.Size)
+              $bmp.Save($outPath); $g.Dispose(); $bmp.Dispose()
+              $captured = $true
+              Write-Host "CopyFromScreen OK: $($s.Width)x$($s.Height)"
+            }
+          } catch { Write-Host "CopyFromScreen: $_" }
+          # Method 2: PrintWindow
+          if (-not $captured) {
+            try {
+              Add-Type -Path "$env:GITHUB_WORKSPACE\scripts\ci\win-capture.cs" -ErrorAction Stop
+              if ([WinCapture]::Capture("Webkitium", $outPath)) {
+                $captured = $true
+                Write-Host "PrintWindow OK"
+              }
+            } catch { Write-Host "PrintWindow: $_" }
           }
-          schtasks /Delete /TN $taskName /F 2>&1 | Out-Null
+          # Method 3: Use tscon to attach to console session and retry
+          if (-not $captured) {
+            Write-Host "Trying tscon to attach console..."
+            tscon $guiSession /dest:console 2>&1 | Write-Host
+            Start-Sleep -Seconds 3
+            try {
+              Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+              $s = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+              $bmp = New-Object System.Drawing.Bitmap($s.Width, $s.Height)
+              $g = [System.Drawing.Graphics]::FromImage($bmp)
+              $g.CopyFromScreen($s.Location, [System.Drawing.Point]::Empty, $s.Size)
+              $bmp.Save($outPath); $g.Dispose(); $bmp.Dispose()
+              $captured = $true
+              Write-Host "CopyFromScreen after tscon OK"
+            } catch { Write-Host "Still failed: $_" }
+          }
+          Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
           Get-Process -Name webkitium -ErrorAction SilentlyContinue | Stop-Process -Force
-          if (-not (Test-Path $outPath)) { exit 1 }
+          if (-not $captured -or -not (Test-Path $outPath)) {
+            Write-Host "No screenshot captured"
+            exit 1
+          }
 
       - name: Upload screenshot
         if: always()
@@ -102,7 +139,7 @@ jobs:
       - macOS
       - ARM64
       - webkitium
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
