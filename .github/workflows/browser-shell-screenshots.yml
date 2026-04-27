@@ -105,11 +105,12 @@ jobs:
           & $psexecPath -accepteula -nobanner -i 1 -d "$($exe.FullName)" 2>&1 | Write-Host
           Start-Sleep -Seconds 15
 
-          # Check app status from session 1 (write to shared file since PsExec swallows output)
-          $diagFile = "$env:RUNNER_TEMP\app_diag.txt"
-          & $psexecPath -accepteula -nobanner -i 1 powershell.exe -ExecutionPolicy Bypass -Command "& '$env:GITHUB_WORKSPACE\scripts\ci\win-check-app.ps1' | Out-File -FilePath '$diagFile' -Encoding utf8" 2>&1 | Out-Null
-          Start-Sleep -Seconds 2
-          if (Test-Path $diagFile) { Get-Content $diagFile | Write-Host } else { Write-Host "No diag output" }
+          # Check app status from session 1 (use absolute paths since env vars don't cross sessions)
+          $checkScript = "$env:GITHUB_WORKSPACE\scripts\ci\win-check-app.ps1"
+          $diagFile = "C:\actions-runner\_work\_temp\app_diag.txt"
+          & $psexecPath -accepteula -nobanner -i 1 powershell.exe -ExecutionPolicy Bypass -Command "& '$checkScript' | Out-File '$diagFile' -Encoding utf8" 2>&1 | Out-Null
+          Start-Sleep -Seconds 3
+          if (Test-Path $diagFile) { Get-Content $diagFile | Write-Host } else { Write-Host "No diag output (file not at $diagFile)" }
 
           # Take screenshot from session 1
           Write-Host "Taking screenshot..."
