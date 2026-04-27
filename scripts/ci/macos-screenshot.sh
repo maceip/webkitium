@@ -48,31 +48,40 @@ fi
 
 sleep 5
 
-# Write a Swift helper to capture screen using CGWindowListCreateImage
+# Use ScreenCaptureKit (macOS 15+) via Swift to capture the screen
 cat > /tmp/capture.swift << 'SWIFT'
+import ScreenCaptureKit
 import Cocoa
-let img = CGWindowListCreateImage(
-    CGRect.null,
-    .optionOnScreenOnly,
-    kCGNullWindowID,
-    .bestResolution)
-guard let img = img else {
-    print("CGWindowListCreateImage returned nil")
-    exit(1)
+
+@main struct Capturer {
+    static func main() async throws {
+        let outPath = CommandLine.arguments[1]
+        let content = try await SCShareableContent.current
+        guard let display = content.displays.first else {
+            print("No displays found")
+            Foundation.exit(1)
+        }
+        let filter = SCContentFilter(display: display, excludingWindows: [])
+        let config = SCStreamConfiguration()
+        config.width = display.width * 2
+        config.height = display.height * 2
+        config.showsCursor = false
+        let image = try await SCScreenshotManager.captureImage(
+            contentFilter: filter, configuration: config)
+        let rep = NSBitmapImageRep(cgImage: image)
+        guard let data = rep.representation(using: .png, properties: [:]) else {
+            print("PNG conversion failed")
+            Foundation.exit(1)
+        }
+        try data.write(to: URL(fileURLWithPath: outPath))
+        print("Captured \(image.width)x\(image.height) to \(outPath)")
+    }
 }
-let rep = NSBitmapImageRep(cgImage: img)
-guard let data = rep.representation(using: .png, properties: [:]) else {
-    print("PNG conversion failed")
-    exit(1)
-}
-let url = URL(fileURLWithPath: CommandLine.arguments[1])
-try data.write(to: url)
-print("Captured \(img.width)x\(img.height) to \(url.path)")
 SWIFT
 
-swiftc /tmp/capture.swift -o /tmp/capture -framework Cocoa 2>&1
+swiftc /tmp/capture.swift -o /tmp/capture -framework ScreenCaptureKit -framework Cocoa -parse-as-library 2>&1
 /tmp/capture "$OUT" 2>&1 || {
-  echo "Swift capture failed, falling back to screencapture"
+  echo "ScreenCaptureKit failed, falling back to screencapture -x"
   screencapture -x "$OUT"
 }
 

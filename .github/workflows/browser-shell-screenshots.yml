@@ -62,30 +62,31 @@ jobs:
         run: |
           $exe = Get-ChildItem -Recurse chrome\windows\bin -Filter "webkitium.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $exe) { Write-Host "No exe found"; exit 1 }
-          Write-Host "Exe: $($exe.FullName)"
           $outPath = "$env:RUNNER_TEMP\screenshot_windows_shell.png"
-          Write-Host "Sessions:"
           qwinsta 2>&1 | Write-Host
-          $proc = Start-Process -FilePath $exe.FullName -PassThru -ErrorAction SilentlyContinue
-          Start-Sleep -Seconds 10
-          if ($proc.HasExited) { Write-Host "App exited: $($proc.ExitCode)" }
-          else { Write-Host "App running, handle=$($proc.MainWindowHandle) title='$($proc.MainWindowTitle)'" }
+          # Launch in the interactive session (gui-harness or console)
+          # Use PsExec-style launch via schtasks to run in an interactive session
+          $taskName = "WebkitiumScreenshot"
+          schtasks /Create /TN $taskName /TR "$($exe.FullName)" /SC ONCE /ST 00:00 /IT /RL HIGHEST /F 2>&1 | Write-Host
+          schtasks /Run /TN $taskName 2>&1 | Write-Host
+          Start-Sleep -Seconds 12
+          # Take screenshot from the console session
           try {
             Add-Type -AssemblyName System.Windows.Forms, System.Drawing
             $s = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
             $bmp = New-Object System.Drawing.Bitmap($s.Width, $s.Height)
-            [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($s.Location, [System.Drawing.Point]::Empty, $s.Size)
-            $bmp.Save($outPath)
-            Write-Host "Screenshot OK: $($s.Width)x$($s.Height)"
+            $g = [System.Drawing.Graphics]::FromImage($bmp)
+            $g.CopyFromScreen($s.Location, [System.Drawing.Point]::Empty, $s.Size)
+            $bmp.Save($outPath); $g.Dispose(); $bmp.Dispose()
+            Write-Host "Screenshot OK"
           } catch {
-            Write-Host "CopyFromScreen failed: $_ -- trying PrintWindow"
+            Write-Host "CopyFromScreen: $_ -- trying PrintWindow"
             Add-Type -Path "$env:GITHUB_WORKSPACE\scripts\ci\win-capture.cs" -ErrorAction Stop
-            if (-not [WinCapture]::Capture("Webkitium", $outPath)) {
-              Write-Host "PrintWindow failed too. No desktop available."
-              exit 1
-            }
+            [WinCapture]::Capture("Webkitium", $outPath) | Out-Null
           }
-          Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+          schtasks /Delete /TN $taskName /F 2>&1 | Out-Null
+          Get-Process -Name webkitium -ErrorAction SilentlyContinue | Stop-Process -Force
+          if (-not (Test-Path $outPath)) { exit 1 }
 
       - name: Upload screenshot
         if: always()
