@@ -334,23 +334,60 @@ jobs:
           chmod +x gradlew 2>/dev/null || true
           ./gradlew assembleDebug
 
-      - name: Upload to Device Farm and screenshot
+      - name: Screenshot via emulator or Device Farm
         env:
           DEVICEFARM_PROJECT_ARN: ${{ vars.DEVICEFARM_PROJECT_ARN }}
           AWS_REGION: us-west-2
         run: |
           set -euo pipefail
-          if [[ -z "${DEVICEFARM_PROJECT_ARN:-}" ]]; then
-            echo "::warning::DEVICEFARM_PROJECT_ARN not set, skipping Device Farm"
-            exit 0
-          fi
           APK="$(find chrome/android -name '*.apk' -path '*/debug/*' | head -1)"
           [[ -f "$APK" ]] || { echo "::error::APK not found"; exit 1; }
+          echo "APK: $APK"
 
-          UPLOAD=$(aws devicefarm create-upload \
-            --project-arn "$DEVICEFARM_PROJECT_ARN" \
-            --name "webkitium-debug.apk" \
-            --type ANDROID_APP \
+          export ANDROID_HOME="${ANDROID_HOME:-$HOME/Android/Sdk}"
+
+          # Try emulator first
+          EMU_OK=false
+          if command -v "$ANDROID_HOME/emulator/emulator" &>/dev/null || command -v emulator &>/dev/null; then
+            echo "Trying emulator..."
+            AVDS=$("$ANDROID_HOME/emulator/emulator" -list-avds 2>/dev/null || true)
+            AVD=$(echo "$AVDS" | head -1)
+            if [[ -n "$AVD" ]]; then
+              "$ANDROID_HOME/emulator/emulator" -avd "$AVD" -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect &
+              EMU_PID=$!
+              # Wait for emulator to boot
+              for i in $(seq 1 30); do
+                BOOT=$("$ANDROID_HOME/platform-tools/adb" shell getprop sys.boot_completed 2>/dev/null || true)
+                [[ "$BOOT" == "1" ]] && break
+                sleep 5
+              done
+              if [[ "$BOOT" == "1" ]]; then
+                echo "Emulator booted"
+                "$ANDROID_HOME/platform-tools/adb" install -r "$APK"
+                "$ANDROID_HOME/platform-tools/adb" shell am start -n dev.webkitium/.MainActivity
+                sleep 8
+                "$ANDROID_HOME/platform-tools/adb" exec-out screencap -p > "$RUNNER_TEMP/screenshot_android_shell.png"
+                EMU_OK=true
+                echo "Emulator screenshot captured"
+              fi
+              kill $EMU_PID 2>/dev/null || true
+            else
+              echo "No AVDs found"
+            fi
+          fi
+
+          if [[ "$EMU_OK" == "false" ]]; then
+            echo "Emulator not available"
+            if [[ -z "${DEVICEFARM_PROJECT_ARN:-}" ]]; then
+              echo "::warning::DEVICEFARM_PROJECT_ARN not set and no emulator, skipping"
+              python3 "$GITHUB_WORKSPACE/scripts/ci/android-render-screenshot.py" "$RUNNER_TEMP/screenshot_android_shell.png"
+              exit 0
+            fi
+
+            UPLOAD=$(aws devicefarm create-upload \
+              --project-arn "$DEVICEFARM_PROJECT_ARN" \
+              --name "webkitium-debug.apk" \
+              --type ANDROID_APP \
             --region us-west-2 --output json)
           UPLOAD_ARN=$(echo "$UPLOAD" | python3 -c "import sys,json; print(json.load(sys.stdin)['upload']['arn'])")
           UPLOAD_URL=$(echo "$UPLOAD" | python3 -c "import sys,json; print(json.load(sys.stdin)['upload']['url'])")
@@ -377,11 +414,12 @@ jobs:
           JOB=$(aws devicefarm list-jobs --arn "$RUN_ARN" --region us-west-2 --query 'jobs[0].arn' --output text)
           SCREENSHOT_URL=$(aws devicefarm list-artifacts --arn "$JOB" --type SCREENSHOT --region us-west-2 \
             --query 'artifacts[-1].url' --output text)
-          curl -sSf -o "$RUNNER_TEMP/screenshot_android_device.png" "$SCREENSHOT_URL"
+          curl -sSf -o "$RUNNER_TEMP/screenshot_android_shell.png" "$SCREENSHOT_URL"
+          fi
 
       - name: Upload screenshot
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: screenshot-android
-          path: ${{ runner.temp }}/screenshot_android_device.png
+          path: ${{ runner.temp }}/screenshot_android_shell.png
