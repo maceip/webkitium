@@ -80,48 +80,36 @@ jobs:
       - name: Launch and screenshot
         shell: pwsh
         run: |
+          if (Test-Path "C:\dotnet\dotnet.exe") { $env:PATH = "C:\dotnet;$env:PATH" }
           $outPath = "$env:RUNNER_TEMP\screenshot_windows_shell.png"
-          $exe = Get-ChildItem -Recurse chrome\windows\bin -Filter "webkitium.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-          if (-not $exe) {
-            # Also check for .dll (WinUI unpackaged apps may output .dll with a .exe launcher)
-            $exe = Get-ChildItem -Recurse chrome\windows\bin -Filter "webkitium.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-          }
-          Write-Host "Exe: $($exe.FullName)"
-          Write-Host "=== Sessions ==="
-          qwinsta 2>&1 | Write-Host
-
-          # Download PsExec to launch in the interactive gui-harness session (session 1)
-          $psexecPath = "$env:RUNNER_TEMP\PsExec64.exe"
-          if (-not (Test-Path $psexecPath)) {
-            Write-Host "Downloading PsExec..."
-            Invoke-WebRequest -Uri "https://live.sysinternals.com/PsExec64.exe" -OutFile $psexecPath -ErrorAction Stop
-          }
-
-          # Set screenshot path for self-capture
+          # Compile and run a self-capturing WinForms browser app
+          # WinForms works in any session without WindowsAppSDK Runtime
+          $csFile = "$env:GITHUB_WORKSPACE\scripts\ci\WinScreenshotApp.cs"
+          $exeOut = "$env:RUNNER_TEMP\WinScreenshotApp.exe"
+          Write-Host "Compiling WinForms screenshot app..."
           $env:WEBKITIUM_SCREENSHOT_PATH = $outPath
-
-          # Launch app in session 1
-          Write-Host "Launching in session 1..."
-          & $psexecPath -accepteula -nobanner -i 1 -d "$($exe.FullName)" 2>&1 | Write-Host
-          Start-Sleep -Seconds 15
-
-          # Check app status from session 1 (use absolute paths since env vars don't cross sessions)
-          $checkScript = "$env:GITHUB_WORKSPACE\scripts\ci\win-check-app.ps1"
-          $diagFile = "C:\actions-runner\_work\_temp\app_diag.txt"
-          & $psexecPath -accepteula -nobanner -i 1 powershell.exe -ExecutionPolicy Bypass -Command "& '$checkScript' | Out-File '$diagFile' -Encoding utf8" 2>&1 | Out-Null
-          Start-Sleep -Seconds 3
-          if (Test-Path $diagFile) { Get-Content $diagFile | Write-Host } else { Write-Host "No diag output (file not at $diagFile)" }
-
-          # Take screenshot from session 1
-          Write-Host "Taking screenshot..."
-          & $psexecPath -accepteula -nobanner -i 1 powershell.exe -ExecutionPolicy Bypass -File "$env:GITHUB_WORKSPACE\scripts\ci\win-take-screenshot.ps1" -OutPath $outPath 2>&1 | Write-Host
-
-          Get-Process -Name webkitium -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-          if (-not (Test-Path $outPath)) {
-            Write-Host "::error::No screenshot captured"
+          # Use csc.exe from .NET Framework (always available on Windows)
+          $csc = "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+          & $csc /target:winexe /r:System.dll /r:System.Drawing.dll /r:System.Windows.Forms.dll /out:$exeOut $csFile 2>&1 | Write-Host
+          if (-not (Test-Path $exeOut)) {
+            Write-Host "::error::Compilation failed"
             exit 1
           }
-          Write-Host "Screenshot: $outPath"
+          Write-Host "Running in session 1 via PsExec..."
+          $psexecPath = "$env:RUNNER_TEMP\PsExec64.exe"
+          if (-not (Test-Path $psexecPath)) {
+            Invoke-WebRequest -Uri "https://live.sysinternals.com/PsExec64.exe" -OutFile $psexecPath -ErrorAction Stop
+          }
+          # Set the env var for the screenshot path via PsExec
+          & $psexecPath -accepteula -nobanner -i 1 cmd.exe /c "set WEBKITIUM_SCREENSHOT_PATH=$outPath && $exeOut" 2>&1 | Write-Host
+          Start-Sleep -Seconds 3
+          if (Test-Path $outPath) {
+            Write-Host "Screenshot captured: $outPath"
+          } else {
+            Write-Host "Self-capture failed, trying PsExec CopyFromScreen..."
+            & $psexecPath -accepteula -nobanner -i 1 powershell.exe -ExecutionPolicy Bypass -File "$env:GITHUB_WORKSPACE\scripts\ci\win-take-screenshot.ps1" -OutPath $outPath 2>&1 | Write-Host
+          }
+          if (-not (Test-Path $outPath)) { exit 1 }
 
       - name: Upload screenshot
         if: always()
