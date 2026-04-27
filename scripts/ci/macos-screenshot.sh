@@ -99,12 +99,26 @@ webView.load(URLRequest(url: URL(string: "https://example.com")!))
 w.makeKeyAndOrderFront(nil)
 
 DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+    let outPath = CommandLine.arguments[1]
+    // Try window-level capture first
+    let windowID = w.windowNumber
+    print("Window ID: \(windowID), visible: \(w.isVisible)")
     let task = Process()
     task.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-    task.arguments = ["-x", CommandLine.arguments[1]]
+    task.arguments = ["-x", "-l\(windowID)", outPath]
     try? task.run()
     task.waitUntilExit()
-    print("Screenshot captured")
+    // Check if file was created and has content
+    let fm = FileManager.default
+    if !fm.fileExists(atPath: outPath) || (try? fm.attributesOfItem(atPath: outPath)[.size] as? Int) == 0 {
+        print("Window capture failed, trying full screen")
+        let t2 = Process()
+        t2.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+        t2.arguments = ["-x", outPath]
+        try? t2.run()
+        t2.waitUntilExit()
+    }
+    print("Screenshot captured: \(outPath)")
     app.terminate(nil)
 }
 app.run()
