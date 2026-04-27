@@ -25,12 +25,41 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Ensure .NET workload in Build Tools
+        shell: pwsh
+        run: |
+          $sdkPath = "C:\BuildTools\MSBuild\Sdks\Microsoft.NET.Sdk\Sdk"
+          if (-not (Test-Path $sdkPath)) {
+            Write-Host "Installing .NET desktop workload..."
+            $installer = "C:\BuildTools\vs_buildtools.exe"
+            if (-not (Test-Path $installer)) {
+              $installer = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vs_installer.exe"
+            }
+            if (Test-Path $installer) {
+              & $installer modify --installPath "C:\BuildTools" `
+                --add Microsoft.VisualStudio.Workload.ManagedDesktopBuildTools `
+                --add Microsoft.NetCore.Component.SDK `
+                --quiet --wait 2>&1 | Write-Host
+            } else {
+              Write-Host "Installing .NET SDK standalone..."
+              Invoke-WebRequest -Uri "https://dot.net/v1/dotnet-install.ps1" -OutFile "$env:RUNNER_TEMP\dotnet-install.ps1"
+              & "$env:RUNNER_TEMP\dotnet-install.ps1" -Channel 8.0 -InstallDir "C:\dotnet"
+              echo "C:\dotnet" | Out-File -Append -FilePath $env:GITHUB_PATH
+            }
+          } else {
+            Write-Host ".NET SDK already available"
+          }
+
       - name: Build WinUI shell
         shell: cmd
         run: |
           call "C:\BuildTools\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64
+          if exist "C:\dotnet\dotnet.exe" set "PATH=C:\dotnet;%PATH%"
           cd chrome\windows
-          msbuild webkitium.csproj /p:Configuration=Debug /p:Platform=x64 /restore
+          msbuild webkitium.csproj /p:Configuration=Debug /p:Platform=x64 /restore 2>&1 || (
+            echo Trying dotnet build...
+            dotnet build webkitium.csproj -c Debug
+          )
 
       - name: Launch and screenshot
         shell: pwsh
