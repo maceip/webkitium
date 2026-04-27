@@ -97,40 +97,19 @@ jobs:
             Invoke-WebRequest -Uri "https://live.sysinternals.com/PsExec64.exe" -OutFile $psexecPath -ErrorAction Stop
           }
 
-          # Launch app in session 1 and capture errors
-          Write-Host "Launching app in session 1 via PsExec..."
+          # Set screenshot path for self-capture
+          $env:WEBKITIUM_SCREENSHOT_PATH = $outPath
+
+          # Launch app in session 1
+          Write-Host "Launching in session 1..."
           & $psexecPath -accepteula -nobanner -i 1 -d "$($exe.FullName)" 2>&1 | Write-Host
-          Start-Sleep -Seconds 10
+          Start-Sleep -Seconds 15
 
-          # Check if app is running
-          $wkProc = Get-Process -Name webkitium -ErrorAction SilentlyContinue
-          if ($wkProc) {
-            Write-Host "App running: pid=$($wkProc.Id)"
-          } else {
-            Write-Host "App NOT running! Checking crash logs..."
-            Get-WinEvent -LogName Application -MaxEvents 5 -ErrorAction SilentlyContinue | Where-Object { $_.TimeCreated -gt (Get-Date).AddMinutes(-2) } | ForEach-Object { Write-Host "  [$($_.LevelDisplayName)] $($_.Message.Substring(0, [Math]::Min(200, $_.Message.Length)))" }
-            # Try launching with stdout/stderr redirect
-            Write-Host "Retrying with output capture..."
-            $psi = New-Object System.Diagnostics.ProcessStartInfo
-            $psi.FileName = $exe.FullName
-            $psi.UseShellExecute = $false
-            $psi.RedirectStandardOutput = $true
-            $psi.RedirectStandardError = $true
-            $p = [System.Diagnostics.Process]::Start($psi)
-            Start-Sleep -Seconds 5
-            if ($p.HasExited) {
-              Write-Host "Exit code: $($p.ExitCode)"
-              Write-Host "STDOUT: $($p.StandardOutput.ReadToEnd())"
-              Write-Host "STDERR: $($p.StandardError.ReadToEnd())"
-            } else {
-              Write-Host "App survived direct launch, pid=$($p.Id)"
-            }
-          }
+          # Check app status and enumerate windows from session 1
+          & $psexecPath -accepteula -nobanner -i 1 powershell.exe -ExecutionPolicy Bypass -File "$env:GITHUB_WORKSPACE\scripts\ci\win-check-app.ps1" 2>&1 | Write-Host
 
-          Start-Sleep -Seconds 5
-
-          # Take screenshot FROM session 1 using PsExec
-          Write-Host "Taking screenshot from session 1..."
+          # Take screenshot from session 1
+          Write-Host "Taking screenshot..."
           & $psexecPath -accepteula -nobanner -i 1 powershell.exe -ExecutionPolicy Bypass -File "$env:GITHUB_WORKSPACE\scripts\ci\win-take-screenshot.ps1" -OutPath $outPath 2>&1 | Write-Host
 
           Get-Process -Name webkitium -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
