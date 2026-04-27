@@ -6,7 +6,7 @@ APP="$1"
 OUT="$2"
 
 if [[ -z "$APP" || ! -f "$APP" ]]; then
-  echo "Binary not found: $APP"
+  echo "ERROR: Binary not found: $APP"
   exit 1
 fi
 
@@ -27,59 +27,55 @@ cat > "$BUNDLE/Contents/Info.plist" <<'EOF'
 </dict></plist>
 EOF
 
-# Ensure PyObjC for Quartz window capture
-python3 -m pip install --quiet pyobjc-framework-Quartz pyobjc-framework-Cocoa 2>&1 || true
-
-# Launch the app
+echo "Launching $BUNDLE ..."
 open -a "$BUNDLE"
-sleep 8
+sleep 3
 
-# List all windows via Quartz CGWindowList to find ours
-python3 << 'PYEOF'
-import sys
-try:
-    import Quartz
-    wl = Quartz.CGWindowListCopyWindowInfo(
-        Quartz.kCGWindowListOptionAll, Quartz.kCGNullWindowID)
-    print(f"Total windows: {len(wl)}")
-    for w in wl:
-        name = w.get('kCGWindowOwnerName', '')
-        layer = w.get('kCGWindowLayer', -1)
-        bounds = w.get('kCGWindowBounds', {})
-        if layer == 0 and bounds.get('Width', 0) > 100:
-            print(f"  [{name}] {bounds.get('Width')}x{bounds.get('Height')} layer={layer}")
-except Exception as e:
-    print(f"Quartz error: {e}")
-PYEOF
+# Check if process is alive
+PID=$(pgrep -f "Webkitium.app/Contents/MacOS/webkitium" || true)
+echo "PID: ${PID:-DEAD}"
 
-# Try to capture the specific webkitium window via Quartz
-python3 -c "
-import sys
-try:
-    import Quartz
-    from Cocoa import NSBitmapImageRep
-    wl = Quartz.CGWindowListCopyWindowInfo(Quartz.kCGWindowListOptionAll, Quartz.kCGNullWindowID)
-    for w in wl:
-        if 'webkitium' in w.get('kCGWindowOwnerName','').lower():
-            wid = w['kCGWindowNumber']
-            bounds = w.get('kCGWindowBounds', {})
-            print(f'Found: wid={wid} {bounds}')
-            img = Quartz.CGWindowListCreateImage(
-                Quartz.CGRectNull,
-                Quartz.kCGWindowListOptionIncludingWindow,
-                wid,
-                Quartz.kCGWindowImageBoundsIgnoreFraming)
-            if img:
-                rep = NSBitmapImageRep.alloc().initWithCGImage_(img)
-                data = rep.representationUsingType_properties_(4, None)  # 4 = PNG
-                data.writeToFile_atomically_('$OUT', True)
-                print('Captured via Quartz')
-                sys.exit(0)
-    print('No webkitium window found, capturing full screen')
-except Exception as e:
-    print(f'Quartz capture failed: {e}')
-sys.exit(1)
-" 2>&1 || screencapture -x "$OUT"
+if [[ -z "$PID" ]]; then
+  echo "App crashed on launch. Trying direct execution with log..."
+  "$BUNDLE/Contents/MacOS/webkitium" &> /tmp/webkitium-launch.log &
+  PID=$!
+  sleep 8
+  echo "=== Launch log ==="
+  cat /tmp/webkitium-launch.log 2>/dev/null || true
+  echo "=== end log ==="
+  echo "Process alive after direct launch: $(kill -0 $PID 2>/dev/null && echo YES || echo NO)"
+fi
 
+sleep 5
+
+# Write a Swift helper to capture screen using CGWindowListCreateImage
+cat > /tmp/capture.swift << 'SWIFT'
+import Cocoa
+let img = CGWindowListCreateImage(
+    CGRect.null,
+    .optionOnScreenOnly,
+    kCGNullWindowID,
+    .bestResolution)
+guard let img = img else {
+    print("CGWindowListCreateImage returned nil")
+    exit(1)
+}
+let rep = NSBitmapImageRep(cgImage: img)
+guard let data = rep.representation(using: .png, properties: [:]) else {
+    print("PNG conversion failed")
+    exit(1)
+}
+let url = URL(fileURLWithPath: CommandLine.arguments[1])
+try data.write(to: url)
+print("Captured \(img.width)x\(img.height) to \(url.path)")
+SWIFT
+
+swiftc /tmp/capture.swift -o /tmp/capture -framework Cocoa 2>&1
+/tmp/capture "$OUT" 2>&1 || {
+  echo "Swift capture failed, falling back to screencapture"
+  screencapture -x "$OUT"
+}
+
+kill $PID 2>/dev/null || true
 pkill -f "Webkitium.app/Contents/MacOS/webkitium" 2>/dev/null || true
 echo "Screenshot saved: $OUT"

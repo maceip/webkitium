@@ -25,99 +25,67 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Ensure .NET workload in Build Tools
+      - name: Install .NET SDK
         shell: pwsh
         run: |
-          $sdkPath = "C:\BuildTools\MSBuild\Sdks\Microsoft.NET.Sdk\Sdk"
-          if (-not (Test-Path $sdkPath)) {
-            Write-Host "Installing .NET desktop workload..."
-            $installer = "C:\BuildTools\vs_buildtools.exe"
-            if (-not (Test-Path $installer)) {
-              $installer = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vs_installer.exe"
-            }
-            if (Test-Path $installer) {
-              & $installer modify --installPath "C:\BuildTools" `
-                --add Microsoft.VisualStudio.Workload.ManagedDesktopBuildTools `
-                --add Microsoft.NetCore.Component.SDK `
-                --quiet --wait 2>&1 | Write-Host
-            } else {
-              Write-Host "Installing .NET SDK standalone..."
-              Invoke-WebRequest -Uri "https://dot.net/v1/dotnet-install.ps1" -OutFile "$env:RUNNER_TEMP\dotnet-install.ps1"
-              & "$env:RUNNER_TEMP\dotnet-install.ps1" -Channel 8.0 -InstallDir "C:\dotnet"
-              echo "C:\dotnet" | Out-File -Append -FilePath $env:GITHUB_PATH
-            }
+          if (Get-Command dotnet -ErrorAction SilentlyContinue) {
+            Write-Host "dotnet already available: $(dotnet --version)"
           } else {
-            Write-Host ".NET SDK already available"
+            Write-Host "Installing .NET 8.0 SDK..."
+            Invoke-WebRequest -Uri "https://dot.net/v1/dotnet-install.ps1" -OutFile "$env:RUNNER_TEMP\dotnet-install.ps1"
+            & "$env:RUNNER_TEMP\dotnet-install.ps1" -Channel 8.0 -InstallDir "C:\dotnet" -Verbose
+            echo "C:\dotnet" | Out-File -Append -FilePath $env:GITHUB_PATH
+            Write-Host "Installed: $(C:\dotnet\dotnet.exe --version)"
           }
 
       - name: Build WinUI shell
-        shell: cmd
+        shell: pwsh
         run: |
-          call "C:\BuildTools\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64
-          if exist "C:\dotnet\dotnet.exe" set "PATH=C:\dotnet;%PATH%"
+          if (Test-Path "C:\dotnet\dotnet.exe") { $env:PATH = "C:\dotnet;$env:PATH" }
+          # Strip native sidecar target (needs full VS C++ workload we don't have)
+          $csproj = "chrome\windows\webkitium.csproj"
+          $xml = [xml](Get-Content $csproj)
+          $ns = $xml.DocumentElement.NamespaceURI
+          # Remove BuildNativeSidecar target
+          $targets = $xml.SelectNodes("//Target[@Name='BuildNativeSidecar']")
+          foreach ($t in $targets) { $t.ParentNode.RemoveChild($t) | Out-Null }
+          # Remove native DLL copy
+          $nones = $xml.SelectNodes("//None[contains(@Include, 'native')]")
+          foreach ($n in $nones) { $n.ParentNode.RemoveChild($n) | Out-Null }
+          $xml.Save($csproj)
+          Write-Host "Stripped native sidecar from csproj"
           cd chrome\windows
-          msbuild webkitium.csproj /p:Configuration=Debug /p:Platform=x64 /restore 2>&1 || (
-            echo Trying dotnet build...
-            dotnet build webkitium.csproj -c Debug
-          )
+          dotnet build webkitium.csproj -c Debug
 
       - name: Launch and screenshot
         shell: pwsh
         run: |
-          $exe = Get-ChildItem -Recurse chrome\windows -Filter "webkitium.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-          if (-not $exe) {
-            $exe = Get-ChildItem -Recurse chrome\windows\bin -Filter "*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-          }
+          $exe = Get-ChildItem -Recurse chrome\windows\bin -Filter "webkitium.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $exe) { Write-Host "No exe found"; exit 1 }
           Write-Host "Exe: $($exe.FullName)"
           $outPath = "$env:RUNNER_TEMP\screenshot_windows_shell.png"
+          Write-Host "Sessions:"
+          qwinsta 2>&1 | Write-Host
           $proc = Start-Process -FilePath $exe.FullName -PassThru -ErrorAction SilentlyContinue
           Start-Sleep -Seconds 10
-          # Try PrintWindow via compiled C# helper
-          $csFile = "$env:GITHUB_WORKSPACE\scripts\ci\win-capture.cs"
-          # Check if process survived
-          if ($proc) {
-            Write-Host "Process alive: $(!$proc.HasExited), PID: $($proc.Id)"
-            if ($proc.HasExited) {
-              Write-Host "Exit code: $($proc.ExitCode)"
-            } else {
-              Write-Host "Main window title: '$($proc.MainWindowTitle)'"
-              Write-Host "Main window handle: $($proc.MainWindowHandle)"
+          if ($proc.HasExited) { Write-Host "App exited: $($proc.ExitCode)" }
+          else { Write-Host "App running, handle=$($proc.MainWindowHandle) title='$($proc.MainWindowTitle)'" }
+          try {
+            Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+            $s = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+            $bmp = New-Object System.Drawing.Bitmap($s.Width, $s.Height)
+            [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($s.Location, [System.Drawing.Point]::Empty, $s.Size)
+            $bmp.Save($outPath)
+            Write-Host "Screenshot OK: $($s.Width)x$($s.Height)"
+          } catch {
+            Write-Host "CopyFromScreen failed: $_ -- trying PrintWindow"
+            Add-Type -Path "$env:GITHUB_WORKSPACE\scripts\ci\win-capture.cs" -ErrorAction Stop
+            if (-not [WinCapture]::Capture("Webkitium", $outPath)) {
+              Write-Host "PrintWindow failed too. No desktop available."
+              exit 1
             }
           }
-          Write-Host "C# file: $csFile exists=$(Test-Path $csFile)"
-          $captured = $false
-          if (Test-Path $csFile) {
-            try {
-              Add-Type -Path $csFile -ErrorAction Stop
-              # Try the process's own window title first
-              $titles = @("Webkitium", "webkitium")
-              if ($proc -and -not $proc.HasExited -and $proc.MainWindowTitle) {
-                $titles = @($proc.MainWindowTitle) + $titles
-              }
-              foreach ($t in $titles) {
-                Write-Host "Trying PrintWindow for title '$t'..."
-                $result = [WinCapture]::Capture($t, $outPath)
-                Write-Host "Result: $result"
-                if ($result) { $captured = $true; break }
-              }
-            } catch { Write-Host "PrintWindow error: $_" }
-          }
-          if (-not $captured) {
-            try {
-              Add-Type -AssemblyName System.Windows.Forms
-              Add-Type -AssemblyName System.Drawing
-              $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-              $bmp = New-Object System.Drawing.Bitmap($b.Width, $b.Height)
-              $g = [System.Drawing.Graphics]::FromImage($bmp)
-              $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
-              $bmp.Save($outPath); $g.Dispose(); $bmp.Dispose()
-              $captured = $true; Write-Host "CopyFromScreen OK"
-            } catch { Write-Host "CopyFromScreen failed: $_" }
-          }
           Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
-          if (-not $captured) { Write-Host "No screenshot method worked"; exit 1 }
-          Write-Host "Screenshot: $outPath"
 
       - name: Upload screenshot
         if: always()
