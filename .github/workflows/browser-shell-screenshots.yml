@@ -105,8 +105,11 @@ jobs:
           & $psexecPath -accepteula -nobanner -i 1 -d "$($exe.FullName)" 2>&1 | Write-Host
           Start-Sleep -Seconds 15
 
-          # Check app status and enumerate windows from session 1
-          & $psexecPath -accepteula -nobanner -i 1 powershell.exe -ExecutionPolicy Bypass -File "$env:GITHUB_WORKSPACE\scripts\ci\win-check-app.ps1" 2>&1 | Write-Host
+          # Check app status from session 1 (write to shared file since PsExec swallows output)
+          $diagFile = "$env:RUNNER_TEMP\app_diag.txt"
+          & $psexecPath -accepteula -nobanner -i 1 powershell.exe -ExecutionPolicy Bypass -Command "& '$env:GITHUB_WORKSPACE\scripts\ci\win-check-app.ps1' | Out-File -FilePath '$diagFile' -Encoding utf8" 2>&1 | Out-Null
+          Start-Sleep -Seconds 2
+          if (Test-Path $diagFile) { Get-Content $diagFile | Write-Host } else { Write-Host "No diag output" }
 
           # Take screenshot from session 1
           Write-Host "Taking screenshot..."
