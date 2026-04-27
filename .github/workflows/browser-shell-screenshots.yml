@@ -25,31 +25,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Ensure .NET SDK
-        shell: pwsh
-        run: |
-          if (Get-Command dotnet -ErrorAction SilentlyContinue) {
-            dotnet --version
-          } else {
-            Write-Host "Installing .NET SDK..."
-            Invoke-WebRequest -Uri "https://dot.net/v1/dotnet-install.ps1" -OutFile "$env:RUNNER_TEMP\dotnet-install.ps1"
-            & "$env:RUNNER_TEMP\dotnet-install.ps1" -Channel 9.0 -InstallDir "$env:RUNNER_TEMP\dotnet"
-            echo "$env:RUNNER_TEMP\dotnet" | Out-File -Append -FilePath $env:GITHUB_PATH
-          }
-
       - name: Build WinUI shell
-        shell: pwsh
+        shell: cmd
         run: |
-          $env:PATH = "$env:RUNNER_TEMP\dotnet;$env:PATH"
-          $env:DOTNET_ROOT = "$env:RUNNER_TEMP\dotnet"
-          # Remove native sidecar build target + DLL copy that requires full VS C++ workload
-          $csproj = "chrome\windows\webkitium.csproj"
-          $content = Get-Content $csproj -Raw
-          $content = $content -replace '(?s)<Target Name="BuildNativeSidecar".*?</Target>', ''
-          $content = $content -replace '(?s)<None Include="\$\(SolutionDir\)x64.*?</None>', ''
-          Set-Content $csproj $content
+          call "C:\BuildTools\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64
           cd chrome\windows
-          dotnet build webkitium.csproj -c Debug 2>&1 || echo "Build attempted"
+          msbuild webkitium.csproj /p:Configuration=Debug /p:Platform=x64 /restore
 
       - name: Launch and screenshot
         shell: pwsh
