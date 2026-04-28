@@ -178,6 +178,8 @@ index 00000000000..e5f6a7b8c9d
 +#include "MLContext.h"
 +#include "MLContextOptions.h"
 +#include "JSDOMPromiseDeferred.h"
++#include "Implementation/WebNNLiteRTContext.h"
++#include "Implementation/LiteRTLoader.h"
 +
 +namespace WebCore {
 +
@@ -193,11 +195,30 @@ index 00000000000..e5f6a7b8c9d
 +
 +ML::~ML() = default;
 +
-+void ML::createContext(MLContextOptions&&, Ref<DeferredPromise>&& promise)
++void ML::createContext(MLContextOptions&& options, Ref<DeferredPromise>&& promise)
 +{
-+    // TODO: Create real LiteRT backend context when HAVE(LITERT)
-+    promise->reject(Exception { ExceptionCode::NotSupportedError,
-+        "WebNN backend not yet connected"_s });
++    auto& loader = WebNN::LiteRTLoader::singleton();
++    if (!loader.isLoaded()) {
++        promise->reject(Exception { ExceptionCode::NotSupportedError,
++            "WebNN: LiteRT runtime library not available"_s });
++        return;
++    }
++
++    auto backendContext = WebNN::LiteRTContext::create(options);
++    if (!backendContext) {
++        promise->reject(Exception { ExceptionCode::NotSupportedError,
++            "WebNN: failed to create ML context"_s });
++        return;
++    }
++
++    auto mlContext = MLContext::create(WTFMove(backendContext));
++    if (!mlContext) {
++        promise->reject(Exception { ExceptionCode::NotSupportedError,
++            "WebNN: failed to wrap ML context"_s });
++        return;
++    }
++
++    promise->resolve<IDLInterface<MLContext>>(mlContext.releaseNonNull());
 +}
 +
 +} // namespace WebCore

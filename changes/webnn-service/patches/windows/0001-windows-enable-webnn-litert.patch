@@ -6,94 +6,45 @@ index 00000000000..a1b2c3d4e5f
 @@ -0,0 +1,89 @@
 +# FindLiteRT.cmake
 +#
-+# Finds the LiteRT-LM library for WebNN backend support.
-+# LiteRT-LM is Google's production-ready C++ inference framework
-+# (successor to TFLite) that provides unified cross-platform ML inference.
++# WebNN backend uses LiteRT (TFLite successor) via RUNTIME LOADING.
++# We do NOT link against libLiteRt at build time because the prebuilt
++# ships as a DLL with no import .lib on Windows.
 +#
-+# This will define:
-+#   LiteRT_FOUND        - True if LiteRT-LM is available
-+#   LiteRT_INCLUDE_DIRS - Include directories
-+#   LiteRT_LIBRARIES    - Libraries to link
-+#   LiteRT_VERSION      - Version string
++# Instead, LiteRTLoader.cpp uses LoadLibrary/dlopen + GetProcAddress/dlsym
++# to resolve the TFLite C API functions at runtime. This means:
++# - No LiteRT_LIBRARY is needed at link time
++# - No TFLite headers are needed at compile time (we define our own types)
++# - The DLL/dylib/so just needs to be beside the browser binary at runtime
++#
++# This module only verifies the DLL can be found for packaging purposes.
 +
-+include(FindPackageHandleStandardArgs)
-+
-+# Try pre-built library first
-+find_path(LiteRT_INCLUDE_DIR
-+    NAMES runtime/engine/engine.h
-+    PATH_SUFFIXES litert-lm litert_lm
-+)
-+
-+# Fall back to TFLite header path (LiteRT core)
-+if (NOT LiteRT_INCLUDE_DIR)
-+    find_path(LiteRT_INCLUDE_DIR
-+        NAMES tensorflow/lite/interpreter.h
-+        PATH_SUFFIXES tflite litert
++# Check if the DLL/so/dylib exists beside the build output for packaging
++if (WIN32)
++    find_file(LiteRT_DLL
++        NAMES libLiteRt.dll LiteRt.dll
++        PATHS "${CMAKE_BINARY_DIR}" "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}"
++        NO_DEFAULT_PATH
++    )
++    if (LiteRT_DLL)
++        message(STATUS "LiteRT DLL found for packaging: ${LiteRT_DLL}")
++    else ()
++        message(STATUS "LiteRT DLL not found at build time — will be loaded at runtime from beside the browser binary")
++    endif ()
++elseif (APPLE)
++    find_file(LiteRT_DYLIB
++        NAMES libLiteRt.dylib
++    )
++else ()
++    find_file(LiteRT_SO
++        NAMES libLiteRt.so
 +    )
 +endif ()
 +
-+# LiteRT core library (prebuilt name is libLiteRt on all platforms)
-+if (WIN32)
-+    # Prebuilt ships as libLiteRt.dll with no import lib; find the DLL directly
-+    set(_litert_saved_suffixes ${CMAKE_FIND_LIBRARY_SUFFIXES})
-+    set(CMAKE_FIND_LIBRARY_SUFFIXES .dll .lib)
-+endif ()
-+find_library(LiteRT_LIBRARY
-+    NAMES libLiteRt LiteRt litert_lm litert-lm tensorflow-lite tflite
-+)
-+if (WIN32)
-+    set(CMAKE_FIND_LIBRARY_SUFFIXES ${_litert_saved_suffixes})
-+endif ()
-+
-+# GPU accelerator (platform-specific, optional)
-+find_library(LiteRT_GPU_LIBRARY
-+    NAMES LiteRtMetalAccelerator LiteRtGpuAccelerator LiteRtOpenClAccelerator
-+)
-+
-+# XNNPACK delegate (CPU acceleration — bundled in LiteRT core on most platforms)
-+find_library(LiteRT_XNNPACK_LIBRARY
-+    NAMES xnnpack XNNPACK
-+)
-+
-+find_package_handle_standard_args(LiteRT
-+    REQUIRED_VARS LiteRT_LIBRARY LiteRT_INCLUDE_DIR
-+)
-+
-+if (LiteRT_FOUND)
-+    set(LiteRT_INCLUDE_DIRS ${LiteRT_INCLUDE_DIR})
-+    set(LiteRT_LIBRARIES ${LiteRT_LIBRARY})
-+    if (LiteRT_GPU_LIBRARY)
-+        list(APPEND LiteRT_LIBRARIES ${LiteRT_GPU_LIBRARY})
-+        SET_AND_EXPOSE_TO_BUILD(HAVE_LITERT_GPU_DELEGATE ON)
-+    endif ()
-+    if (LiteRT_XNNPACK_LIBRARY)
-+        list(APPEND LiteRT_LIBRARIES ${LiteRT_XNNPACK_LIBRARY})
-+    endif ()
-+endif ()
-+
-+mark_as_advanced(LiteRT_INCLUDE_DIR LiteRT_LIBRARY LiteRT_XNNPACK_LIBRARY)
-+
-+# Option to build from source via ExternalProject
-+option(LITERT_BUILD_FROM_SOURCE
-+    "Build LiteRT-LM from source instead of using pre-built library" OFF)
-+
-+if (LITERT_BUILD_FROM_SOURCE AND NOT LiteRT_FOUND)
-+    include(ExternalProject)
-+    ExternalProject_Add(litert_lm_build
-+        GIT_REPOSITORY https://github.com/google-ai-edge/LiteRT-LM.git
-+        GIT_TAG v0.10.2
-+        SOURCE_DIR ${CMAKE_BINARY_DIR}/litert-lm-src
-+        BINARY_DIR ${CMAKE_BINARY_DIR}/litert-lm-build
-+        CMAKE_ARGS
-+            -DLITERTLM_PROJECT_ROOT=${CMAKE_BINARY_DIR}/litert-lm-src
-+        INSTALL_COMMAND ""
-+        BUILD_ALWAYS FALSE
-+    )
-+    set(LiteRT_INCLUDE_DIRS ${CMAKE_BINARY_DIR}/litert-lm-src)
-+    set(LiteRT_LIBRARIES ${CMAKE_BINARY_DIR}/litert-lm-build/litert_lm)
-+    set(LiteRT_FOUND TRUE)
-+endif ()
-+endif ()
++# Always set LiteRT_FOUND to TRUE — the actual loading happens at runtime
++# via LiteRTLoader. If the DLL is missing at runtime, navigator.ml will
++# gracefully return null instead of crashing.
++set(LiteRT_FOUND TRUE)
++SET_AND_EXPOSE_TO_BUILD(HAVE_LITERT ON)
 diff --git a/Source/cmake/OptionsWin.cmake b/Source/cmake/OptionsWin.cmake
 index be254c9e980..f1a2b3c4d5e 100644
 --- a/Source/cmake/OptionsWin.cmake
@@ -110,7 +61,7 @@ index be254c9e980..f1a2b3c4d5e 100644
  endif ()
  
 +if (ENABLE_WEBNN)
-+    find_package(LiteRT REQUIRED)
++    find_package(LiteRT)
 +    SET_AND_EXPOSE_TO_BUILD(HAVE_WEBNN_IMPLEMENTATION ON)
 +endif ()
 +
@@ -126,18 +77,16 @@ index 00000000001..00000000002 100644
      list(APPEND WebCore_PRIVATE_LIBRARIES ${SHARPYUV_LIBS})
  endif ()
 +
-+# WebNN / LiteRT-LM sources (all platforms — included from PlatformWin.cmake)
-+if (ENABLE_WEBNN AND LiteRT_FOUND)
++# WebNN sources — LiteRT is loaded at runtime, no link-time dependency
++if (ENABLE_WEBNN)
 +    list(APPEND WebCore_SOURCES
++        Modules/WebNN/Implementation/LiteRTLoader.cpp
 +        Modules/WebNN/Implementation/WebNNLiteRTContext.cpp
 +        Modules/WebNN/Implementation/WebNNLiteRTGraph.cpp
 +        Modules/WebNN/ML.cpp
 +        Modules/WebNN/NavigatorML.cpp
 +    )
-+    list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES ${LiteRT_INCLUDE_DIRS})
-+    # LiteRT prebuilt ships as DLL without import lib — load at runtime via dlopen/LoadLibrary.
-+    # list(APPEND WebCore_LIBRARIES ${LiteRT_LIBRARIES})
-+    SET_AND_EXPOSE_TO_BUILD(HAVE_LITERT ON)
+
 +endif ()
 diff --git a/Tools/Scripts/webkitperl/FeatureList.pm b/Tools/Scripts/webkitperl/FeatureList.pm
 index 2cdd50532f7..e3f4a5b6c7d 100644
