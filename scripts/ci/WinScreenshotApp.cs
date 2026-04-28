@@ -43,11 +43,27 @@ public class WinScreenshotApp : Form
             g.FillRectangle(new SolidBrush(Color.FromArgb(18, 18, 28)), sidebarW + 120, 8, 500, 28);
             g.DrawString("example.com", fontMd, fg1, sidebarW + 134, 13);
 
-            g.FillRectangle(Brushes.White, sidebarW + 1, toolbarH + 1, width - sidebarW - 1, height - toolbarH - 1);
-            g.DrawString("Example Domain", new Font("Georgia", 18, FontStyle.Bold), Brushes.Black, sidebarW + 80, toolbarH + 80);
-            g.DrawString("This domain is for use in documentation examples without", new Font("Arial", 11), new SolidBrush(Color.FromArgb(60, 60, 60)), sidebarW + 80, toolbarH + 130);
-            g.DrawString("needing permission. Avoid use in operations.", new Font("Arial", 11), new SolidBrush(Color.FromArgb(60, 60, 60)), sidebarW + 80, toolbarH + 152);
-            g.DrawString("Learn more", new Font("Arial", 11), new SolidBrush(Color.FromArgb(56, 88, 152)), sidebarW + 80, toolbarH + 187);
+            // Content area with mascot image
+            g.FillRectangle(new SolidBrush(Color.FromArgb(20, 20, 36)), sidebarW + 1, toolbarH + 1, width - sidebarW - 1, height - toolbarH - 1);
+            var mascotPath = System.IO.Path.Combine(
+                System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) ?? ".",
+                "..", "..", "..", "..", "chrome", "shared", "mascots", "processed", "windows.png");
+            if (!System.IO.File.Exists(mascotPath))
+                mascotPath = "C:\\actions-runner\\_work\\webkitium\\webkitium\\chrome\\shared\\mascots\\processed\\windows.png";
+            if (System.IO.File.Exists(mascotPath)) {
+                using (var mascot = Image.FromFile(mascotPath)) {
+                    int contentW = width - sidebarW;
+                    int contentH = height - toolbarH;
+                    float scale = Math.Min((float)contentW / mascot.Width, (float)contentH / mascot.Height) * 0.95f;
+                    int mw = (int)(mascot.Width * scale);
+                    int mh = (int)(mascot.Height * scale);
+                    int mx = sidebarW + (contentW - mw) / 2;
+                    int my = toolbarH + (contentH - mh) / 2;
+                    g.DrawImage(mascot, mx, my, mw, mh);
+                }
+            } else {
+                g.DrawString("Mascot not found", new Font("Arial", 14), Brushes.White, sidebarW + 80, toolbarH + 80);
+            }
 
             bmp.Save(outPath, ImageFormat.Png);
             Console.WriteLine("Saved: " + outPath);

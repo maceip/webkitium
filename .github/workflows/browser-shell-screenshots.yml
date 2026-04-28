@@ -148,6 +148,10 @@ jobs:
         run: |
           set -euo pipefail
           export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
+          # Point default URL to the mascot HTML
+          MASCOT_HTML="$(cd "$GITHUB_WORKSPACE" && pwd)/chrome/shared/mascots/html/ios.html"
+          sed -i '' "s|https://example.com|file://$MASCOT_HTML|g" chrome/ios/Sources/Webkitium/WebContentView.swift
+          sed -i '' "s|https://example.com/|file://$MASCOT_HTML|g" chrome/ios/Sources/Webkitium/BrowserState.swift
           cd chrome/ios
           swift build --sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" \
             --triple arm64-apple-ios17.0-simulator 2>&1
@@ -196,6 +200,8 @@ jobs:
           </dict></plist>
           PLIST
 
+          # Copy mascot HTML into the app bundle so file:// URL works in sandbox
+          cp "$GITHUB_WORKSPACE/chrome/shared/mascots/html/ios.html" "$APP_BUNDLE/ios.html"
           xcrun simctl install "$SIM_UDID" "$APP_BUNDLE"
           xcrun simctl launch "$SIM_UDID" dev.webkitium.ios
           sleep 8
@@ -240,9 +246,11 @@ jobs:
           # Remove files that depend on extensions/sync/webauthn C bridges
           rm -f Sources/Webkitium/Services/BrowserServices.swift
           # Replace SwiftUI @main App with AppKit NSWindow hosting SwiftUI views
-          # SwiftUI Window scenes refuse to open on headless EC2 Mac runners
           rm -f Sources/Webkitium/WebkitiumApp.swift
           cp "$GITHUB_WORKSPACE/scripts/ci/MacOSMain.swift" Sources/Webkitium/MacOSMain.swift
+          # Point default URL to mascot HTML
+          MASCOT_HTML="$(cd "$GITHUB_WORKSPACE" && pwd)/chrome/shared/mascots/html/macos.html"
+          sed -i '' "s|https://example.com/|file://$MASCOT_HTML|g" Sources/Webkitium/Views/BrowserState.swift
 
           # Copy color bridge headers + modulemap into the package tree
           mkdir -p CWebkitiumColor
@@ -314,6 +322,10 @@ jobs:
       - name: Build Linux shell
         run: |
           set -euo pipefail
+          # Point default URL to mascot HTML
+          MASCOT_HTML="$(pwd)/chrome/shared/mascots/html/linux.html"
+          sed -i "s|https://example.com/|file://$MASCOT_HTML|g" chrome/linux/src/wk-window.c
+          sed -i "s|https://example.com|file://$MASCOT_HTML|g" chrome/linux/src/wk-window.c
           cd chrome/linux
           ln -sf ../../browser browser_link
           sed "s|meson.project_source_root() / '\.\.' / '\.\.' / 'browser'|'browser_link'|" meson.build > meson.build.patched
@@ -360,6 +372,11 @@ jobs:
         run: |
           set -euo pipefail
           export ANDROID_HOME="${ANDROID_HOME:-$HOME/Android/Sdk}"
+          # Copy mascot HTML to Android assets
+          mkdir -p chrome/android/app/src/main/assets
+          cp chrome/shared/mascots/html/android.html chrome/android/app/src/main/assets/mascot.html
+          # Point default URL to the asset
+          sed -i 's|https://example.com/|file:///android_asset/mascot.html|g' chrome/android/app/src/main/java/dev/webkitium/MainActivity.kt
           cd chrome/android
           chmod +x gradlew 2>/dev/null || true
           ./gradlew assembleDebug
