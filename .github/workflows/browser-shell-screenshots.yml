@@ -133,6 +133,112 @@ jobs:
           name: screenshot-windows
           path: ${{ runner.temp }}/screenshot_windows_shell.png
 
+  ios:
+    name: iOS Simulator Screenshot
+    runs-on:
+      - self-hosted
+      - macOS
+      - ARM64
+      - webkitium
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build iOS app for simulator
+        run: |
+          set -euo pipefail
+          export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
+          PROJ="$RUNNER_TEMP/WebkitiumiOS"
+          mkdir -p "$PROJ/Sources"
+          # Copy the iOS entry point and BrowserState
+          cp "$GITHUB_WORKSPACE/scripts/ci/IOSMain.swift" "$PROJ/Sources/IOSMain.swift"
+          cp "$GITHUB_WORKSPACE/chrome/macos/Sources/Webkitium/Views/BrowserState.swift" "$PROJ/Sources/BrowserState.swift"
+          # Create Package.swift for iOS
+          cat > "$PROJ/Package.swift" << 'EOF'
+          // swift-tools-version: 5.9
+          import PackageDescription
+          let package = Package(
+              name: "WebkitiumiOS",
+              platforms: [.iOS(.v17)],
+              products: [.executable(name: "WebkitiumiOS", targets: ["WebkitiumiOS"])],
+              targets: [
+                  .executableTarget(name: "WebkitiumiOS", path: "Sources")
+              ]
+          )
+          EOF
+          cd "$PROJ"
+          # Build for iOS Simulator
+          swift build --sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" \
+            --triple arm64-apple-ios17.0-simulator 2>&1
+          echo "Build complete"
+
+      - name: Boot simulator and install
+        run: |
+          set -euo pipefail
+          export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
+          PROJ="$RUNNER_TEMP/WebkitiumiOS"
+          # Find the built executable
+          APP_BIN=$(find "$PROJ/.build" -name 'WebkitiumiOS' -type f 2>/dev/null | head -1)
+          echo "Binary: ${APP_BIN:-NOT FOUND}"
+
+          # Get iOS runtime
+          RUNTIME=$(xcrun simctl list runtimes -j | python3 -c "
+          import sys, json
+          rts = json.load(sys.stdin)['runtimes']
+          ios = [r for r in rts if r['isAvailable'] and 'iOS' in r['name']]
+          print(ios[-1]['identifier'] if ios else '')
+          ")
+          echo "Runtime: $RUNTIME"
+
+          # Create simulator
+          SIM_UDID=""
+          for dtype in "iPhone-16-Pro" "iPhone-15-Pro" "iPhone-15" "iPhone-14"; do
+            SIM_UDID=$(xcrun simctl create "WebkitiumiOSTest" \
+              "com.apple.CoreSimulator.SimDeviceType.$dtype" "$RUNTIME" 2>/dev/null) && break
+          done
+          echo "Simulator: $SIM_UDID"
+
+          xcrun simctl boot "$SIM_UDID"
+          sleep 15
+
+          # Create a minimal .app bundle for the simulator
+          APP_BUNDLE="$RUNNER_TEMP/Webkitium.app"
+          mkdir -p "$APP_BUNDLE"
+          cp "$APP_BIN" "$APP_BUNDLE/WebkitiumiOS"
+          cat > "$APP_BUNDLE/Info.plist" << 'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+          <key>CFBundleExecutable</key><string>WebkitiumiOS</string>
+          <key>CFBundleIdentifier</key><string>dev.webkitium.ios</string>
+          <key>CFBundleName</key><string>Webkitium</string>
+          <key>CFBundleVersion</key><string>1</string>
+          <key>CFBundleShortVersionString</key><string>1.0</string>
+          <key>LSRequiresIPhoneOS</key><true/>
+          <key>UILaunchStoryboardName</key><string></string>
+          <key>MinimumOSVersion</key><string>17.0</string>
+          </dict></plist>
+          PLIST
+
+          # Install and launch
+          xcrun simctl install "$SIM_UDID" "$APP_BUNDLE"
+          xcrun simctl launch "$SIM_UDID" dev.webkitium.ios
+          sleep 8
+
+          # Screenshot
+          xcrun simctl io "$SIM_UDID" screenshot "$RUNNER_TEMP/screenshot_ios_shell.png"
+
+          xcrun simctl shutdown "$SIM_UDID" 2>/dev/null || true
+          xcrun simctl delete "$SIM_UDID" 2>/dev/null || true
+          echo "Done"
+
+      - name: Upload screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshot-ios
+          path: ${{ runner.temp }}/screenshot_ios_shell.png
+
   macos:
     name: macOS Shell Screenshot
     runs-on:
