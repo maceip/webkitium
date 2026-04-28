@@ -41,7 +41,8 @@ public class WinScreenshotApp : Form
             g.FillRectangle(new SolidBrush(Color.FromArgb(31, 31, 49)), sidebarW, 0, width - sidebarW, toolbarH);
             g.DrawString("<    >    R", new Font("Segoe UI", 12), fg2, sidebarW + 8, 12);
             g.FillRectangle(new SolidBrush(Color.FromArgb(18, 18, 28)), sidebarW + 120, 8, 500, 28);
-            g.DrawString("example.com", fontMd, fg1, sidebarW + 134, 13);
+            g.DrawString("\U0001F512", new Font("Segoe UI Emoji", 9), new SolidBrush(Color.FromArgb(31, 90, 224)), sidebarW + 128, 12);
+            g.DrawString("example.com", fontMd, fg1, sidebarW + 148, 13);
 
             // Content area with mascot image
             g.FillRectangle(new SolidBrush(Color.FromArgb(20, 20, 36)), sidebarW + 1, toolbarH + 1, width - sidebarW - 1, height - toolbarH - 1);
