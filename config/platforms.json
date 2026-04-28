@@ -93,7 +93,10 @@
       "notes": "GTK port on Linux arm64 only on current runner pool; extend labels when x86_64 builders exist.",
       "artifactPatterns": ["*.tar.gz", "*.zip", "*.deb", "*.log", "*.json"]
     },
-    "ios": { "status": "empty" },
+    "ios": {
+      "status": "active",
+      "notes": "SwiftUI shell with bottom omnibar (Safari-style), WKWebView content. Builds via SwiftPM for iOS Simulator."
+    },
     "macos": {
       "status": "active",
       "mode": "aws-ssm",
