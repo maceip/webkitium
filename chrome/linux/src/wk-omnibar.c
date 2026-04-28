@@ -64,19 +64,19 @@ wk_omnibar_constructed (GObject *object)
   gtk_widget_add_css_class (GTK_WIDGET (pill), "toolbar");
   gtk_widget_set_hexpand (GTK_WIDGET (pill), TRUE);
 
-  /* Lockmark — blue accent to match other platforms */
+  /* Lockmark — blue accent (#1F5AE0) to match other platforms */
   self->lockmark = GTK_IMAGE (gtk_image_new_from_icon_name ("channel-secure-symbolic"));
   gtk_image_set_pixel_size (self->lockmark, 18);
   gtk_widget_set_margin_start (GTK_WIDGET (self->lockmark), 8);
-  gtk_widget_add_css_class (GTK_WIDGET (self->lockmark), "wk-lock");
+  gtk_widget_set_name (GTK_WIDGET (self->lockmark), "wk-lockmark");
   {
     GtkCssProvider *css = gtk_css_provider_new ();
     gtk_css_provider_load_from_string (css,
-      ".wk-lock { color: #1F5AE0; -gtk-icon-style: symbolic; }");
+      "#wk-lockmark { color: #1F5AE0; -gtk-icon-style: symbolic; }");
     gtk_style_context_add_provider_for_display (
         gdk_display_get_default (),
         GTK_STYLE_PROVIDER (css),
-        GTK_STYLE_PROVIDER_PRIORITY_USER);
+        800);
     g_object_unref (css);
   }
   gtk_box_append (pill, GTK_WIDGET (self->lockmark));
