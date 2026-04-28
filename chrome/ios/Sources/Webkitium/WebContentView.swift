@@ -25,7 +25,11 @@ struct WebContentView: UIViewRepresentable {
         webView.allowsBackForwardNavigationGestures = true
 
         if let url = URL(string: "https://example.com") {
-            webView.load(URLRequest(url: url))
+            if url.scheme == "file", let html = try? String(contentsOf: url, encoding: .utf8) {
+                webView.loadHTMLString(html, baseURL: nil)
+            } else {
+                webView.load(URLRequest(url: url))
+            }
         }
 
         DispatchQueue.main.async { store.webView = webView }
