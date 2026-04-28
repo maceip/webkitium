@@ -41,13 +41,15 @@ public class WinScreenshotApp : Form
             g.FillRectangle(new SolidBrush(Color.FromArgb(31, 31, 49)), sidebarW, 0, width - sidebarW, toolbarH);
             g.DrawString("<    >    R", new Font("Segoe UI", 12), fg2, sidebarW + 8, 12);
             g.FillRectangle(new SolidBrush(Color.FromArgb(18, 18, 28)), sidebarW + 120, 8, 500, 28);
-            // Blue lock icon drawn with GDI+
-            var lockBlue = new SolidBrush(Color.FromArgb(31, 90, 224));
-            var lockPen = new Pen(Color.FromArgb(31, 90, 224), 2);
-            int lx = sidebarW + 132, ly = 14;
-            g.DrawArc(lockPen, lx + 2, ly - 2, 8, 8, 180, 180);
-            g.FillRectangle(lockBlue, lx, ly + 4, 12, 10);
-            g.DrawString("example.com", fontMd, fg1, sidebarW + 152, 13);
+            // Blue lock icon — large and clearly visible
+            var lockColor = Color.FromArgb(31, 90, 224);
+            var lockBrush = new SolidBrush(lockColor);
+            var lockPen = new Pen(lockColor, 3f);
+            int lx = sidebarW + 130, ly = 10;
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            g.DrawArc(lockPen, lx + 3, ly - 5, 12, 14, 180, 180);
+            g.FillRectangle(lockBrush, lx, ly + 6, 18, 13);
+            g.DrawString("example.com", fontMd, fg1, sidebarW + 156, 13);
 
             // Content area with mascot image
             g.FillRectangle(new SolidBrush(Color.FromArgb(20, 20, 36)), sidebarW + 1, toolbarH + 1, width - sidebarW - 1, height - toolbarH - 1);

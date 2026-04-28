@@ -64,22 +64,20 @@ wk_omnibar_constructed (GObject *object)
   gtk_widget_add_css_class (GTK_WIDGET (pill), "toolbar");
   gtk_widget_set_hexpand (GTK_WIDGET (pill), TRUE);
 
-  /* Lockmark — blue accent (#1F5AE0) to match other platforms */
-  self->lockmark = GTK_IMAGE (gtk_image_new_from_icon_name ("channel-secure-symbolic"));
-  gtk_image_set_pixel_size (self->lockmark, 18);
-  gtk_widget_set_margin_start (GTK_WIDGET (self->lockmark), 8);
-  gtk_widget_set_name (GTK_WIDGET (self->lockmark), "wk-lockmark");
+  /* Lockmark — blue accent via Pango markup on a GtkLabel.
+     Symbolic icons get their color overridden by Adwaita, so we use
+     a label with explicit foreground color instead. */
   {
-    GtkCssProvider *css = gtk_css_provider_new ();
-    gtk_css_provider_load_from_string (css,
-      "#wk-lockmark { color: #1F5AE0; -gtk-icon-style: symbolic; }");
-    gtk_style_context_add_provider_for_display (
-        gdk_display_get_default (),
-        GTK_STYLE_PROVIDER (css),
-        800);
-    g_object_unref (css);
+    GtkLabel *lock_label = GTK_LABEL (gtk_label_new (NULL));
+    gtk_label_set_markup (lock_label,
+      "<span foreground=\"#1F5AE0\" weight=\"bold\" font_desc=\"14\">🔒</span>");
+    gtk_widget_set_margin_start (GTK_WIDGET (lock_label), 8);
+    gtk_widget_set_margin_end (GTK_WIDGET (lock_label), 2);
+    gtk_box_append (pill, GTK_WIDGET (lock_label));
+    /* Keep self->lockmark allocated for the header file contract */
+    self->lockmark = GTK_IMAGE (gtk_image_new ());
+    gtk_widget_set_visible (GTK_WIDGET (self->lockmark), FALSE);
   }
-  gtk_box_append (pill, GTK_WIDGET (self->lockmark));
 
   /* Input */
   self->input = GTK_ENTRY (gtk_entry_new ());

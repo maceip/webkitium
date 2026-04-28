@@ -76,6 +76,7 @@ fun Omnibar(
         Icon(
             imageVector = Icons.Filled.Lock,
             contentDescription = null,
+            modifier = Modifier.size(20.dp),
             tint = semantic[SemanticToken.AccentFill],
         )
 
