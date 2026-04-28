@@ -7,7 +7,7 @@ struct BrowserView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if state.isLoading {
+            if webViewStore.isLoading {
                 ProgressView()
                     .progressViewStyle(.linear)
                     .tint(Color(red: 0.12, green: 0.35, blue: 0.88))
@@ -23,10 +23,6 @@ struct BrowserView: View {
         .onAppear {
             if state.tabs.isEmpty { state.createTab() }
         }
-    }
-
-    private var isLoading: Bool {
-        state.activeTab?.isLoading ?? false
     }
 }
 
