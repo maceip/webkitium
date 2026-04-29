@@ -2,6 +2,7 @@ package dev.webkitium.ui
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -76,9 +77,9 @@ fun Omnibar(
     ) {
         Icon(
             imageVector = Icons.Filled.Lock,
-            contentDescription = null,
-            modifier = Modifier.size(20.dp),
-            tint = semantic[SemanticToken.AccentFill],
+            contentDescription = "Secure",
+            modifier = Modifier.size(24.dp),
+            tint = Color(0xFF1F5AE0),
         )
 
         BasicTextField(

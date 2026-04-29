@@ -64,18 +64,21 @@ wk_omnibar_constructed (GObject *object)
   gtk_widget_add_css_class (GTK_WIDGET (pill), "toolbar");
   gtk_widget_set_hexpand (GTK_WIDGET (pill), TRUE);
 
-  /* Lockmark — blue accent. Install a display-level CSS at max priority
-     so it beats Adwaita's symbolic icon recoloring. */
-  self->lockmark = GTK_IMAGE (gtk_image_new_from_icon_name ("channel-secure-symbolic"));
-  gtk_image_set_pixel_size (self->lockmark, 18);
-  gtk_widget_set_margin_start (GTK_WIDGET (self->lockmark), 8);
-  gtk_widget_add_css_class (GTK_WIDGET (self->lockmark), "wk-blue-lock");
+  /* Lockmark — stored but not appended; the lock is placed inside the entry */
+  self->lockmark = GTK_IMAGE (gtk_image_new ());
+
+  /* Input with built-in lock icon */
+  self->input = GTK_ENTRY (gtk_entry_new ());
+  gtk_entry_set_placeholder_text (self->input, "Search or enter address");
+  gtk_entry_set_icon_from_icon_name (self->input,
+      GTK_ENTRY_ICON_PRIMARY, "channel-secure-symbolic");
+  /* Blue accent for the lock icon inside the entry */
   {
     static gboolean css_installed = FALSE;
     if (!css_installed) {
       GtkCssProvider *css = gtk_css_provider_new ();
       gtk_css_provider_load_from_string (css,
-        ".wk-blue-lock { color: #1F5AE0 !important; }");
+        "entry image.left { color: #1F5AE0; }");
       gtk_style_context_add_provider_for_display (
           gdk_display_get_default (),
           GTK_STYLE_PROVIDER (css),
@@ -83,11 +86,6 @@ wk_omnibar_constructed (GObject *object)
       css_installed = TRUE;
     }
   }
-  gtk_box_append (pill, GTK_WIDGET (self->lockmark));
-
-  /* Input */
-  self->input = GTK_ENTRY (gtk_entry_new ());
-  gtk_entry_set_placeholder_text (self->input, "Search or enter address");
   gtk_widget_set_hexpand (GTK_WIDGET (self->input), TRUE);
   gtk_widget_add_css_class (GTK_WIDGET (self->input), "flat");
   g_signal_connect (self->input, "activate",
