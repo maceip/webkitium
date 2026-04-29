@@ -13,9 +13,9 @@
 struct _WkOmnibar {
   GtkBox parent;
 
-  GtkImage   *lockmark;
-  GtkEntry   *input;
-  GtkButton  *reload_btn;
+  GtkDrawingArea *lockmark;
+  GtkEntry       *input;
+  GtkButton      *reload_btn;
 };
 
 enum {
@@ -50,6 +50,34 @@ on_input_activate (GtkEntry  *entry,
 }
 
 static void
+wk_lock_draw (GtkDrawingArea *area,
+              cairo_t        *cr,
+              int             width,
+              int             height,
+              gpointer        data)
+{
+  (void)area; (void)data;
+  double cx = width / 2.0;
+  double cy = height / 2.0;
+  cairo_set_source_rgb (cr, 0.122, 0.353, 0.878);
+  /* Shackle */
+  cairo_set_line_width (cr, 3.0);
+  cairo_arc (cr, cx, cy - 2, 5.0, M_PI, 0);
+  cairo_stroke (cr);
+  /* Body — wide rounded rect */
+  double bw = 14, bh = 11;
+  double bx = cx - bw / 2.0, by = cy - 1;
+  double br = 2.0;
+  cairo_new_sub_path (cr);
+  cairo_arc (cr, bx + bw - br, by + br, br, -M_PI / 2, 0);
+  cairo_arc (cr, bx + bw - br, by + bh - br, br, 0, M_PI / 2);
+  cairo_arc (cr, bx + br, by + bh - br, br, M_PI / 2, M_PI);
+  cairo_arc (cr, bx + br, by + br, br, M_PI, 3 * M_PI / 2);
+  cairo_close_path (cr);
+  cairo_fill (cr);
+}
+
+static void
 wk_omnibar_constructed (GObject *object)
 {
   WkOmnibar *self = WK_OMNIBAR (object);
@@ -65,45 +93,17 @@ wk_omnibar_constructed (GObject *object)
   gtk_widget_add_css_class (GTK_WIDGET (pill), "toolbar");
   gtk_widget_set_hexpand (GTK_WIDGET (pill), TRUE);
 
-  /* Lockmark — blue lock rendered as a custom GdkPaintable to bypass
-     Adwaita's symbolic icon recoloring. We paint a simple padlock shape
-     into a Cairo surface and wrap it in a GdkTexture. */
-  {
-    int sz = 18;
-    cairo_surface_t *surf = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, sz, sz);
-    cairo_t *cr = cairo_create (surf);
-    /* Blue: #1F5AE0 */
-    cairo_set_source_rgb (cr, 0.122, 0.353, 0.878);
-    /* Shackle (arc) */
-    cairo_set_line_width (cr, 2.0);
-    cairo_arc (cr, sz / 2.0, 7.0, 4.0, M_PI, 0);
-    cairo_stroke (cr);
-    /* Body (rounded rect) */
-    double bx = 3, by = 8, bw = sz - 6, bh = 8, br = 1.5;
-    cairo_new_sub_path (cr);
-    cairo_arc (cr, bx + bw - br, by + br, br, -M_PI / 2, 0);
-    cairo_arc (cr, bx + bw - br, by + bh - br, br, 0, M_PI / 2);
-    cairo_arc (cr, bx + br, by + bh - br, br, M_PI / 2, M_PI);
-    cairo_arc (cr, bx + br, by + br, br, M_PI, 3 * M_PI / 2);
-    cairo_close_path (cr);
-    cairo_fill (cr);
-    cairo_destroy (cr);
-
-    GBytes *bytes = g_bytes_new (
-        cairo_image_surface_get_data (surf),
-        cairo_image_surface_get_stride (surf) * sz);
-    GdkTexture *tex = gdk_memory_texture_new (
-        sz, sz, GDK_MEMORY_B8G8R8A8_PREMULTIPLIED,
-        bytes, cairo_image_surface_get_stride (surf));
-    g_bytes_unref (bytes);
-    cairo_surface_destroy (surf);
-
-    self->lockmark = GTK_IMAGE (gtk_image_new_from_paintable (GDK_PAINTABLE (tex)));
-    gtk_image_set_pixel_size (self->lockmark, sz);
-    gtk_widget_set_margin_start (GTK_WIDGET (self->lockmark), 8);
-    gtk_box_append (pill, GTK_WIDGET (self->lockmark));
-    g_object_unref (tex);
-  }
+  /* Lockmark — GtkDrawingArea with a direct Cairo draw callback.
+     Theme cannot override a drawing area's custom paint. */
+  self->lockmark = GTK_DRAWING_AREA (gtk_drawing_area_new ());
+  gtk_drawing_area_set_content_width (self->lockmark, 24);
+  gtk_drawing_area_set_content_height (self->lockmark, 24);
+  gtk_widget_set_size_request (GTK_WIDGET (self->lockmark), 24, 24);
+  gtk_widget_set_margin_start (GTK_WIDGET (self->lockmark), 6);
+  gtk_widget_set_margin_end (GTK_WIDGET (self->lockmark), 2);
+  gtk_widget_set_valign (GTK_WIDGET (self->lockmark), GTK_ALIGN_CENTER);
+  gtk_drawing_area_set_draw_func (self->lockmark, wk_lock_draw, NULL, NULL);
+  gtk_box_append (pill, GTK_WIDGET (self->lockmark));
 
   /* Input */
   self->input = GTK_ENTRY (gtk_entry_new ());

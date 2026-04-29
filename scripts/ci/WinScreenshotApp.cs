@@ -51,23 +51,16 @@ public class WinScreenshotApp : Form
             g.FillRectangle(lockBrush, lx, ly + 6, 18, 13);
             g.DrawString("example.com", fontMd, fg1, sidebarW + 156, 13);
 
-            // Content area with mascot image
             g.FillRectangle(new SolidBrush(Color.FromArgb(20, 20, 36)), sidebarW + 1, toolbarH + 1, width - sidebarW - 1, height - toolbarH - 1);
-            var mascotPath = System.IO.Path.Combine(
-                System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) ?? ".",
-                "..", "..", "..", "..", "chrome", "shared", "mascots", "processed", "windows.png");
-            if (!System.IO.File.Exists(mascotPath))
-                mascotPath = "C:\\actions-runner\\_work\\webkitium\\webkitium\\chrome\\shared\\mascots\\processed\\windows.png";
+            var mascotPath = "C:\\actions-runner\\_work\\webkitium\\webkitium\\chrome\\shared\\mascots\\windows.png";
             if (System.IO.File.Exists(mascotPath)) {
                 using (var mascot = Image.FromFile(mascotPath)) {
                     int contentW = width - sidebarW;
                     int contentH = height - toolbarH;
-                    float scale = Math.Min((float)contentW / mascot.Width, (float)contentH / mascot.Height) * 0.95f;
-                    int mw = (int)(mascot.Width * scale);
+                    float scale = (float)contentW / mascot.Width;
+                    int mw = contentW;
                     int mh = (int)(mascot.Height * scale);
-                    int mx = sidebarW + (contentW - mw) / 2;
-                    int my = toolbarH + (contentH - mh) / 2;
-                    g.DrawImage(mascot, mx, my, mw, mh);
+                    g.DrawImage(mascot, sidebarW, toolbarH, mw, mh);
                 }
             } else {
                 g.DrawString("Mascot not found", new Font("Arial", 14), Brushes.White, sidebarW + 80, toolbarH + 80);
