@@ -8,6 +8,7 @@
  */
 
 #include "wk-omnibar.h"
+#include <math.h>
 
 struct _WkOmnibar {
   GtkBox parent;
@@ -64,28 +65,49 @@ wk_omnibar_constructed (GObject *object)
   gtk_widget_add_css_class (GTK_WIDGET (pill), "toolbar");
   gtk_widget_set_hexpand (GTK_WIDGET (pill), TRUE);
 
-  /* Lockmark — stored but not appended; the lock is placed inside the entry */
-  self->lockmark = GTK_IMAGE (gtk_image_new ());
+  /* Lockmark — blue lock rendered as a custom GdkPaintable to bypass
+     Adwaita's symbolic icon recoloring. We paint a simple padlock shape
+     into a Cairo surface and wrap it in a GdkTexture. */
+  {
+    int sz = 18;
+    cairo_surface_t *surf = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, sz, sz);
+    cairo_t *cr = cairo_create (surf);
+    /* Blue: #1F5AE0 */
+    cairo_set_source_rgb (cr, 0.122, 0.353, 0.878);
+    /* Shackle (arc) */
+    cairo_set_line_width (cr, 2.0);
+    cairo_arc (cr, sz / 2.0, 7.0, 4.0, M_PI, 0);
+    cairo_stroke (cr);
+    /* Body (rounded rect) */
+    double bx = 3, by = 8, bw = sz - 6, bh = 8, br = 1.5;
+    cairo_new_sub_path (cr);
+    cairo_arc (cr, bx + bw - br, by + br, br, -M_PI / 2, 0);
+    cairo_arc (cr, bx + bw - br, by + bh - br, br, 0, M_PI / 2);
+    cairo_arc (cr, bx + br, by + bh - br, br, M_PI / 2, M_PI);
+    cairo_arc (cr, bx + br, by + br, br, M_PI, 3 * M_PI / 2);
+    cairo_close_path (cr);
+    cairo_fill (cr);
+    cairo_destroy (cr);
 
-  /* Input with built-in lock icon */
+    GBytes *bytes = g_bytes_new (
+        cairo_image_surface_get_data (surf),
+        cairo_image_surface_get_stride (surf) * sz);
+    GdkTexture *tex = gdk_memory_texture_new (
+        sz, sz, GDK_MEMORY_B8G8R8A8_PREMULTIPLIED,
+        bytes, cairo_image_surface_get_stride (surf));
+    g_bytes_unref (bytes);
+    cairo_surface_destroy (surf);
+
+    self->lockmark = GTK_IMAGE (gtk_image_new_from_paintable (GDK_PAINTABLE (tex)));
+    gtk_image_set_pixel_size (self->lockmark, sz);
+    gtk_widget_set_margin_start (GTK_WIDGET (self->lockmark), 8);
+    gtk_box_append (pill, GTK_WIDGET (self->lockmark));
+    g_object_unref (tex);
+  }
+
+  /* Input */
   self->input = GTK_ENTRY (gtk_entry_new ());
   gtk_entry_set_placeholder_text (self->input, "Search or enter address");
-  gtk_entry_set_icon_from_icon_name (self->input,
-      GTK_ENTRY_ICON_PRIMARY, "channel-secure-symbolic");
-  /* Blue accent for the lock icon inside the entry */
-  {
-    static gboolean css_installed = FALSE;
-    if (!css_installed) {
-      GtkCssProvider *css = gtk_css_provider_new ();
-      gtk_css_provider_load_from_string (css,
-        "entry image.left { color: #1F5AE0; }");
-      gtk_style_context_add_provider_for_display (
-          gdk_display_get_default (),
-          GTK_STYLE_PROVIDER (css),
-          G_MAXUINT / 2);
-      css_installed = TRUE;
-    }
-  }
   gtk_widget_set_hexpand (GTK_WIDGET (self->input), TRUE);
   gtk_widget_add_css_class (GTK_WIDGET (self->input), "flat");
   g_signal_connect (self->input, "activate",
