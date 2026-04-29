@@ -189,13 +189,22 @@ wk_headerbar_lock_draw (GtkDrawingArea *area,
 {
   (void)area; (void)data;
   double cx = width / 2.0, cy = height / 2.0;
+  /* Bright blue (#1F5AE0) */
   cairo_set_source_rgb (cr, 0.122, 0.353, 0.878);
-  cairo_set_line_width (cr, 2.5);
-  cairo_arc (cr, cx, cy - 2, 4.0, M_PI, 0);
+  /* Shackle */
+  cairo_set_line_width (cr, 3.0);
+  cairo_arc (cr, cx, cy - 1, 5.0, M_PI, 2 * M_PI);
   cairo_stroke (cr);
-  double bw = 12, bh = 9;
-  double bx = cx - bw / 2.0, by = cy;
-  cairo_rectangle (cr, bx, by, bw, bh);
+  /* Body */
+  double bw = 14, bh = 10;
+  double bx = cx - bw / 2.0, by = cy + 1;
+  double br = 2.0;
+  cairo_new_sub_path (cr);
+  cairo_arc (cr, bx + bw - br, by + br, br, -M_PI / 2.0, 0);
+  cairo_arc (cr, bx + bw - br, by + bh - br, br, 0, M_PI / 2.0);
+  cairo_arc (cr, bx + br, by + bh - br, br, M_PI / 2.0, M_PI);
+  cairo_arc (cr, bx + br, by + br, br, M_PI, 3.0 * M_PI / 2.0);
+  cairo_close_path (cr);
   cairo_fill (cr);
 }
 
@@ -255,27 +264,22 @@ build_content_page (WkWindow *self)
   g_signal_connect (self->reload_btn, "clicked", G_CALLBACK (on_reload_clicked), self);
   adw_header_bar_pack_start (header, GTK_WIDGET (self->reload_btn));
 
-  /* Omnibar with blue lock */
+  /* Blue lock icon — packed directly as a header bar child */
   {
-    GtkBox *omni_box = GTK_BOX (gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 4));
-    gtk_widget_set_hexpand (GTK_WIDGET (omni_box), TRUE);
-    gtk_widget_set_valign (GTK_WIDGET (omni_box), GTK_ALIGN_CENTER);
-
     GtkDrawingArea *lock_da = GTK_DRAWING_AREA (gtk_drawing_area_new ());
-    gtk_drawing_area_set_content_width (lock_da, 20);
-    gtk_drawing_area_set_content_height (lock_da, 20);
-    gtk_widget_set_size_request (GTK_WIDGET (lock_da), 20, 20);
+    gtk_drawing_area_set_content_width (lock_da, 28);
+    gtk_drawing_area_set_content_height (lock_da, 28);
+    gtk_widget_set_size_request (GTK_WIDGET (lock_da), 28, 28);
     gtk_widget_set_valign (GTK_WIDGET (lock_da), GTK_ALIGN_CENTER);
     gtk_drawing_area_set_draw_func (lock_da,
         (GtkDrawingAreaDrawFunc) wk_headerbar_lock_draw, NULL, NULL);
-    gtk_box_append (omni_box, GTK_WIDGET (lock_da));
-
-    self->omnibar = wk_omnibar_new ();
-    gtk_widget_set_hexpand (GTK_WIDGET (self->omnibar), TRUE);
-    gtk_box_append (omni_box, GTK_WIDGET (self->omnibar));
-
-    adw_header_bar_set_title_widget (header, GTK_WIDGET (omni_box));
+    adw_header_bar_pack_start (header, GTK_WIDGET (lock_da));
   }
+
+  /* Omnibar */
+  self->omnibar = wk_omnibar_new ();
+  gtk_widget_set_hexpand (GTK_WIDGET (self->omnibar), TRUE);
+  adw_header_bar_set_title_widget (header, GTK_WIDGET (self->omnibar));
   g_signal_connect (self->omnibar, "navigate",
                     G_CALLBACK (on_omnibar_navigate), self);
 
