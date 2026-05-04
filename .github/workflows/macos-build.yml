@@ -8,10 +8,15 @@ name: macos-release
 # Update config/windows-webgpu-dawn-green.json if you use it as a green reference (CI will fail if it disagrees with the matrix).
 
 on:
+  push:
+    branches: [master]
   workflow_dispatch:
 
 permissions:
   contents: write
+
+env:
+  CI_DEBUG_RELEASE_TAG: ci-debug-builds
 
 concurrency:
   group: webkitium-macos-build
@@ -32,6 +37,11 @@ jobs:
     timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4
+
+      - name: Ensure CI debug release exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash "$GITHUB_WORKSPACE/scripts/ci_ensure_debug_release.sh"
 
       - name: Load CI matrix into environment
         run: |
@@ -102,7 +112,7 @@ jobs:
           cd "$SRC"
           export WEBKITIUM_BROWSER_SHELL_TARGET=macos
           JOBS="$(sysctl -n hw.ncpu 2>/dev/null || echo 4)"
-          perl Tools/Scripts/build-webkit --release --makeargs="-j$JOBS" \
+          perl Tools/Scripts/build-webkit --debug --makeargs="-j$JOBS" \
             -DENABLE_EXPERIMENTAL_FEATURES="${WEBKIT_CMAKE_ENABLE_EXPERIMENTAL_FEATURES:-ON}" \
             -DENABLE_WEBXR="${WEBKIT_CMAKE_ENABLE_WEBXR:-OFF}"
 
@@ -111,19 +121,40 @@ jobs:
           set -euo pipefail
           export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
           SRC="${WEBKIT_SRC:?}"
-          ROOT="$SRC/WebKitBuild/Release"
+          ROOT="$SRC/WebKitBuild/Debug"
           PLATFORM=macos
           RUN_ID="${GITHUB_RUN_ID:-local}"
           RUN_ATTEMPT="${GITHUB_RUN_ATTEMPT:-1}"
+          SHORT_SHA="${GITHUB_SHA:0:7}"
           OUT_ROOT="${RUNNER_TEMP}/baseline-packages"
           mkdir -p "$OUT_ROOT"
           [[ -d "$ROOT" ]] || { echo "::error::Build output dir missing: $ROOT" >&2; exit 1; }
-          APP="$ROOT/MiniBrowser.app"
-          [[ -d "$APP" ]] || { echo "::error::MiniBrowser.app not found at $APP"; exit 1; }
-          DMG="$OUT_ROOT/webkit-minibrowser-baseline-${RUN_ID}-${RUN_ATTEMPT}.dmg"
-          hdiutil create -volname "WebKitMiniBrowser" -srcfolder "$APP" -ov -format UDZO "$DMG"
-          [[ -s "$DMG" ]] || { echo "::error::DMG creation failed"; exit 1; }
-          echo "BASELINE_OK platform=$PLATFORM dmg=$DMG"
+          [[ -d "$ROOT/bin" ]] || { echo "::error::bin/ not found under $ROOT"; exit 1; }
+          TAR="$OUT_ROOT/webkit-minibrowser-debug-${SHORT_SHA}-${RUN_ID}-${RUN_ATTEMPT}.tar.gz"
+          tar -czf "$TAR" -C "$ROOT" bin MiniBrowser.app 2>/dev/null || tar -czf "$TAR" -C "$ROOT" bin
+          [[ -s "$TAR" ]] || { echo "::error::Debug baseline tarball empty: $TAR"; exit 1; }
+          echo "BASELINE_OK platform=$PLATFORM tar=$TAR"
+
+      - name: Upload debug assets to GitHub release
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
+          TAG="${CI_DEBUG_RELEASE_TAG:-ci-debug-builds}"
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          OUT_ROOT="${RUNNER_TEMP}/baseline-packages"
+          STAGE="${RUNNER_TEMP}/release-upload"
+          mkdir -p "$STAGE"
+          shopt -s nullglob
+          for f in "$OUT_ROOT"/*; do
+            [[ -f "$f" ]] || continue
+            base="$(basename "$f")"
+            dest="$STAGE/webkitium-debug-macos-${SHORT_SHA}-${base}"
+            cp -f "$f" "$dest"
+            gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber "$dest"
+          done
 
       - name: Upload Artifacts
         if: always()
@@ -131,8 +162,8 @@ jobs:
         with:
           name: macos-build-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            ${{ env.WEBKIT_SRC }}/WebKitBuild/Release/bin
-            ${{ env.WEBKIT_SRC }}/WebKitBuild/Release/CMakeCache.txt
+            ${{ env.WEBKIT_SRC }}/WebKitBuild/Debug/bin
+            ${{ env.WEBKIT_SRC }}/WebKitBuild/Debug/CMakeCache.txt
             ${{ runner.temp }}/baseline-packages
           if-no-files-found: warn
 

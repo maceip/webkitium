@@ -8,10 +8,15 @@ name: windows-release
 # Update config/windows-webgpu-dawn-green.json if you use it as a green reference (CI will fail if it disagrees with the matrix).
 
 on:
+  push:
+    branches: [master]
   workflow_dispatch:
 
 permissions:
   contents: write
+
+env:
+  CI_DEBUG_RELEASE_TAG: ci-debug-builds
 
 concurrency:
   group: webkitium-windows-build
@@ -33,13 +38,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Runner's git-bash PATH does not include C:\Python314 by default —
-      # surface python3 for all bash steps in this job.
       - name: Prepend Python to PATH
         shell: bash
         run: |
           echo "C:\Python314" >> "$GITHUB_PATH"
           echo "C:\Python314\Scripts" >> "$GITHUB_PATH"
+
+      - name: Ensure CI debug release exists
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash "$GITHUB_WORKSPACE/scripts/ci_ensure_debug_release.sh"
 
       - name: Load CI matrix into environment
         shell: bash
@@ -193,17 +202,16 @@ jobs:
           C:\Bootstrap\toolbin\sccache.exe --zero-stats
 
           cd /d "%SRC%"
-          perl Tools\Scripts\build-webkit --release --win --makeargs=-j%NUMBER_OF_PROCESSORS% ^
+          perl Tools\Scripts\build-webkit --debug --win --makeargs=-j%NUMBER_OF_PROCESSORS% ^
             -DCMAKE_C_COMPILER=C:/Progra~1/LLVM/bin/clang-cl.exe ^
             -DCMAKE_CXX_COMPILER=C:/Progra~1/LLVM/bin/clang-cl.exe ^
             -DCMAKE_LINKER=C:/Progra~1/LLVM/bin/lld-link.exe ^
             -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld ^
             -DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld ^
             -DCMAKE_MODULE_LINKER_FLAGS=-fuse-ld=lld ^
-            -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON ^
             -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded ^
-            -DCMAKE_C_FLAGS="-D_CRT_SECURE_NO_WARNINGS -flto=thin -Wno-missing-format-attribute" ^
-            -DCMAKE_CXX_FLAGS="-D_CRT_SECURE_NO_WARNINGS -flto=thin -Wno-missing-format-attribute" ^
+            -DCMAKE_C_FLAGS="-D_CRT_SECURE_NO_WARNINGS -Wno-missing-format-attribute" ^
+            -DCMAKE_CXX_FLAGS="-D_CRT_SECURE_NO_WARNINGS -Wno-missing-format-attribute" ^
             -DCMAKE_C_COMPILER_LAUNCHER=C:/Bootstrap/toolbin/sccache.exe ^
             -DCMAKE_CXX_COMPILER_LAUNCHER=C:/Bootstrap/toolbin/sccache.exe ^
             -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake ^
@@ -219,14 +227,36 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          BIN="$(cygpath -u 'C:/W/webkit-src/WebKitBuild/Release/bin')"
+          BIN="$(cygpath -u 'C:/W/webkit-src/WebKitBuild/Debug/bin')"
           [[ -d "$BIN" ]] || { echo "::error::bin dir missing: $BIN"; exit 1; }
           OUT="${RUNNER_TEMP}/baseline-packages"
           mkdir -p "$OUT"
-          TAR="$OUT/webkit-windows-baseline-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.tar.gz"
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          TAR="$OUT/webkit-windows-debug-${SHORT_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.tar.gz"
           tar -czf "$TAR" -C "$BIN" .
           [[ -s "$TAR" ]] || { echo "::error::Baseline tarball empty"; exit 1; }
           echo "BASELINE_OK tar=$TAR ($(du -h "$TAR" | cut -f1))"
+
+      - name: Upload debug assets to GitHub release
+        if: success()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${CI_DEBUG_RELEASE_TAG:-ci-debug-builds}"
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          OUT_ROOT="$(cygpath -u "$RUNNER_TEMP")/baseline-packages"
+          STAGE="$(cygpath -u "$RUNNER_TEMP")/release-upload"
+          mkdir -p "$STAGE"
+          shopt -s nullglob
+          for f in "$OUT_ROOT"/*; do
+            [[ -f "$f" ]] || continue
+            base="$(basename "$f")"
+            dest="$STAGE/webkitium-debug-windows-${SHORT_SHA}-${base}"
+            cp -f "$f" "$dest"
+            gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber "$dest"
+          done
 
       - name: Stage artifacts
         if: always()
@@ -234,7 +264,7 @@ jobs:
         run: |
           STAGE="$RUNNER_TEMP/upload-stage"
           mkdir -p "$STAGE"
-          SRC="$(cygpath -u 'C:/W/webkit-src/WebKitBuild/Release')"
+          SRC="$(cygpath -u 'C:/W/webkit-src/WebKitBuild/Debug')"
           # Copy build outputs (tolerate missing if build didn't reach link)
           cp -r "$SRC/bin" "$STAGE/bin" 2>/dev/null || true
           cp "$SRC/CMakeCache.txt" "$STAGE/" 2>/dev/null || true

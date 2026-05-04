@@ -8,10 +8,15 @@ name: ios-release
 # Update config/windows-webgpu-dawn-green.json if you use it as a green reference (CI will fail if it disagrees with the matrix).
 
 on:
+  push:
+    branches: [master]
   workflow_dispatch:
 
 permissions:
   contents: write
+
+env:
+  CI_DEBUG_RELEASE_TAG: ci-debug-builds
 
 concurrency:
   group: webkitium-ios-build
@@ -32,6 +37,11 @@ jobs:
     timeout-minutes: 1440
     steps:
       - uses: actions/checkout@v4
+
+      - name: Ensure CI debug release exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash "$GITHUB_WORKSPACE/scripts/ci_ensure_debug_release.sh"
 
       - name: Load CI matrix into environment
         run: |
@@ -116,7 +126,7 @@ jobs:
 
           LOG="${RUNNER_TEMP}/build-webkit-ios.log"
           set -o pipefail
-          perl Tools/Scripts/build-webkit --release --ios-simulator --makeargs="-j$JOBS" \
+          perl Tools/Scripts/build-webkit --debug --ios-simulator --makeargs="-j$JOBS" \
             -DENABLE_EXPERIMENTAL_FEATURES="${WEBKIT_CMAKE_ENABLE_EXPERIMENTAL_FEATURES:-ON}" \
             -DENABLE_WEBXR="${WEBKIT_CMAKE_ENABLE_WEBXR:-OFF}" \
             "${SCCACHE_CMAKE[@]}" \
@@ -133,9 +143,10 @@ jobs:
           ROOT="$SRC/WebKitBuild"
           RUN_ID="${GITHUB_RUN_ID:-local}"
           RUN_ATTEMPT="${GITHUB_RUN_ATTEMPT:-1}"
+          SHORT_SHA="${GITHUB_SHA:0:7}"
           OUT_ROOT="${RUNNER_TEMP}/baseline-packages"
           mkdir -p "$OUT_ROOT"
-          ZIP="$OUT_ROOT/webkit-ios-simulator-baseline-${RUN_ID}-${RUN_ATTEMPT}.zip"
+          ZIP="$OUT_ROOT/webkit-ios-simulator-debug-${SHORT_SHA}-${RUN_ID}-${RUN_ATTEMPT}.zip"
           FIRST="$(find "$ROOT" \( -name 'MiniBrowser.app' -o -name 'MobileMiniBrowser.app' \) -type d 2>/dev/null | head -1)"
           if [[ -z "$FIRST" ]]; then
             echo "::error::No MiniBrowser.app or MobileMiniBrowser.app under $ROOT" >&2
@@ -163,6 +174,27 @@ jobs:
           out.write_text(json.dumps(doc, indent=2))
           PY
           echo "BASELINE_OK platform=ios zip=$ZIP"
+
+      - name: Upload debug assets to GitHub release
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
+          TAG="${CI_DEBUG_RELEASE_TAG:-ci-debug-builds}"
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          OUT_ROOT="${RUNNER_TEMP}/baseline-packages"
+          STAGE="${RUNNER_TEMP}/release-upload"
+          mkdir -p "$STAGE"
+          shopt -s nullglob
+          for f in "$OUT_ROOT"/*; do
+            [[ -f "$f" ]] || continue
+            base="$(basename "$f")"
+            dest="$STAGE/webkitium-debug-ios-${SHORT_SHA}-${base}"
+            cp -f "$f" "$dest"
+            gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber "$dest"
+          done
 
       - name: Post-build check
         run: |
