@@ -131,7 +131,11 @@ jobs:
           [[ -d "$ROOT" ]] || { echo "::error::Build output dir missing: $ROOT" >&2; exit 1; }
           [[ -d "$ROOT/bin" ]] || { echo "::error::bin/ not found under $ROOT"; exit 1; }
           TAR="$OUT_ROOT/webkit-minibrowser-debug-${SHORT_SHA}-${RUN_ID}-${RUN_ATTEMPT}.tar.gz"
-          tar -czf "$TAR" -C "$ROOT" bin MiniBrowser.app 2>/dev/null || tar -czf "$TAR" -C "$ROOT" bin
+          if [[ -d "$ROOT/MiniBrowser.app" ]]; then
+            tar -czf "$TAR" -C "$ROOT" bin MiniBrowser.app
+          else
+            tar -czf "$TAR" -C "$ROOT" bin
+          fi
           [[ -s "$TAR" ]] || { echo "::error::Debug baseline tarball empty: $TAR"; exit 1; }
           echo "BASELINE_OK platform=$PLATFORM tar=$TAR"
 
