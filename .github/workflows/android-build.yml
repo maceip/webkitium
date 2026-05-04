@@ -8,10 +8,15 @@ name: android-release
 # Update config/windows-webgpu-dawn-green.json if you use it as a green reference (CI will fail if it disagrees with the matrix).
 
 on:
+  push:
+    branches: [master]
   workflow_dispatch:
 
 permissions:
   contents: write
+
+env:
+  CI_DEBUG_RELEASE_TAG: ci-debug-builds
 
 concurrency:
   group: webkitium-android-build
@@ -27,6 +32,11 @@ jobs:
     timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4
+
+      - name: Ensure CI debug release exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash "$GITHUB_WORKSPACE/scripts/ci_ensure_debug_release.sh"
 
       - name: Prepare Source
         run: |
@@ -91,7 +101,7 @@ jobs:
 
           # WPE-Android uses Gradle
           chmod +x gradlew
-          ./gradlew assembleRelease \
+          ./gradlew assembleDebug \
             -Pandroid.native.buildOutput=verbose \
             -PCMAKE_CXX_CLANG_TIDY=""
 
@@ -101,6 +111,7 @@ jobs:
           SRC="${NG_ANDROID_SOURCE:-$HOME/webkit/wpe-android}"
           RUN_ID="${GITHUB_RUN_ID:-local}"
           RUN_ATTEMPT="${GITHUB_RUN_ATTEMPT:-1}"
+          SHORT_SHA="${GITHUB_SHA:0:7}"
           OUT_ROOT="${RUNNER_TEMP}/baseline-packages"
           APK_DIR="$OUT_ROOT/apk"
           mkdir -p "$APK_DIR"
@@ -109,12 +120,12 @@ jobs:
             [[ -n "$f" ]] || continue
             cp -f "$f" "$APK_DIR/"
             count=$((count + 1))
-          done < <(find "$SRC" -type f -name '*.apk' 2>/dev/null | head -20)
+          done < <(find "$SRC" -type f -name '*-debug.apk' 2>/dev/null | head -20)
           if [[ "$count" -eq 0 ]]; then
-            echo "::error::No APK files found under $SRC" >&2
+            echo "::error::No debug APK files found under $SRC" >&2
             exit 1
           fi
-          MANIFEST="$OUT_ROOT/baseline-android-${RUN_ID}.json"
+          MANIFEST="$OUT_ROOT/baseline-android-debug-${SHORT_SHA}-${RUN_ID}.json"
           export ANDROID_BASELINE_APK_DIR="$APK_DIR"
           export ANDROID_BASELINE_MANIFEST="$MANIFEST"
           export ANDROID_BASELINE_RUN_ID="$RUN_ID"
@@ -137,6 +148,26 @@ jobs:
           pathlib.Path(os.environ["ANDROID_BASELINE_MANIFEST"]).write_text(json.dumps(doc, indent=2))
           PY
           echo "BASELINE_OK platform=android apks=$count"
+
+      - name: Upload debug assets to GitHub release
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${CI_DEBUG_RELEASE_TAG:-ci-debug-builds}"
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          OUT_ROOT="${RUNNER_TEMP}/baseline-packages"
+          STAGE="${RUNNER_TEMP}/release-upload"
+          mkdir -p "$STAGE"
+          shopt -s nullglob
+          for f in "$OUT_ROOT"/* "$OUT_ROOT"/apk/*; do
+            [[ -f "$f" ]] || continue
+            base="$(basename "$f")"
+            dest="$STAGE/webkitium-debug-android-${SHORT_SHA}-${base}"
+            cp -f "$f" "$dest"
+            gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber "$dest"
+          done
 
       - name: Upload Artifacts
         if: always()
