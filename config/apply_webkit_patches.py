@@ -107,6 +107,38 @@ def audit_patch_includes(repo_root: Path, patches: list[Path]) -> None:
         raise SystemExit(1)
 
 
+def file_has_include(path: Path, include: str) -> bool:
+    needle = f"#include {include}"
+    return any(line.strip() == needle for line in path.read_text(encoding="utf-8").splitlines())
+
+
+def audit_webnn_source_includes(webkit_root: Path) -> None:
+    webnn_root = webkit_root / "Source" / "WebCore" / "Modules" / "WebNN"
+    if not webnn_root.is_dir():
+        return
+
+    checks = (
+        (("WTFMove", "makeUnique", "makeRef", "WTF::move"), "<wtf/StdLibExtras.h>"),
+        (("Function<",), "<wtf/Function.h>"),
+        (("ArrayBuffer::tryCreate",), "<JavaScriptCore/ArrayBuffer.h>"),
+        (("std::min",), "<algorithm>"),
+        (("memcpy",), "<cstring>"),
+    )
+    failures: list[str] = []
+    for path in sorted(list(webnn_root.rglob("*.h")) + list(webnn_root.rglob("*.cpp"))):
+        text = path.read_text(encoding="utf-8")
+        for tokens, include in checks:
+            if any(token in text for token in tokens) and not file_has_include(path, include):
+                rel = path.relative_to(webkit_root).as_posix()
+                failures.append(f"{rel}: uses {tokens[0]} but lacks #include {include}")
+
+    if failures:
+        print("::error::Patched WebNN sources are missing direct includes", file=sys.stderr)
+        for failure in failures:
+            print(f"  {failure}", file=sys.stderr)
+        raise SystemExit(1)
+
+
 def clean_patch(src: Path, temp_dir: Path) -> Path:
     dst = temp_dir / src.name
     data = src.read_bytes().replace(b"\r\n", b"\n")
@@ -142,6 +174,7 @@ def apply_patch_series(
                 str(clean),
             ]
         )
+    audit_webnn_source_includes(webkit_root)
 
 
 def check_in_temporary_worktree(
