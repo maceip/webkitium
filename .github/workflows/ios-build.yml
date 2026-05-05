@@ -26,7 +26,7 @@ env:
 
 concurrency:
   group: webkitium-ios-build
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 defaults:
   run:
@@ -99,37 +99,10 @@ jobs:
         run: |
           set -euo pipefail
           export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
-          command -v gh >/dev/null 2>&1 || { echo "::error::gh CLI not found"; exit 1; }
-          command -v git >/dev/null 2>&1 || { echo "::error::git not found on PATH"; exit 1; }
 
           SRC="${NG_IOS_WEBKIT_PATH:-$HOME/W/webkit-ios-src}"
           echo "WEBKIT_SRC=$SRC" >> "$GITHUB_ENV"
-          ARCHIVE="${RUNNER_TEMP}/webkit-pin.tar.gz"
-          rm -rf "$SRC"
-          mkdir -p "$SRC"
-
-          cd "$RUNNER_TEMP"
-          gh release download "${WEBKIT_PIN_RELEASE_TAG:?WEBKIT_PIN_RELEASE_TAG missing}" \
-            --repo "$GITHUB_REPOSITORY" \
-            --pattern "${WEBKIT_PIN_PART_GLOB:?WEBKIT_PIN_PART_GLOB missing}"
-
-          shopt -s nullglob
-          parts=( ${WEBKIT_PIN_PART_GLOB} )
-          if (( ${#parts[@]} == 0 )); then
-            echo "::error::No tarball parts matched WEBKIT_PIN_PART_GLOB after download"
-            exit 1
-          fi
-          cat "${parts[@]}" > "$ARCHIVE"
-          rm -f ${WEBKIT_PIN_PART_GLOB}
-          shopt -u nullglob
-          [[ -s "$ARCHIVE" ]] || { echo "::error::Stitched webkit-pin archive is empty"; exit 1; }
-          tar -xzf "$ARCHIVE" --strip-components=1 -C "$SRC"
-          rm -f "$ARCHIVE"
-
-          python3 "$GITHUB_WORKSPACE/config/verify_webkit_pin_commit.py" \
-            --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" \
-            --webkit-root "$SRC"
-
+          bash "$GITHUB_WORKSPACE/scripts/ci_prepare_webkit_source.sh" "$SRC"
           python3 "$GITHUB_WORKSPACE/config/apply_webkit_patches.py" \
             --repo-root "$GITHUB_WORKSPACE" \
             --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" \

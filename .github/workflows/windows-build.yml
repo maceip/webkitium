@@ -180,6 +180,12 @@ jobs:
           set "PATH=C:\Bootstrap\toolbin;C:\Program Files\Git\cmd;C:\Ruby34-x64\bin;C:\Python314;C:\Python314\Scripts;C:\Program Files\LLVM\bin;C:\Program Files\CMake\bin;C:\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja;C:\Strawberry\perl\bin;%PATH%"
           set "VCPKG_ROOT=C:\vcpkg"
           set "CMAKE_PREFIX_PATH=%RUNNER_TEMP%\litert-lm;%RUNNER_TEMP%\litert-lm\prebuilt\windows_x86_64"
+          set "SCCACHE_DIR=C:\Bootstrap\sccache-gh\windows-webgpu-dawn"
+          if not exist "%SCCACHE_DIR%" mkdir "%SCCACHE_DIR%"
+          set "SCCACHE_CACHE_SIZE=50G"
+          set "SCCACHE_IDLE_TIMEOUT=0"
+          C:\Bootstrap\toolbin\sccache.exe --start-server >NUL 2>&1
+          C:\Bootstrap\toolbin\sccache.exe --zero-stats
 
           cd /d "%SRC%"
           perl Tools\Scripts\build-webkit --debug --win --generate-project-only ^
@@ -192,6 +198,8 @@ jobs:
             -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded ^
             -DCMAKE_C_FLAGS="-D_CRT_SECURE_NO_WARNINGS -Wno-missing-format-attribute" ^
             -DCMAKE_CXX_FLAGS="-D_CRT_SECURE_NO_WARNINGS -Wno-missing-format-attribute" ^
+            -DCMAKE_C_COMPILER_LAUNCHER=C:/Bootstrap/toolbin/sccache.exe ^
+            -DCMAKE_CXX_COMPILER_LAUNCHER=C:/Bootstrap/toolbin/sccache.exe ^
             -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake ^
             -DVCPKG_TARGET_TRIPLET=x64-windows-webkit ^
             -DVCPKG_INSTALLED_DIR=C:/vcpkg/installed ^
