@@ -35,6 +35,9 @@ jobs:
       - Windows
       - X64
       - webkitium
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
 
@@ -46,8 +49,6 @@ jobs:
 
       - name: Ensure CI debug release exists
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: bash "$GITHUB_WORKSPACE/scripts/ci_ensure_debug_release.sh"
 
       - name: Load CI matrix into environment
@@ -68,8 +69,6 @@ jobs:
       # ── Download, extract, and patch ───────────────────────────────
       - name: Prepare Source
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           command -v gh >/dev/null 2>&1 || { echo "::error::gh CLI not found"; exit 1; }
@@ -240,8 +239,6 @@ jobs:
       - name: Upload debug assets to GitHub release
         if: success()
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           TAG="${CI_DEBUG_RELEASE_TAG:-ci-debug-builds}"
