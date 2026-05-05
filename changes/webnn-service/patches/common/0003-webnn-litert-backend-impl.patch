@@ -55,7 +55,7 @@ index 00000000000..a1b2c3d4e5f
 +#if ENABLE(WEBNN)
 +
 +#include "WebNNContextImpl.h"
-+#include "MLContextOptions.h"
++#include "../MLContextOptions.h"
 +#include <memory>
 +#include <thread>
 +#include <mutex>
@@ -125,8 +125,8 @@ index 00000000000..b2c3d4e5f6a
 +
 +#include "WebNNLiteRTGraph.h"
 +#include "LiteRTLoader.h"
-+#include "MLTensor.h"
-+#include "MLOperand.h"
++#include "../MLTensor.h"
++#include "../MLOperand.h"
 +#include <future>
 +
 +namespace WebCore {
@@ -323,8 +323,8 @@ index 00000000000..c3d4e5f6a7b
 +
 +#include "WebNNGraphImpl.h"
 +#include "LiteRTLoader.h"
-+#include "MLOperand.h"
-+#include "MLTensor.h"
++#include "../MLOperand.h"
++#include "../MLTensor.h"
 +#include <wtf/HashMap.h>
 +#include <wtf/RefPtr.h>
 +#include <wtf/text/WTFString.h>
@@ -395,8 +395,8 @@ index 00000000000..d4e5f6a7b8c
 +
 +#include "WebNNLiteRTContext.h"
 +#include "LiteRTLoader.h"
-+#include "MLOperand.h"
-+#include "MLTensor.h"
++#include "../MLOperand.h"
++#include "../MLTensor.h"
 +#include <wtf/HashSet.h>
 +
 +namespace WebCore {
