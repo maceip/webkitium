@@ -30,12 +30,13 @@ jobs:
       - Linux
       - ARM64
     timeout-minutes: 240
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Ensure CI debug release exists
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: bash "$GITHUB_WORKSPACE/scripts/ci_ensure_debug_release.sh"
 
       - name: Prepare Source
@@ -66,8 +67,6 @@ jobs:
           done
           echo "Applied $applied patches."
           echo "WEBKITIUM_BROWSER_SHELL_TARGET=android" >> "$GITHUB_ENV"
-        env:
-          GH_TOKEN: ${{ github.token }}
 
       - name: Build
         run: |
@@ -151,8 +150,6 @@ jobs:
 
       - name: Upload debug assets to GitHub release
         if: success()
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           TAG="${CI_DEBUG_RELEASE_TAG:-ci-debug-builds}"
@@ -175,6 +172,6 @@ jobs:
         with:
           name: android-build-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            ~/webkit/wpe-android/*/build/outputs/
+            ${{ env.NG_ANDROID_SOURCE }}/**/build/outputs/
             ${{ runner.temp }}/baseline-packages
           if-no-files-found: warn

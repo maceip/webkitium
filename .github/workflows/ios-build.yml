@@ -35,12 +35,13 @@ jobs:
       - ARM64
       - webkitium
     timeout-minutes: 1440
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Ensure CI debug release exists
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: bash "$GITHUB_WORKSPACE/scripts/ci_ensure_debug_release.sh"
 
       - name: Load CI matrix into environment
@@ -50,8 +51,6 @@ jobs:
             --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" >> "$GITHUB_ENV"
 
       - name: Prepare source
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
@@ -86,11 +85,11 @@ jobs:
             --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" \
             --webkit-root "$SRC"
 
-          for patch in webkit/patches/common/* webkit/patches/ios/*; do
+          for patch in "$GITHUB_WORKSPACE"/webkit/patches/common/*.patch "$GITHUB_WORKSPACE"/webkit/patches/ios/*.patch; do
             [[ -f "$patch" ]] || continue
             echo "Applying $(basename "$patch")"
-            git -C "$SRC" apply --check --whitespace=nowarn --unidiff-zero "$GITHUB_WORKSPACE/$patch"
-            git -C "$SRC" apply --whitespace=nowarn --unidiff-zero "$GITHUB_WORKSPACE/$patch"
+            git -C "$SRC" apply --check --whitespace=nowarn --unidiff-zero "$patch"
+            git -C "$SRC" apply --whitespace=nowarn --unidiff-zero "$patch"
           done
 
           {
@@ -177,8 +176,6 @@ jobs:
 
       - name: Upload debug assets to GitHub release
         if: success()
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
