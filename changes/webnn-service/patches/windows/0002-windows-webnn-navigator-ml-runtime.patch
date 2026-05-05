@@ -1,168 +1,6 @@
-diff --git a/Source/WebCore/Modules/WebNN/NavigatorML.h b/Source/WebCore/Modules/WebNN/NavigatorML.h
-new file mode 100644
-index 00000000000..a1b2c3d4e5f
---- /dev/null
-+++ b/Source/WebCore/Modules/WebNN/NavigatorML.h
-@@ -0,0 +1,37 @@
-+/*
-+ * Copyright (C) 2024-2026 Webkitium Contributors
-+ */
-+
-+#pragma once
-+
-+#if ENABLE(WEBNN)
-+
-+#include "Navigator.h"
-+#include "Supplementable.h"
-+#include <wtf/TZoneMalloc.h>
-+#include <wtf/RefPtr.h>
-+
-+namespace WebCore {
-+
-+class ML;
-+
-+class NavigatorML : public Supplement<Navigator> {
-+    WTF_MAKE_TZONE_ALLOCATED(NavigatorML);
-+public:
-+    explicit NavigatorML(Navigator&);
-+    virtual ~NavigatorML();
-+
-+    static NavigatorML* from(Navigator&);
-+    static ML* ml(Navigator&);
-+    ML* ml();
-+
-+private:
-+    static ASCIILiteral supplementName();
-+
-+    RefPtr<ML> m_ml;
-+    Navigator& m_navigator;
-+};
-+
-+} // namespace WebCore
-+
-+#endif // ENABLE(WEBNN)
-diff --git a/Source/WebCore/Modules/WebNN/NavigatorML.cpp b/Source/WebCore/Modules/WebNN/NavigatorML.cpp
-new file mode 100644
-index 00000000000..b2c3d4e5f6a
---- /dev/null
-+++ b/Source/WebCore/Modules/WebNN/NavigatorML.cpp
-@@ -0,0 +1,56 @@
-+/*
-+ * Copyright (C) 2024-2026 Webkitium Contributors
-+ */
-+
-+#include "config.h"
-+#include "NavigatorML.h"
-+
-+#if ENABLE(WEBNN)
-+
-+#include "ML.h"
-+#include "Navigator.h"
-+#include <wtf/TZoneMallocInlines.h>
-+
-+namespace WebCore {
-+
-+WTF_MAKE_TZONE_ALLOCATED_IMPL(NavigatorML);
-+
-+NavigatorML::NavigatorML(Navigator& navigator)
-+    : m_navigator(navigator)
-+{
-+}
-+
-+NavigatorML::~NavigatorML() = default;
-+
-+ASCIILiteral NavigatorML::supplementName()
-+{
-+    return "NavigatorML"_s;
-+}
-+
-+NavigatorML* NavigatorML::from(Navigator& navigator)
-+{
-+    auto* supplement = static_cast<NavigatorML*>(
-+        Supplement<Navigator>::from(&navigator, supplementName()));
-+    if (!supplement) {
-+        auto newSupplement = makeUnique<NavigatorML>(navigator);
-+        supplement = newSupplement.get();
-+        provideTo(&navigator, supplementName(), WTF::move(newSupplement));
-+    }
-+    return supplement;
-+}
-+
-+ML* NavigatorML::ml(Navigator& navigator)
-+{
-+    return NavigatorML::from(navigator)->ml();
-+}
-+
-+ML* NavigatorML::ml()
-+{
-+    if (!m_ml)
-+        m_ml = ML::create(m_navigator);
-+    return m_ml.get();
-+}
-+
-+} // namespace WebCore
-+
-+#endif // ENABLE(WEBNN)
-diff --git a/Source/WebCore/Modules/WebNN/NavigatorML.idl b/Source/WebCore/Modules/WebNN/NavigatorML.idl
-new file mode 100644
-index 00000000000..c3d4e5f6a7b
---- /dev/null
-+++ b/Source/WebCore/Modules/WebNN/NavigatorML.idl
-@@ -0,0 +1,10 @@
-+/*
-+ * https://webmachinelearning.github.io/webnn/#api-navigator-ml
-+ */
-+
-+[
-+    Conditional=WEBNN,
-+    Exposed=Window
-+] partial interface Navigator {
-+    [SecureContext] readonly attribute ML ml;
-+};
-diff --git a/Source/WebCore/Modules/WebNN/ML.h b/Source/WebCore/Modules/WebNN/ML.h
-new file mode 100644
-index 00000000000..d4e5f6a7b8c
---- /dev/null
-+++ b/Source/WebCore/Modules/WebNN/ML.h
-@@ -0,0 +1,35 @@
-+/*
-+ * Copyright (C) 2024-2026 Webkitium Contributors
-+ *
-+ * https://webmachinelearning.github.io/webnn/#api-ml
-+ */
-+
-+#pragma once
-+
-+#if ENABLE(WEBNN)
-+
-+#include "Navigator.h"
-+#include <wtf/RefCounted.h>
-+#include <wtf/RefPtr.h>
-+
-+namespace WebCore {
-+
-+class MLContext;
-+struct MLContextOptions;
-+class DeferredPromise;
-+class Navigator;
-+
-+class ML final : public RefCounted<ML> {
-+public:
-+    static Ref<ML> create(Navigator&);
-+    ~ML();
-+
-+    void createContext(MLContextOptions&&, Ref<DeferredPromise>&&);
-+
-+private:
-+    explicit ML(Navigator&);
-+};
-+
-+} // namespace WebCore
-+
-+#endif // ENABLE(WEBNN)
 diff --git a/Source/WebCore/Modules/WebNN/ML.cpp b/Source/WebCore/Modules/WebNN/ML.cpp
 new file mode 100644
-index 00000000000..e5f6a7b8c9d
+index 0000000000..18a6ce387c
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/ML.cpp
 @@ -0,0 +1,59 @@
@@ -171,16 +9,16 @@ index 00000000000..e5f6a7b8c9d
 + */
 +
 +#include "config.h"
-+#include "ML.h"
++#include "Modules/WebNN/ML.h"
 +
 +#if ENABLE(WEBNN)
 +
-+#include "MLContext.h"
-+#include "MLContextOptions.h"
-+#include "JSDOMPromiseDeferred.h"
++#include "Modules/WebNN/MLContext.h"
++#include "Modules/WebNN/MLContextOptions.h"
++#include "Modules/WebNN/Implementation/LiteRTLoader.h"
++#include "Modules/WebNN/Implementation/WebNNLiteRTContext.h"
++#include "bindings/js/JSDOMPromiseDeferred.h"
 +#include <wtf/StdLibExtras.h>
-+#include "Implementation/WebNNLiteRTContext.h"
-+#include "Implementation/LiteRTLoader.h"
 +
 +namespace WebCore {
 +
@@ -225,9 +63,49 @@ index 00000000000..e5f6a7b8c9d
 +} // namespace WebCore
 +
 +#endif // ENABLE(WEBNN)
+diff --git a/Source/WebCore/Modules/WebNN/ML.h b/Source/WebCore/Modules/WebNN/ML.h
+new file mode 100644
+index 0000000000..cd78645c83
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/ML.h
+@@ -0,0 +1,34 @@
++/*
++ * Copyright (C) 2024-2026 Webkitium Contributors
++ *
++ * https://webmachinelearning.github.io/webnn/#api-ml
++ */
++
++#pragma once
++
++#if ENABLE(WEBNN)
++
++#include <wtf/RefCounted.h>
++#include <wtf/RefPtr.h>
++
++namespace WebCore {
++
++class MLContext;
++struct MLContextOptions;
++class DeferredPromise;
++class Navigator;
++
++class ML final : public RefCounted<ML> {
++public:
++    static Ref<ML> create(Navigator&);
++    ~ML();
++
++    void createContext(MLContextOptions&&, Ref<DeferredPromise>&&);
++
++private:
++    explicit ML(Navigator&);
++};
++
++} // namespace WebCore
++
++#endif // ENABLE(WEBNN)
 diff --git a/Source/WebCore/Modules/WebNN/ML.idl b/Source/WebCore/Modules/WebNN/ML.idl
 new file mode 100644
-index 00000000000..f6a7b8c9d0e
+index 0000000000..5b512f4cdd
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/ML.idl
 @@ -0,0 +1,13 @@
@@ -243,4 +121,126 @@ index 00000000000..f6a7b8c9d0e
 +    [NewObject] Promise<MLContext> createContext(optional MLContextOptions options = {});
 +
 +    // Future: createContext(GPUDevice gpuDevice) for WebGPU interop
++};
+diff --git a/Source/WebCore/Modules/WebNN/NavigatorML.cpp b/Source/WebCore/Modules/WebNN/NavigatorML.cpp
+new file mode 100644
+index 0000000000..f29d454af0
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/NavigatorML.cpp
+@@ -0,0 +1,57 @@
++/*
++ * Copyright (C) 2024-2026 Webkitium Contributors
++ */
++
++#include "config.h"
++#include "Modules/WebNN/NavigatorML.h"
++
++#if ENABLE(WEBNN)
++
++#include "Modules/WebNN/ML.h"
++#include "page/Navigator.h"
++#include <wtf/TZoneMallocInlines.h>
++#include <wtf/StdLibExtras.h>
++
++namespace WebCore {
++
++WTF_MAKE_TZONE_ALLOCATED_IMPL(NavigatorML);
++
++NavigatorML::NavigatorML(Navigator& navigator)
++    : m_navigator(navigator)
++{
++}
++
++NavigatorML::~NavigatorML() = default;
++
++ASCIILiteral NavigatorML::supplementName()
++{
++    return "NavigatorML"_s;
++}
++
++NavigatorML* NavigatorML::from(Navigator& navigator)
++{
++    auto* supplement = static_cast<NavigatorML*>(
++        Supplement<Navigator>::from(&navigator, supplementName()));
++    if (!supplement) {
++        auto newSupplement = makeUnique<NavigatorML>(navigator);
++        supplement = newSupplement.get();
++        provideTo(&navigator, supplementName(), WTF::move(newSupplement));
++    }
++    return supplement;
++}
++
++ML* NavigatorML::ml(Navigator& navigator)
++{
++    return NavigatorML::from(navigator)->ml();
++}
++
++ML* NavigatorML::ml()
++{
++    if (!m_ml)
++        m_ml = ML::create(m_navigator);
++    return m_ml.get();
++}
++
++} // namespace WebCore
++
++#endif // ENABLE(WEBNN)
+diff --git a/Source/WebCore/Modules/WebNN/NavigatorML.h b/Source/WebCore/Modules/WebNN/NavigatorML.h
+new file mode 100644
+index 0000000000..cb289332e8
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/NavigatorML.h
+@@ -0,0 +1,37 @@
++/*
++ * Copyright (C) 2024-2026 Webkitium Contributors
++ */
++
++#pragma once
++
++#if ENABLE(WEBNN)
++
++#include "page/Navigator.h"
++#include "platform/Supplementable.h"
++#include <wtf/TZoneMalloc.h>
++#include <wtf/RefPtr.h>
++
++namespace WebCore {
++
++class ML;
++
++class NavigatorML : public Supplement<Navigator> {
++    WTF_MAKE_TZONE_ALLOCATED(NavigatorML);
++public:
++    explicit NavigatorML(Navigator&);
++    virtual ~NavigatorML();
++
++    static NavigatorML* from(Navigator&);
++    static ML* ml(Navigator&);
++    ML* ml();
++
++private:
++    static ASCIILiteral supplementName();
++
++    RefPtr<ML> m_ml;
++    Navigator& m_navigator;
++};
++
++} // namespace WebCore
++
++#endif // ENABLE(WEBNN)
+diff --git a/Source/WebCore/Modules/WebNN/NavigatorML.idl b/Source/WebCore/Modules/WebNN/NavigatorML.idl
+new file mode 100644
+index 0000000000..c4999d288f
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/NavigatorML.idl
+@@ -0,0 +1,10 @@
++/*
++ * https://webmachinelearning.github.io/webnn/#api-navigator-ml
++ */
++
++[
++    Conditional=WEBNN,
++    Exposed=Window
++] partial interface Navigator {
++    [SecureContext] readonly attribute ML ml;
 +};

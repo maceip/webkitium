@@ -29,7 +29,7 @@ def verify_webkit_head(root: Path, expected: str) -> None:
         print(f"::error::Not a git checkout (no .git): {root}", file=sys.stderr)
         sys.exit(1)
     head = subprocess.check_output(
-        ["git", "-C", str(root), "rev-parse", "HEAD"],
+        ["git", "-c", f"safe.directory={root}", "-C", str(root), "rev-parse", "HEAD"],
         text=True,
     ).strip()
     if head != expected:

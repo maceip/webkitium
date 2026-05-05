@@ -33,9 +33,106 @@ jobs:
     name: Runner Health Check
     uses: ./.github/workflows/windows-runner-check.yml
 
+  patches:
+    name: WebKit Patch Check
+    needs: [preflight]
+    runs-on:
+      - self-hosted
+      - Windows
+      - X64
+      - webkitium
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepend Python to PATH
+        shell: bash
+        run: |
+          echo "C:\Python314" >> "$GITHUB_PATH"
+          echo "C:\Python314\Scripts" >> "$GITHUB_PATH"
+
+      - name: Load CI matrix into environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python "$GITHUB_WORKSPACE/config/ci_matrix_env.py" \
+            --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" >> "$GITHUB_ENV"
+
+      - name: Verify matrix, vcpkg (Dawn), and green JSON alignment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python "$GITHUB_WORKSPACE/config/verify_webkit_pin_commit.py" \
+            --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" \
+            --check-vcpkg --check-green-json
+
+      - name: Check WebKit patch series
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v gh >/dev/null 2>&1 || { echo "::error::gh CLI not found"; exit 1; }
+          command -v git >/dev/null 2>&1 || { echo "::error::git not found on PATH"; exit 1; }
+
+          SRC_WIN='C:/W/webkit-patch-check'
+          SRC="$(cygpath -u "$SRC_WIN")"
+          ARCHIVE="$RUNNER_TEMP/webkit-pin.tar.gz"
+
+          if [ -d "$SRC" ]; then
+            rm -rf "$SRC" || cmd //c "rd /s /q \"$SRC_WIN\"" 2>/dev/null || true
+          fi
+          mkdir -p "$SRC"
+
+          cd "$RUNNER_TEMP"
+          gh release download "${WEBKIT_PIN_RELEASE_TAG:?WEBKIT_PIN_RELEASE_TAG missing}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --pattern "${WEBKIT_PIN_PART_GLOB:?WEBKIT_PIN_PART_GLOB missing}"
+
+          shopt -s nullglob
+          for f in ${WEBKIT_PIN_PART_GLOB}$'\r'; do
+            [[ -e "$f" ]] && mv -- "$f" "${f%$'\r'}"
+          done
+          parts=( ${WEBKIT_PIN_PART_GLOB} )
+          if (( ${#parts[@]} == 0 )); then
+            echo "::error::No tarball parts found after download"
+            exit 1
+          fi
+          cat "${parts[@]}" > "$ARCHIVE"
+          rm -f ${WEBKIT_PIN_PART_GLOB}
+          shopt -u nullglob
+          [[ -s "$ARCHIVE" ]] || { echo "::error::Stitched webkit-pin archive is empty"; exit 1; }
+
+          tar -xzf "$ARCHIVE" --strip-components=1 -C "$SRC" \
+            --exclude='*/LayoutTests/*' \
+            --exclude='*/WebKitLibraries/SDKs/*' \
+            --exclude='*/Websites/*' \
+            --exclude='*/JSTests/*' \
+            || true
+          rm -f "$ARCHIVE"
+
+          if [[ ! -d "$SRC/Source" ]]; then
+            echo "::error::Extraction failed -- Source/ directory missing"
+            exit 1
+          fi
+
+          python "$GITHUB_WORKSPACE/config/apply_webkit_patches.py" \
+            --repo-root "$GITHUB_WORKSPACE" \
+            --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" \
+            --changes "$GITHUB_WORKSPACE/config/changes.json" \
+            --webkit-root "$SRC" \
+            --platform windows \
+            --mode check
+
+      - name: Cleanup patch check source
+        if: always()
+        shell: cmd
+        run: |
+          if exist "C:\W\webkit-patch-check" rd /s /q "C:\W\webkit-patch-check"
+
   build:
     name: Windows WebKit Build
-    needs: [preflight]
+    needs: [patches]
     runs-on:
       - self-hosted
       - Windows
@@ -160,22 +257,13 @@ jobs:
           fi
           echo "LiteRT-LM: $(ls "$LITERT/prebuilt/windows_x86_64/"*.dll 2>/dev/null | wc -l) DLLs"
 
-          # Apply patches (strip CRLF -- git apply requires LF in patches)
-          applied=0
-          for patch in \
-            "$GITHUB_WORKSPACE"/webkit/patches/common/*.patch \
-            "$GITHUB_WORKSPACE"/webkit/patches/windows/*.patch \
-            "$GITHUB_WORKSPACE"/changes/webnn-service/patches/common/*.patch \
-            "$GITHUB_WORKSPACE"/changes/webnn-service/patches/windows/*.patch; do
-            [[ -f "$patch" ]] || continue
-            echo "Applying $(basename "$patch")"
-            clean="$RUNNER_TEMP/$(basename "$patch")"
-            sed 's/\r$//' "$patch" > "$clean"
-            git -C "$SRC" apply --check --whitespace=nowarn --unidiff-zero "$clean"
-            git -C "$SRC" apply --whitespace=nowarn --unidiff-zero "$clean"
-            applied=$((applied + 1))
-          done
-          echo "Applied $applied patches."
+          python "$GITHUB_WORKSPACE/config/apply_webkit_patches.py" \
+            --repo-root "$GITHUB_WORKSPACE" \
+            --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" \
+            --changes "$GITHUB_WORKSPACE/config/changes.json" \
+            --webkit-root "$SRC" \
+            --platform windows \
+            --mode apply
           echo "WEBKITIUM_BROWSER_SHELL_TARGET=windows" >> "$GITHUB_ENV"
 
       # ── Build ──────────────────────────────────────────────────────

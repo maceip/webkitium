@@ -1,158 +1,11 @@
-diff --git a/Source/WebCore/Modules/WebNN/Implementation/LiteRTLoader.h b/Source/WebCore/Modules/WebNN/Implementation/LiteRTLoader.h
-new file mode 100644
-index 00000000000..a1b2c3d4e5f
---- /dev/null
-+++ b/Source/WebCore/Modules/WebNN/Implementation/LiteRTLoader.h
-@@ -0,0 +1,141 @@
-+/*
-+ * Runtime loader for LiteRT (TFLite) shared library + platform GPU
-+ * accelerator libraries.
-+ *
-+ * Loads libLiteRt at runtime (no link-time dependency), then attempts
-+ * to load the platform-specific GPU accelerator library:
-+ *   Windows:  libLiteRt.dll          (GPU built into core lib)
-+ *   macOS:    libLiteRtMetalAccelerator.dylib + libLiteRtTopKMetalSampler.dylib
-+ *   iOS:      libLiteRtMetalAccelerator.dylib + libLiteRtTopKMetalSampler.dylib
-+ *   Android:  libLiteRtGpuAccelerator.so + libLiteRtOpenClAccelerator.so
-+ *   Linux:    CPU only (XNNPACK bundled in libLiteRt.so)
-+ */
-+
-+#pragma once
-+
-+#if ENABLE(WEBNN)
-+
-+#include <cstddef>
-+#include <cstdint>
-+
-+#ifdef _WIN32
-+#include <windows.h>
-+#else
-+#include <dlfcn.h>
-+#endif
-+
-+namespace WebCore {
-+namespace WebNN {
-+
-+struct TfLiteModel;
-+struct TfLiteInterpreterOptions;
-+struct TfLiteInterpreter;
-+struct TfLiteTensor;
-+struct TfLiteDelegate;
-+
-+enum TfLiteStatus { kTfLiteOk = 0, kTfLiteError = 1, kTfLiteDelegateError = 2 };
-+enum TfLiteType {
-+    kTfLiteFloat32 = 1,
-+    kTfLiteInt32 = 2,
-+    kTfLiteUInt8 = 3,
-+    kTfLiteInt64 = 4,
-+    kTfLiteString = 5,
-+    kTfLiteBool = 6,
-+    kTfLiteInt16 = 7,
-+    kTfLiteFloat16 = 10,
-+    kTfLiteInt8 = 9,
-+};
-+
-+using PFN_TfLiteModelCreate = TfLiteModel* (*)(const void* data, size_t size);
-+using PFN_TfLiteModelDelete = void (*)(TfLiteModel*);
-+using PFN_TfLiteInterpreterOptionsCreate = TfLiteInterpreterOptions* (*)();
-+using PFN_TfLiteInterpreterOptionsDelete = void (*)(TfLiteInterpreterOptions*);
-+using PFN_TfLiteInterpreterOptionsSetNumThreads = void (*)(TfLiteInterpreterOptions*, int32_t);
-+using PFN_TfLiteInterpreterOptionsAddDelegate = void (*)(TfLiteInterpreterOptions*, TfLiteDelegate*);
-+using PFN_TfLiteInterpreterCreate = TfLiteInterpreter* (*)(const TfLiteModel*, const TfLiteInterpreterOptions*);
-+using PFN_TfLiteInterpreterDelete = void (*)(TfLiteInterpreter*);
-+using PFN_TfLiteInterpreterAllocateTensors = TfLiteStatus (*)(TfLiteInterpreter*);
-+using PFN_TfLiteInterpreterInvoke = TfLiteStatus (*)(TfLiteInterpreter*);
-+using PFN_TfLiteInterpreterGetInputTensorCount = int32_t (*)(const TfLiteInterpreter*);
-+using PFN_TfLiteInterpreterGetInputTensor = TfLiteTensor* (*)(const TfLiteInterpreter*, int32_t);
-+using PFN_TfLiteInterpreterGetOutputTensorCount = int32_t (*)(const TfLiteInterpreter*);
-+using PFN_TfLiteInterpreterGetOutputTensor = const TfLiteTensor* (*)(const TfLiteInterpreter*, int32_t);
-+using PFN_TfLiteInterpreterResizeInputTensor = TfLiteStatus (*)(TfLiteInterpreter*, int32_t, const int32_t* dims, int32_t dims_size);
-+using PFN_TfLiteTensorType = TfLiteType (*)(const TfLiteTensor*);
-+using PFN_TfLiteTensorNumDims = int32_t (*)(const TfLiteTensor*);
-+using PFN_TfLiteTensorDim = int32_t (*)(const TfLiteTensor*, int32_t);
-+using PFN_TfLiteTensorByteSize = size_t (*)(const TfLiteTensor*);
-+using PFN_TfLiteTensorData = void* (*)(const TfLiteTensor*);
-+using PFN_TfLiteTensorName = const char* (*)(const TfLiteTensor*);
-+using PFN_TfLiteTensorCopyFromBuffer = TfLiteStatus (*)(TfLiteTensor*, const void* data, size_t size);
-+using PFN_TfLiteTensorCopyToBuffer = TfLiteStatus (*)(const TfLiteTensor*, void* data, size_t size);
-+
-+struct LiteRTAPI {
-+    PFN_TfLiteModelCreate ModelCreate {};
-+    PFN_TfLiteModelDelete ModelDelete {};
-+    PFN_TfLiteInterpreterOptionsCreate InterpreterOptionsCreate {};
-+    PFN_TfLiteInterpreterOptionsDelete InterpreterOptionsDelete {};
-+    PFN_TfLiteInterpreterOptionsSetNumThreads InterpreterOptionsSetNumThreads {};
-+    PFN_TfLiteInterpreterOptionsAddDelegate InterpreterOptionsAddDelegate {};
-+    PFN_TfLiteInterpreterCreate InterpreterCreate {};
-+    PFN_TfLiteInterpreterDelete InterpreterDelete {};
-+    PFN_TfLiteInterpreterAllocateTensors InterpreterAllocateTensors {};
-+    PFN_TfLiteInterpreterInvoke InterpreterInvoke {};
-+    PFN_TfLiteInterpreterGetInputTensorCount InterpreterGetInputTensorCount {};
-+    PFN_TfLiteInterpreterGetInputTensor InterpreterGetInputTensor {};
-+    PFN_TfLiteInterpreterGetOutputTensorCount InterpreterGetOutputTensorCount {};
-+    PFN_TfLiteInterpreterGetOutputTensor InterpreterGetOutputTensor {};
-+    PFN_TfLiteInterpreterResizeInputTensor InterpreterResizeInputTensor {};
-+    PFN_TfLiteTensorType TensorType {};
-+    PFN_TfLiteTensorNumDims TensorNumDims {};
-+    PFN_TfLiteTensorDim TensorDim {};
-+    PFN_TfLiteTensorByteSize TensorByteSize {};
-+    PFN_TfLiteTensorData TensorData {};
-+    PFN_TfLiteTensorName TensorName {};
-+    PFN_TfLiteTensorCopyFromBuffer TensorCopyFromBuffer {};
-+    PFN_TfLiteTensorCopyToBuffer TensorCopyToBuffer {};
-+};
-+
-+enum class GpuAcceleratorKind : uint8_t {
-+    None,
-+    WindowsDirectX,
-+    AppleMetal,
-+    AndroidGpu,
-+    AndroidOpenCL,
-+};
-+
-+class LiteRTLoader {
-+public:
-+    static LiteRTLoader& singleton();
-+
-+    bool isLoaded() const { return m_loaded; }
-+    const LiteRTAPI& api() const { return m_api; }
-+
-+    bool hasGpuAccelerator() const { return m_gpuKind != GpuAcceleratorKind::None; }
-+    GpuAcceleratorKind gpuKind() const { return m_gpuKind; }
-+
-+private:
-+    LiteRTLoader();
-+    ~LiteRTLoader();
-+
-+    bool loadCoreLibrary();
-+    void loadGpuAccelerator();
-+    void* resolve(const char* name);
-+
-+    bool m_loaded { false };
-+    LiteRTAPI m_api {};
-+    GpuAcceleratorKind m_gpuKind { GpuAcceleratorKind::None };
-+
-+#ifdef _WIN32
-+    HMODULE m_handle { nullptr };
-+    HMODULE m_gpuHandle { nullptr };
-+#else
-+    void* m_handle { nullptr };
-+    void* m_gpuHandle { nullptr };
-+#endif
-+};
-+
-+} // namespace WebNN
-+} // namespace WebCore
-+
-+#endif // ENABLE(WEBNN)
 diff --git a/Source/WebCore/Modules/WebNN/Implementation/LiteRTLoader.cpp b/Source/WebCore/Modules/WebNN/Implementation/LiteRTLoader.cpp
 new file mode 100644
-index 00000000000..b2c3d4e5f6a
+index 0000000000..f9ac78e9ee
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/Implementation/LiteRTLoader.cpp
 @@ -0,0 +1,171 @@
 +#include "config.h"
-+#include "LiteRTLoader.h"
++#include "Modules/WebNN/Implementation/LiteRTLoader.h"
 +
 +#if ENABLE(WEBNN)
 +
@@ -317,6 +170,153 @@ index 00000000000..b2c3d4e5f6a
 +    m_gpuKind = GpuAcceleratorKind::None;
 +#endif
 +}
++
++} // namespace WebNN
++} // namespace WebCore
++
++#endif // ENABLE(WEBNN)
+diff --git a/Source/WebCore/Modules/WebNN/Implementation/LiteRTLoader.h b/Source/WebCore/Modules/WebNN/Implementation/LiteRTLoader.h
+new file mode 100644
+index 0000000000..7edd919749
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/Implementation/LiteRTLoader.h
+@@ -0,0 +1,141 @@
++/*
++ * Runtime loader for LiteRT (TFLite) shared library + platform GPU
++ * accelerator libraries.
++ *
++ * Loads libLiteRt at runtime (no link-time dependency), then attempts
++ * to load the platform-specific GPU accelerator library:
++ *   Windows:  libLiteRt.dll          (GPU built into core lib)
++ *   macOS:    libLiteRtMetalAccelerator.dylib + libLiteRtTopKMetalSampler.dylib
++ *   iOS:      libLiteRtMetalAccelerator.dylib + libLiteRtTopKMetalSampler.dylib
++ *   Android:  libLiteRtGpuAccelerator.so + libLiteRtOpenClAccelerator.so
++ *   Linux:    CPU only (XNNPACK bundled in libLiteRt.so)
++ */
++
++#pragma once
++
++#if ENABLE(WEBNN)
++
++#include <cstddef>
++#include <cstdint>
++
++#ifdef _WIN32
++#include <windows.h>
++#else
++#include <dlfcn.h>
++#endif
++
++namespace WebCore {
++namespace WebNN {
++
++struct TfLiteModel;
++struct TfLiteInterpreterOptions;
++struct TfLiteInterpreter;
++struct TfLiteTensor;
++struct TfLiteDelegate;
++
++enum TfLiteStatus { kTfLiteOk = 0, kTfLiteError = 1, kTfLiteDelegateError = 2 };
++enum TfLiteType {
++    kTfLiteFloat32 = 1,
++    kTfLiteInt32 = 2,
++    kTfLiteUInt8 = 3,
++    kTfLiteInt64 = 4,
++    kTfLiteString = 5,
++    kTfLiteBool = 6,
++    kTfLiteInt16 = 7,
++    kTfLiteFloat16 = 10,
++    kTfLiteInt8 = 9,
++};
++
++using PFN_TfLiteModelCreate = TfLiteModel* (*)(const void* data, size_t size);
++using PFN_TfLiteModelDelete = void (*)(TfLiteModel*);
++using PFN_TfLiteInterpreterOptionsCreate = TfLiteInterpreterOptions* (*)();
++using PFN_TfLiteInterpreterOptionsDelete = void (*)(TfLiteInterpreterOptions*);
++using PFN_TfLiteInterpreterOptionsSetNumThreads = void (*)(TfLiteInterpreterOptions*, int32_t);
++using PFN_TfLiteInterpreterOptionsAddDelegate = void (*)(TfLiteInterpreterOptions*, TfLiteDelegate*);
++using PFN_TfLiteInterpreterCreate = TfLiteInterpreter* (*)(const TfLiteModel*, const TfLiteInterpreterOptions*);
++using PFN_TfLiteInterpreterDelete = void (*)(TfLiteInterpreter*);
++using PFN_TfLiteInterpreterAllocateTensors = TfLiteStatus (*)(TfLiteInterpreter*);
++using PFN_TfLiteInterpreterInvoke = TfLiteStatus (*)(TfLiteInterpreter*);
++using PFN_TfLiteInterpreterGetInputTensorCount = int32_t (*)(const TfLiteInterpreter*);
++using PFN_TfLiteInterpreterGetInputTensor = TfLiteTensor* (*)(const TfLiteInterpreter*, int32_t);
++using PFN_TfLiteInterpreterGetOutputTensorCount = int32_t (*)(const TfLiteInterpreter*);
++using PFN_TfLiteInterpreterGetOutputTensor = const TfLiteTensor* (*)(const TfLiteInterpreter*, int32_t);
++using PFN_TfLiteInterpreterResizeInputTensor = TfLiteStatus (*)(TfLiteInterpreter*, int32_t, const int32_t* dims, int32_t dims_size);
++using PFN_TfLiteTensorType = TfLiteType (*)(const TfLiteTensor*);
++using PFN_TfLiteTensorNumDims = int32_t (*)(const TfLiteTensor*);
++using PFN_TfLiteTensorDim = int32_t (*)(const TfLiteTensor*, int32_t);
++using PFN_TfLiteTensorByteSize = size_t (*)(const TfLiteTensor*);
++using PFN_TfLiteTensorData = void* (*)(const TfLiteTensor*);
++using PFN_TfLiteTensorName = const char* (*)(const TfLiteTensor*);
++using PFN_TfLiteTensorCopyFromBuffer = TfLiteStatus (*)(TfLiteTensor*, const void* data, size_t size);
++using PFN_TfLiteTensorCopyToBuffer = TfLiteStatus (*)(const TfLiteTensor*, void* data, size_t size);
++
++struct LiteRTAPI {
++    PFN_TfLiteModelCreate ModelCreate {};
++    PFN_TfLiteModelDelete ModelDelete {};
++    PFN_TfLiteInterpreterOptionsCreate InterpreterOptionsCreate {};
++    PFN_TfLiteInterpreterOptionsDelete InterpreterOptionsDelete {};
++    PFN_TfLiteInterpreterOptionsSetNumThreads InterpreterOptionsSetNumThreads {};
++    PFN_TfLiteInterpreterOptionsAddDelegate InterpreterOptionsAddDelegate {};
++    PFN_TfLiteInterpreterCreate InterpreterCreate {};
++    PFN_TfLiteInterpreterDelete InterpreterDelete {};
++    PFN_TfLiteInterpreterAllocateTensors InterpreterAllocateTensors {};
++    PFN_TfLiteInterpreterInvoke InterpreterInvoke {};
++    PFN_TfLiteInterpreterGetInputTensorCount InterpreterGetInputTensorCount {};
++    PFN_TfLiteInterpreterGetInputTensor InterpreterGetInputTensor {};
++    PFN_TfLiteInterpreterGetOutputTensorCount InterpreterGetOutputTensorCount {};
++    PFN_TfLiteInterpreterGetOutputTensor InterpreterGetOutputTensor {};
++    PFN_TfLiteInterpreterResizeInputTensor InterpreterResizeInputTensor {};
++    PFN_TfLiteTensorType TensorType {};
++    PFN_TfLiteTensorNumDims TensorNumDims {};
++    PFN_TfLiteTensorDim TensorDim {};
++    PFN_TfLiteTensorByteSize TensorByteSize {};
++    PFN_TfLiteTensorData TensorData {};
++    PFN_TfLiteTensorName TensorName {};
++    PFN_TfLiteTensorCopyFromBuffer TensorCopyFromBuffer {};
++    PFN_TfLiteTensorCopyToBuffer TensorCopyToBuffer {};
++};
++
++enum class GpuAcceleratorKind : uint8_t {
++    None,
++    WindowsDirectX,
++    AppleMetal,
++    AndroidGpu,
++    AndroidOpenCL,
++};
++
++class LiteRTLoader {
++public:
++    static LiteRTLoader& singleton();
++
++    bool isLoaded() const { return m_loaded; }
++    const LiteRTAPI& api() const { return m_api; }
++
++    bool hasGpuAccelerator() const { return m_gpuKind != GpuAcceleratorKind::None; }
++    GpuAcceleratorKind gpuKind() const { return m_gpuKind; }
++
++private:
++    LiteRTLoader();
++    ~LiteRTLoader();
++
++    bool loadCoreLibrary();
++    void loadGpuAccelerator();
++    void* resolve(const char* name);
++
++    bool m_loaded { false };
++    LiteRTAPI m_api {};
++    GpuAcceleratorKind m_gpuKind { GpuAcceleratorKind::None };
++
++#ifdef _WIN32
++    HMODULE m_handle { nullptr };
++    HMODULE m_gpuHandle { nullptr };
++#else
++    void* m_handle { nullptr };
++    void* m_gpuHandle { nullptr };
++#endif
++};
 +
 +} // namespace WebNN
 +} // namespace WebCore

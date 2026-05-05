@@ -1,133 +1,23 @@
-diff --git a/Source/WebCore/Modules/WebNN/MLOperand.h b/Source/WebCore/Modules/WebNN/MLOperand.h
-index c9d0e1f2a3b..e1a2b3c4d5e 100644
---- a/Source/WebCore/Modules/WebNN/MLOperand.h
-+++ b/Source/WebCore/Modules/WebNN/MLOperand.h
-@@ -8,6 +8,7 @@
- 
- #include <wtf/RefCounted.h>
- #include <wtf/Vector.h>
-+#include <wtf/RefPtr.h>
- #include <wtf/text/WTFString.h>
- 
- namespace WebCore {
-@@ -33,7 +34,15 @@
-     const String& name() const { return m_name; }
-     const String& dataType() const { return m_dataType; }
-     const Vector<unsigned>& shape() const { return m_dimensions; }
- 
-+    const String& operationType() const { return m_operationType; }
-+    const Vector<RefPtr<MLOperand>>& inputOperands() const { return m_inputOperands; }
-+    void setOperationType(const String& op) { m_operationType = op; }
-+    void addInputOperand(RefPtr<MLOperand> operand) { m_inputOperands.append(WTFMove(operand)); }
-+
-+    const void* constantData() const { return m_constantData; }
-+    size_t constantByteLength() const { return m_constantByteLength; }
-+
- private:
-     MLOperand(Kind, const String& name, const String& dataType,
-               Vector<unsigned>&&);
-@@ -42,6 +51,10 @@
-     String m_name;
-     String m_dataType;
-     Vector<unsigned> m_dimensions;
-+    String m_operationType;
-+    Vector<RefPtr<MLOperand>> m_inputOperands;
-+    const void* m_constantData { nullptr };
-+    size_t m_constantByteLength { 0 };
- };
- 
- } // namespace WebCore
-diff --git a/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTContext.h b/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTContext.h
-new file mode 100644
-index 00000000000..a1b2c3d4e5f
---- /dev/null
-+++ b/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTContext.h
-@@ -0,0 +1,69 @@
-+/*
-+ * WebNN context backed by LiteRT via runtime-loaded C API.
-+ *
-+ * No compile-time dependency on TFLite headers or libraries.
-+ * LiteRTLoader resolves all symbols from the shared library at runtime.
-+ */
-+
-+#pragma once
-+
-+#if ENABLE(WEBNN)
-+
-+#include "WebNNContextImpl.h"
-+#include "../MLContextOptions.h"
-+#include <memory>
-+#include <thread>
-+#include <mutex>
-+#include <condition_variable>
-+#include <queue>
-+#include <functional>
-+
-+namespace WebCore {
-+namespace WebNN {
-+
-+class LiteRTGraph;
-+
-+class LiteRTContext final : public WebNNContextImpl {
-+public:
-+    static std::unique_ptr<LiteRTContext> create(
-+        const MLContextOptions& = {});
-+    ~LiteRTContext() override;
-+
-+    MLDevicePreference devicePreference() const override { return m_device; }
-+    bool useGPU() const { return m_useGPU; }
-+
-+    RefPtr<MLTensor> createTensor(MLTensorDescriptor&&) override;
-+    void writeTensor(MLTensor&, const void* data, size_t byteLength) override;
-+    void readTensor(MLTensor&,
-+                    std::function<void(RefPtr<ArrayBuffer>)>&&) override;
-+
-+    void dispatch(WebNNGraphImpl&,
-+                  HashMap<String, RefPtr<MLTensor>>& inputs,
-+                  HashMap<String, RefPtr<MLTensor>>& outputs,
-+                  std::function<void(bool)>&&) override;
-+
-+    std::unique_ptr<WebNNGraphImpl> buildGraph(
-+        HashMap<String, RefPtr<MLOperand>>& outputs) override;
-+
-+private:
-+    explicit LiteRTContext(MLDevicePreference);
-+    bool initialize();
-+
-+    void workerThreadFunc();
-+    void postWork(std::function<void()>&&);
-+
-+    MLDevicePreference m_device { MLDevicePreference::CPU };
-+    bool m_initialized { false };
-+    bool m_useGPU { false };
-+
-+    std::thread m_workerThread;
-+    std::mutex m_queueMutex;
-+    std::condition_variable m_queueCV;
-+    std::queue<std::function<void()>> m_workQueue;
-+    bool m_shutDown { false };
-+};
-+
-+} // namespace WebNN
-+} // namespace WebCore
-+
-+#endif // ENABLE(WEBNN)
 diff --git a/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTContext.cpp b/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTContext.cpp
 new file mode 100644
-index 00000000000..b2c3d4e5f6a
+index 0000000000..bc55fa2d78
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTContext.cpp
-@@ -0,0 +1,186 @@
+@@ -0,0 +1,190 @@
 +#include "config.h"
-+#include "WebNNLiteRTContext.h"
++#include "Modules/WebNN/Implementation/WebNNLiteRTContext.h"
 +
 +#if ENABLE(WEBNN)
 +
-+#include "WebNNLiteRTGraph.h"
-+#include "LiteRTLoader.h"
-+#include "../MLTensor.h"
-+#include "../MLOperand.h"
++#include "Modules/WebNN/Implementation/LiteRTLoader.h"
++#include "Modules/WebNN/Implementation/WebNNLiteRTGraph.h"
++#include "Modules/WebNN/MLOperand.h"
++#include "Modules/WebNN/MLTensor.h"
++#include <JavaScriptCore/ArrayBuffer.h>
++#include <algorithm>
++#include <cstring>
 +#include <future>
++#include <wtf/StdLibExtras.h>
 +
 +namespace WebCore {
 +namespace WebNN {
@@ -304,63 +194,75 @@ index 00000000000..b2c3d4e5f6a
 +} // namespace WebCore
 +
 +#endif // ENABLE(WEBNN)
-diff --git a/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTGraph.h b/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTGraph.h
+diff --git a/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTContext.h b/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTContext.h
 new file mode 100644
-index 00000000000..c3d4e5f6a7b
+index 0000000000..69392997d1
 --- /dev/null
-+++ b/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTGraph.h
-@@ -0,0 +1,57 @@
++++ b/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTContext.h
+@@ -0,0 +1,69 @@
 +/*
-+ * WebNN compiled graph backed by LiteRT via runtime-loaded C API.
++ * WebNN context backed by LiteRT via runtime-loaded C API.
 + *
-+ * Uses TfLiteModelCreate / TfLiteInterpreterCreate / TfLiteInterpreterInvoke
-+ * resolved at runtime through LiteRTLoader — no compile-time TFLite dependency.
++ * No compile-time dependency on TFLite headers or libraries.
++ * LiteRTLoader resolves all symbols from the shared library at runtime.
 + */
 +
 +#pragma once
 +
 +#if ENABLE(WEBNN)
 +
-+#include "WebNNGraphImpl.h"
-+#include "LiteRTLoader.h"
-+#include "../MLOperand.h"
-+#include "../MLTensor.h"
-+#include <wtf/HashMap.h>
-+#include <wtf/RefPtr.h>
-+#include <wtf/text/WTFString.h>
++#include "Modules/WebNN/Implementation/WebNNContextImpl.h"
++#include "Modules/WebNN/MLContextOptions.h"
 +#include <memory>
-+#include <vector>
++#include <thread>
++#include <mutex>
++#include <condition_variable>
++#include <queue>
++#include <functional>
 +
 +namespace WebCore {
 +namespace WebNN {
 +
-+class LiteRTContext;
++class LiteRTGraph;
 +
-+class LiteRTGraph final : public WebNNGraphImpl {
++class LiteRTContext final : public WebNNContextImpl {
 +public:
-+    static std::unique_ptr<LiteRTGraph> create(
-+        LiteRTContext*,
-+        HashMap<String, RefPtr<MLOperand>>& outputs);
++    static std::unique_ptr<LiteRTContext> create(
++        const MLContextOptions& = {});
++    ~LiteRTContext() override;
 +
-+    ~LiteRTGraph() override;
++    MLDevicePreference devicePreference() const override { return m_device; }
++    bool useGPU() const { return m_useGPU; }
 +
-+    bool run(LiteRTContext*,
-+             HashMap<String, RefPtr<MLTensor>>& inputs,
-+             HashMap<String, RefPtr<MLTensor>>& outputs);
++    RefPtr<MLTensor> createTensor(MLTensorDescriptor&&) override;
++    void writeTensor(MLTensor&, const void* data, size_t byteLength) override;
++    void readTensor(MLTensor&,
++                    std::function<void(RefPtr<ArrayBuffer>)>&&) override;
++
++    void dispatch(WebNNGraphImpl&,
++                  HashMap<String, RefPtr<MLTensor>>& inputs,
++                  HashMap<String, RefPtr<MLTensor>>& outputs,
++                  std::function<void(bool)>&&) override;
++
++    std::unique_ptr<WebNNGraphImpl> buildGraph(
++        HashMap<String, RefPtr<MLOperand>>& outputs) override;
 +
 +private:
-+    LiteRTGraph();
++    explicit LiteRTContext(MLDevicePreference);
++    bool initialize();
 +
-+    bool buildFromOperands(LiteRTContext*,
-+                           HashMap<String, RefPtr<MLOperand>>& outputs);
++    void workerThreadFunc();
++    void postWork(std::function<void()>&&);
 +
-+    TfLiteModel* m_model { nullptr };
-+    TfLiteInterpreter* m_interpreter { nullptr };
-+    TfLiteInterpreterOptions* m_options { nullptr };
-+    std::vector<uint8_t> m_modelBuffer;
++    MLDevicePreference m_device { MLDevicePreference::CPU };
++    bool m_initialized { false };
++    bool m_useGPU { false };
 +
-+    Vector<String> m_inputNames;
-+    Vector<String> m_outputNames;
++    std::thread m_workerThread;
++    std::mutex m_queueMutex;
++    std::condition_variable m_queueCV;
++    std::queue<std::function<void()>> m_workQueue;
++    bool m_shutDown { false };
 +};
 +
 +} // namespace WebNN
@@ -369,7 +271,7 @@ index 00000000000..c3d4e5f6a7b
 +#endif // ENABLE(WEBNN)
 diff --git a/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTGraph.cpp b/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTGraph.cpp
 new file mode 100644
-index 00000000000..d4e5f6a7b8c
+index 0000000000..c403f16fde
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTGraph.cpp
 @@ -0,0 +1,189 @@
@@ -389,14 +291,14 @@ index 00000000000..d4e5f6a7b8c
 + */
 +
 +#include "config.h"
-+#include "WebNNLiteRTGraph.h"
++#include "Modules/WebNN/Implementation/WebNNLiteRTGraph.h"
 +
 +#if ENABLE(WEBNN)
 +
-+#include "WebNNLiteRTContext.h"
-+#include "LiteRTLoader.h"
-+#include "../MLOperand.h"
-+#include "../MLTensor.h"
++#include "Modules/WebNN/Implementation/LiteRTLoader.h"
++#include "Modules/WebNN/Implementation/WebNNLiteRTContext.h"
++#include "Modules/WebNN/MLOperand.h"
++#include "Modules/WebNN/MLTensor.h"
 +#include <wtf/HashSet.h>
 +
 +namespace WebCore {
@@ -562,3 +464,106 @@ index 00000000000..d4e5f6a7b8c
 +} // namespace WebCore
 +
 +#endif // ENABLE(WEBNN)
+diff --git a/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTGraph.h b/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTGraph.h
+new file mode 100644
+index 0000000000..9216645c67
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTGraph.h
+@@ -0,0 +1,57 @@
++/*
++ * WebNN compiled graph backed by LiteRT via runtime-loaded C API.
++ *
++ * Uses TfLiteModelCreate / TfLiteInterpreterCreate / TfLiteInterpreterInvoke
++ * resolved at runtime through LiteRTLoader — no compile-time TFLite dependency.
++ */
++
++#pragma once
++
++#if ENABLE(WEBNN)
++
++#include "Modules/WebNN/Implementation/LiteRTLoader.h"
++#include "Modules/WebNN/Implementation/WebNNGraphImpl.h"
++#include "Modules/WebNN/MLOperand.h"
++#include "Modules/WebNN/MLTensor.h"
++#include <wtf/HashMap.h>
++#include <wtf/RefPtr.h>
++#include <wtf/text/WTFString.h>
++#include <memory>
++#include <vector>
++
++namespace WebCore {
++namespace WebNN {
++
++class LiteRTContext;
++
++class LiteRTGraph final : public WebNNGraphImpl {
++public:
++    static std::unique_ptr<LiteRTGraph> create(
++        LiteRTContext*,
++        HashMap<String, RefPtr<MLOperand>>& outputs);
++
++    ~LiteRTGraph() override;
++
++    bool run(LiteRTContext*,
++             HashMap<String, RefPtr<MLTensor>>& inputs,
++             HashMap<String, RefPtr<MLTensor>>& outputs);
++
++private:
++    LiteRTGraph();
++
++    bool buildFromOperands(LiteRTContext*,
++                           HashMap<String, RefPtr<MLOperand>>& outputs);
++
++    TfLiteModel* m_model { nullptr };
++    TfLiteInterpreter* m_interpreter { nullptr };
++    TfLiteInterpreterOptions* m_options { nullptr };
++    std::vector<uint8_t> m_modelBuffer;
++
++    Vector<String> m_inputNames;
++    Vector<String> m_outputNames;
++};
++
++} // namespace WebNN
++} // namespace WebCore
++
++#endif // ENABLE(WEBNN)
+diff --git a/Source/WebCore/Modules/WebNN/MLOperand.h b/Source/WebCore/Modules/WebNN/MLOperand.h
+index 39f850acab..13904c00fe 100644
+--- a/Source/WebCore/Modules/WebNN/MLOperand.h
++++ b/Source/WebCore/Modules/WebNN/MLOperand.h
+@@ -7,7 +7,9 @@
+ #if ENABLE(WEBNN)
+ 
+ #include <wtf/RefCounted.h>
++#include <wtf/StdLibExtras.h>
+ #include <wtf/Vector.h>
++#include <wtf/RefPtr.h>
+ #include <wtf/text/WTFString.h>
+ 
+ namespace WebCore {
+@@ -34,6 +36,14 @@ public:
+     const String& dataType() const { return m_dataType; }
+     const Vector<unsigned>& shape() const { return m_dimensions; }
+ 
++    const String& operationType() const { return m_operationType; }
++    const Vector<RefPtr<MLOperand>>& inputOperands() const { return m_inputOperands; }
++    void setOperationType(const String& op) { m_operationType = op; }
++    void addInputOperand(RefPtr<MLOperand> operand) { m_inputOperands.append(WTFMove(operand)); }
++
++    const void* constantData() const { return m_constantData; }
++    size_t constantByteLength() const { return m_constantByteLength; }
++
+ private:
+     MLOperand(Kind, const String& name, const String& dataType,
+               Vector<unsigned>&&);
+@@ -42,6 +52,10 @@ private:
+     String m_name;
+     String m_dataType;
+     Vector<unsigned> m_dimensions;
++    String m_operationType;
++    Vector<RefPtr<MLOperand>> m_inputOperands;
++    const void* m_constantData { nullptr };
++    size_t m_constantByteLength { 0 };
+ };
+ 
+ } // namespace WebCore

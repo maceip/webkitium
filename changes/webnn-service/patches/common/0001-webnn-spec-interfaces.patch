@@ -1,70 +1,6 @@
-diff --git a/Source/WebCore/Modules/WebNN/MLContextOptions.h b/Source/WebCore/Modules/WebNN/MLContextOptions.h
-new file mode 100644
-index 00000000000..a1b2c3d4e5f
---- /dev/null
-+++ b/Source/WebCore/Modules/WebNN/MLContextOptions.h
-@@ -0,0 +1,32 @@
-+/*
-+ * https://webmachinelearning.github.io/webnn/#dictdef-mlcontextoptions
-+ */
-+
-+#pragma once
-+
-+#if ENABLE(WEBNN)
-+
-+#include <wtf/text/WTFString.h>
-+
-+namespace WebCore {
-+
-+enum class MLDevicePreference : uint8_t {
-+    CPU,
-+    GPU,
-+    NPU,
-+};
-+
-+enum class MLPowerPreference : uint8_t {
-+    Default,
-+    LowPower,
-+    HighPerformance,
-+};
-+
-+struct MLContextOptions {
-+    MLDevicePreference devicePreference { MLDevicePreference::CPU };
-+    MLPowerPreference powerPreference { MLPowerPreference::Default };
-+};
-+
-+} // namespace WebCore
-+
-+#endif // ENABLE(WEBNN)
-diff --git a/Source/WebCore/Modules/WebNN/MLContextOptions.idl b/Source/WebCore/Modules/WebNN/MLContextOptions.idl
-new file mode 100644
-index 00000000000..b2c3d4e5f6a
---- /dev/null
-+++ b/Source/WebCore/Modules/WebNN/MLContextOptions.idl
-@@ -0,0 +1,20 @@
-+/*
-+ * https://webmachinelearning.github.io/webnn/#dictdef-mlcontextoptions
-+ */
-+
-+[Conditional=WEBNN] enum MLDevicePreference {
-+    "cpu",
-+    "gpu",
-+    "npu"
-+};
-+
-+[Conditional=WEBNN] enum MLPowerPreference {
-+    "default",
-+    "low-power",
-+    "high-performance"
-+};
-+
-+[Conditional=WEBNN] dictionary MLContextOptions {
-+    MLDevicePreference devicePreference = "cpu";
-+    MLPowerPreference powerPreference = "default";
-+};
 diff --git a/Source/WebCore/Modules/WebNN/MLContext.h b/Source/WebCore/Modules/WebNN/MLContext.h
 new file mode 100644
-index 00000000000..c3d4e5f6a7b
+index 0000000000..939b503394
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/MLContext.h
 @@ -0,0 +1,55 @@
@@ -76,7 +12,7 @@ index 00000000000..c3d4e5f6a7b
 +
 +#if ENABLE(WEBNN)
 +
-+#include "MLContextOptions.h"
++#include "Modules/WebNN/MLContextOptions.h"
 +#include <wtf/RefCounted.h>
 +#include <wtf/RefPtr.h>
 +#include <wtf/HashMap.h>
@@ -125,7 +61,7 @@ index 00000000000..c3d4e5f6a7b
 +#endif // ENABLE(WEBNN)
 diff --git a/Source/WebCore/Modules/WebNN/MLContext.idl b/Source/WebCore/Modules/WebNN/MLContext.idl
 new file mode 100644
-index 00000000000..d4e5f6a7b8c
+index 0000000000..26d4960755
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/MLContext.idl
 @@ -0,0 +1,21 @@
@@ -150,9 +86,128 @@ index 00000000000..d4e5f6a7b8c
 +        record<USVString, MLTensor> inputs,
 +        record<USVString, MLTensor> outputs);
 +};
+diff --git a/Source/WebCore/Modules/WebNN/MLContextOptions.h b/Source/WebCore/Modules/WebNN/MLContextOptions.h
+new file mode 100644
+index 0000000000..3c52982489
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/MLContextOptions.h
+@@ -0,0 +1,32 @@
++/*
++ * https://webmachinelearning.github.io/webnn/#dictdef-mlcontextoptions
++ */
++
++#pragma once
++
++#if ENABLE(WEBNN)
++
++#include <wtf/text/WTFString.h>
++
++namespace WebCore {
++
++enum class MLDevicePreference : uint8_t {
++    CPU,
++    GPU,
++    NPU,
++};
++
++enum class MLPowerPreference : uint8_t {
++    Default,
++    LowPower,
++    HighPerformance,
++};
++
++struct MLContextOptions {
++    MLDevicePreference devicePreference { MLDevicePreference::CPU };
++    MLPowerPreference powerPreference { MLPowerPreference::Default };
++};
++
++} // namespace WebCore
++
++#endif // ENABLE(WEBNN)
+diff --git a/Source/WebCore/Modules/WebNN/MLContextOptions.idl b/Source/WebCore/Modules/WebNN/MLContextOptions.idl
+new file mode 100644
+index 0000000000..e2f76cd687
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/MLContextOptions.idl
+@@ -0,0 +1,20 @@
++/*
++ * https://webmachinelearning.github.io/webnn/#dictdef-mlcontextoptions
++ */
++
++[Conditional=WEBNN] enum MLDevicePreference {
++    "cpu",
++    "gpu",
++    "npu"
++};
++
++[Conditional=WEBNN] enum MLPowerPreference {
++    "default",
++    "low-power",
++    "high-performance"
++};
++
++[Conditional=WEBNN] dictionary MLContextOptions {
++    MLDevicePreference devicePreference = "cpu";
++    MLPowerPreference powerPreference = "default";
++};
+diff --git a/Source/WebCore/Modules/WebNN/MLGraph.h b/Source/WebCore/Modules/WebNN/MLGraph.h
+new file mode 100644
+index 0000000000..4fbbf181a5
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/MLGraph.h
+@@ -0,0 +1,33 @@
++/*
++ * https://webmachinelearning.github.io/webnn/#api-mlgraph
++ */
++
++#pragma once
++
++#if ENABLE(WEBNN)
++
++#include <wtf/RefCounted.h>
++#include <memory>
++
++namespace WebCore {
++
++namespace WebNN {
++class WebNNGraphImpl;
++}
++
++class MLGraph final : public RefCounted<MLGraph> {
++public:
++    static Ref<MLGraph> create(std::unique_ptr<WebNN::WebNNGraphImpl>&&);
++    ~MLGraph();
++
++    WebNN::WebNNGraphImpl* impl() const { return m_impl.get(); }
++
++private:
++    explicit MLGraph(std::unique_ptr<WebNN::WebNNGraphImpl>&&);
++
++    std::unique_ptr<WebNN::WebNNGraphImpl> m_impl;
++};
++
++} // namespace WebCore
++
++#endif // ENABLE(WEBNN)
+diff --git a/Source/WebCore/Modules/WebNN/MLGraph.idl b/Source/WebCore/Modules/WebNN/MLGraph.idl
+new file mode 100644
+index 0000000000..560931d11a
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/MLGraph.idl
+@@ -0,0 +1,10 @@
++/*
++ * https://webmachinelearning.github.io/webnn/#api-mlgraph
++ */
++
++[
++    Conditional=WEBNN,
++    Exposed=Window,
++    SecureContext
++] interface MLGraph {
++};
 diff --git a/Source/WebCore/Modules/WebNN/MLGraphBuilder.h b/Source/WebCore/Modules/WebNN/MLGraphBuilder.h
 new file mode 100644
-index 00000000000..e5f6a7b8c9d
+index 0000000000..2c3d3930e9
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/MLGraphBuilder.h
 @@ -0,0 +1,85 @@
@@ -164,8 +219,8 @@ index 00000000000..e5f6a7b8c9d
 +
 +#if ENABLE(WEBNN)
 +
-+#include "MLContext.h"
-+#include "MLOperand.h"
++#include "Modules/WebNN/MLContext.h"
++#include "Modules/WebNN/MLOperand.h"
 +#include <wtf/RefCounted.h>
 +#include <wtf/RefPtr.h>
 +#include <wtf/Vector.h>
@@ -243,7 +298,7 @@ index 00000000000..e5f6a7b8c9d
 +#endif // ENABLE(WEBNN)
 diff --git a/Source/WebCore/Modules/WebNN/MLGraphBuilder.idl b/Source/WebCore/Modules/WebNN/MLGraphBuilder.idl
 new file mode 100644
-index 00000000000..f6a7b8c9d0e
+index 0000000000..05eaf1be98
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/MLGraphBuilder.idl
 @@ -0,0 +1,56 @@
@@ -303,64 +358,9 @@ index 00000000000..f6a7b8c9d0e
 +    // Build
 +    [NewObject] Promise<MLGraph> build(record<USVString, MLOperand> outputs);
 +};
-diff --git a/Source/WebCore/Modules/WebNN/MLGraph.h b/Source/WebCore/Modules/WebNN/MLGraph.h
-new file mode 100644
-index 00000000000..a7b8c9d0e1f
---- /dev/null
-+++ b/Source/WebCore/Modules/WebNN/MLGraph.h
-@@ -0,0 +1,33 @@
-+/*
-+ * https://webmachinelearning.github.io/webnn/#api-mlgraph
-+ */
-+
-+#pragma once
-+
-+#if ENABLE(WEBNN)
-+
-+#include <wtf/RefCounted.h>
-+#include <memory>
-+
-+namespace WebCore {
-+
-+namespace WebNN {
-+class WebNNGraphImpl;
-+}
-+
-+class MLGraph final : public RefCounted<MLGraph> {
-+public:
-+    static Ref<MLGraph> create(std::unique_ptr<WebNN::WebNNGraphImpl>&&);
-+    ~MLGraph();
-+
-+    WebNN::WebNNGraphImpl* impl() const { return m_impl.get(); }
-+
-+private:
-+    explicit MLGraph(std::unique_ptr<WebNN::WebNNGraphImpl>&&);
-+
-+    std::unique_ptr<WebNN::WebNNGraphImpl> m_impl;
-+};
-+
-+} // namespace WebCore
-+
-+#endif // ENABLE(WEBNN)
-diff --git a/Source/WebCore/Modules/WebNN/MLGraph.idl b/Source/WebCore/Modules/WebNN/MLGraph.idl
-new file mode 100644
-index 00000000000..b8c9d0e1f2a
---- /dev/null
-+++ b/Source/WebCore/Modules/WebNN/MLGraph.idl
-@@ -0,0 +1,10 @@
-+/*
-+ * https://webmachinelearning.github.io/webnn/#api-mlgraph
-+ */
-+
-+[
-+    Conditional=WEBNN,
-+    Exposed=Window,
-+    SecureContext
-+] interface MLGraph {
-+};
 diff --git a/Source/WebCore/Modules/WebNN/MLOperand.h b/Source/WebCore/Modules/WebNN/MLOperand.h
 new file mode 100644
-index 00000000000..c9d0e1f2a3b
+index 0000000000..39f850acab
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/MLOperand.h
 @@ -0,0 +1,49 @@
@@ -415,7 +415,7 @@ index 00000000000..c9d0e1f2a3b
 +#endif // ENABLE(WEBNN)
 diff --git a/Source/WebCore/Modules/WebNN/MLOperand.idl b/Source/WebCore/Modules/WebNN/MLOperand.idl
 new file mode 100644
-index 00000000000..d0e1f2a3b4c
+index 0000000000..270e7ad207
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/MLOperand.idl
 @@ -0,0 +1,12 @@
@@ -433,7 +433,7 @@ index 00000000000..d0e1f2a3b4c
 +};
 diff --git a/Source/WebCore/Modules/WebNN/MLTensor.h b/Source/WebCore/Modules/WebNN/MLTensor.h
 new file mode 100644
-index 00000000000..e1f2a3b4c5d
+index 0000000000..680e59e20c
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/MLTensor.h
 @@ -0,0 +1,48 @@
@@ -487,7 +487,7 @@ index 00000000000..e1f2a3b4c5d
 +#endif // ENABLE(WEBNN)
 diff --git a/Source/WebCore/Modules/WebNN/MLTensor.idl b/Source/WebCore/Modules/WebNN/MLTensor.idl
 new file mode 100644
-index 00000000000..f2a3b4c5d6e
+index 0000000000..530179dbf4
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/MLTensor.idl
 @@ -0,0 +1,18 @@
