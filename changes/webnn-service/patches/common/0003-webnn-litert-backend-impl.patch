@@ -42,7 +42,7 @@ new file mode 100644
 index 00000000000..a1b2c3d4e5f
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTContext.h
-@@ -0,0 +1,76 @@
+@@ -0,0 +1,69 @@
 +/*
 + * WebNN context backed by LiteRT via runtime-loaded C API.
 + *
@@ -117,7 +117,7 @@ new file mode 100644
 index 00000000000..b2c3d4e5f6a
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTContext.cpp
-@@ -0,0 +1,177 @@
+@@ -0,0 +1,186 @@
 +#include "config.h"
 +#include "WebNNLiteRTContext.h"
 +
@@ -309,7 +309,7 @@ new file mode 100644
 index 00000000000..c3d4e5f6a7b
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTGraph.h
-@@ -0,0 +1,58 @@
+@@ -0,0 +1,57 @@
 +/*
 + * WebNN compiled graph backed by LiteRT via runtime-loaded C API.
 + *
@@ -372,7 +372,7 @@ new file mode 100644
 index 00000000000..d4e5f6a7b8c
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTGraph.cpp
-@@ -0,0 +1,161 @@
+@@ -0,0 +1,189 @@
 +/*
 + * WebNN graph using the TFLite C API loaded at runtime.
 + *
