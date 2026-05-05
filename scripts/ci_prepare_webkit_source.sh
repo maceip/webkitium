@@ -17,7 +17,7 @@ command -v git >/dev/null 2>&1 || { echo "::error::git not found on PATH"; exit 
 command -v python3 >/dev/null 2>&1 || command -v python >/dev/null 2>&1 || { echo "::error::python not found"; exit 1; }
 PYTHON="${PYTHON:-$(command -v python3 2>/dev/null || command -v python)}"
 
-EXPECTED_COMMIT="$("$PYTHON" -c "import json, pathlib; print(json.load(pathlib.Path('$MATRIX').open())['webkit']['expectedCommit'])")"
+EXPECTED_COMMIT="$("$PYTHON" -c "import json, pathlib, sys; print(json.load(pathlib.Path(sys.argv[1]).open())['webkit']['expectedCommit'])" "$MATRIX")"
 CACHE="${2:-${WEBKIT_PIN_CACHE:-}}"
 if [[ -z "$CACHE" ]]; then
   if command -v cygpath >/dev/null 2>&1; then
