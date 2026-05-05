@@ -3,7 +3,7 @@ new file mode 100644
 index 00000000000..a1b2c3d4e5f
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/Implementation/LiteRTLoader.h
-@@ -0,0 +1,173 @@
+@@ -0,0 +1,141 @@
 +/*
 + * Runtime loader for LiteRT (TFLite) shared library + platform GPU
 + * accelerator libraries.
@@ -150,7 +150,7 @@ new file mode 100644
 index 00000000000..b2c3d4e5f6a
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/Implementation/LiteRTLoader.cpp
-@@ -0,0 +1,186 @@
+@@ -0,0 +1,171 @@
 +#include "config.h"
 +#include "LiteRTLoader.h"
 +
