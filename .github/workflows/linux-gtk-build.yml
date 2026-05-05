@@ -14,12 +14,18 @@ on:
   push:
     branches: [master]
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Upload baseline assets to this GitHub release tag (created if missing, marked latest). Leave empty for rolling ci-debug-builds."
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: write
 
 env:
-  CI_DEBUG_RELEASE_TAG: ci-debug-builds
+  CI_DEBUG_RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag != '' && github.event.inputs.release_tag || 'ci-debug-builds' }}
 
 concurrency:
   group: webkitium-linux-gtk-build
@@ -43,8 +49,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Ensure CI debug release exists
-        run: bash "$GITHUB_WORKSPACE/scripts/ci_ensure_debug_release.sh"
+      - name: Ensure GitHub release exists for artifact uploads
+        run: bash "$GITHUB_WORKSPACE/scripts/ci_ensure_release_assets_target.sh"
 
       - name: Load CI matrix into environment
         run: |
