@@ -36,8 +36,40 @@ defaults:
     shell: bash
 
 jobs:
+  patches:
+    name: Linux GTK WebKit Patch Check
+    runs-on:
+      - self-hosted
+      - Linux
+      - ARM64
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Load CI matrix into environment
+        run: |
+          set -euo pipefail
+          python3 "$GITHUB_WORKSPACE/config/ci_matrix_env.py" \
+            --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" >> "$GITHUB_ENV"
+
+      - name: Check WebKit patch series
+        run: |
+          set -euo pipefail
+          SRC="${RUNNER_TEMP}/webkit-linux-gtk-patch-check"
+          bash "$GITHUB_WORKSPACE/scripts/ci_prepare_webkit_source.sh" "$SRC"
+          python3 "$GITHUB_WORKSPACE/config/apply_webkit_patches.py" \
+            --repo-root "$GITHUB_WORKSPACE" \
+            --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" \
+            --changes "$GITHUB_WORKSPACE/config/changes.json" \
+            --webkit-root "$SRC" \
+            --platform linux \
+            --mode check
+
   build:
     name: Linux GTK WebKit Build (arm64)
+    needs: [patches]
     runs-on:
       - self-hosted
       - Linux
@@ -92,12 +124,13 @@ jobs:
           python3 "$GITHUB_WORKSPACE/config/verify_webkit_pin_commit.py" \
             --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" \
             --webkit-root "$SRC"
-          for patch in "$GITHUB_WORKSPACE"/webkit/patches/common/*.patch "$GITHUB_WORKSPACE"/webkit/patches/linux/*.patch; do
-            [[ -f "$patch" ]] || continue
-            echo "Applying $(basename "$patch")"
-            git -C "$SRC" apply --check --whitespace=nowarn --unidiff-zero "$patch"
-            git -C "$SRC" apply --whitespace=nowarn --unidiff-zero "$patch"
-          done
+          python3 "$GITHUB_WORKSPACE/config/apply_webkit_patches.py" \
+            --repo-root "$GITHUB_WORKSPACE" \
+            --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" \
+            --changes "$GITHUB_WORKSPACE/config/changes.json" \
+            --webkit-root "$SRC" \
+            --platform linux \
+            --mode apply
 
       - name: Install GTK build dependencies
         run: |

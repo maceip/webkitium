@@ -26,7 +26,7 @@ env:
 
 concurrency:
   group: webkitium-windows-build
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   preflight:
@@ -72,50 +72,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          command -v gh >/dev/null 2>&1 || { echo "::error::gh CLI not found"; exit 1; }
-          command -v git >/dev/null 2>&1 || { echo "::error::git not found on PATH"; exit 1; }
-
           SRC_WIN='C:/W/webkit-patch-check'
           SRC="$(cygpath -u "$SRC_WIN")"
-          ARCHIVE="$RUNNER_TEMP/webkit-pin.tar.gz"
-
-          if [ -d "$SRC" ]; then
-            rm -rf "$SRC" || cmd //c "rd /s /q \"$SRC_WIN\"" 2>/dev/null || true
-          fi
-          mkdir -p "$SRC"
-
-          cd "$RUNNER_TEMP"
-          gh release download "${WEBKIT_PIN_RELEASE_TAG:?WEBKIT_PIN_RELEASE_TAG missing}" \
-            --repo "$GITHUB_REPOSITORY" \
-            --pattern "${WEBKIT_PIN_PART_GLOB:?WEBKIT_PIN_PART_GLOB missing}"
-
-          shopt -s nullglob
-          for f in ${WEBKIT_PIN_PART_GLOB}$'\r'; do
-            [[ -e "$f" ]] && mv -- "$f" "${f%$'\r'}"
-          done
-          parts=( ${WEBKIT_PIN_PART_GLOB} )
-          if (( ${#parts[@]} == 0 )); then
-            echo "::error::No tarball parts found after download"
-            exit 1
-          fi
-          cat "${parts[@]}" > "$ARCHIVE"
-          rm -f ${WEBKIT_PIN_PART_GLOB}
-          shopt -u nullglob
-          [[ -s "$ARCHIVE" ]] || { echo "::error::Stitched webkit-pin archive is empty"; exit 1; }
-
-          tar -xzf "$ARCHIVE" --strip-components=1 -C "$SRC" \
-            --exclude='*/LayoutTests/*' \
-            --exclude='*/WebKitLibraries/SDKs/*' \
-            --exclude='*/Websites/*' \
-            --exclude='*/JSTests/*' \
-            || true
-          rm -f "$ARCHIVE"
-
-          if [[ ! -d "$SRC/Source" ]]; then
-            echo "::error::Extraction failed -- Source/ directory missing"
-            exit 1
-          fi
-
+          bash "$GITHUB_WORKSPACE/scripts/ci_prepare_webkit_source.sh" "$SRC"
           python "$GITHUB_WORKSPACE/config/apply_webkit_patches.py" \
             --repo-root "$GITHUB_WORKSPACE" \
             --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" \
@@ -169,75 +128,15 @@ jobs:
             --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" \
             --check-vcpkg --check-green-json
 
-      # ── Download, extract, and patch ───────────────────────────────
+      # ── Prepare and patch ──────────────────────────────────────────
       - name: Prepare Source
         shell: bash
         run: |
           set -euo pipefail
-          command -v gh >/dev/null 2>&1 || { echo "::error::gh CLI not found"; exit 1; }
-          command -v git >/dev/null 2>&1 || { echo "::error::git not found on PATH"; exit 1; }
 
           SRC_WIN='C:/W/webkit-src'
           SRC="$(cygpath -u "$SRC_WIN")"
-          ARCHIVE="$RUNNER_TEMP/webkit-pin.tar.gz"
-
-          # Cleanup step at end of workflow guarantees this is gone,
-          # but handle stragglers defensively
-          if [ -d "$SRC" ]; then
-            rm -rf "$SRC" || cmd //c "rd /s /q \"$SRC_WIN\"" 2>/dev/null || true
-          fi
-          mkdir -p "$SRC"
-
-          # Download the four split parts from the webkit-pin release
-          cd "$RUNNER_TEMP"
-          gh release download "${WEBKIT_PIN_RELEASE_TAG:?WEBKIT_PIN_RELEASE_TAG missing}" \
-            --repo "$GITHUB_REPOSITORY" \
-            --pattern "${WEBKIT_PIN_PART_GLOB:?WEBKIT_PIN_PART_GLOB missing}"
-
-          # Strip stray \r from filenames (Windows gh can leave CRLF artefacts)
-          shopt -s nullglob
-          for f in ${WEBKIT_PIN_PART_GLOB}$'\r'; do
-            [[ -e "$f" ]] && mv -- "$f" "${f%$'\r'}"
-          done
-
-          # Stitch parts into single tarball (nullglob already on from CRLF rename loop)
-          parts=( ${WEBKIT_PIN_PART_GLOB} )
-          if (( ${#parts[@]} == 0 )); then
-            echo "::error::No tarball parts found after download"
-            exit 1
-          fi
-          echo "Stitching ${#parts[@]} parts..."
-          # Bash glob expansion is already sorted by LC_COLLATE (aa, ab, ac, ad).
-          # Earlier `sort -V` call resolved to Windows sort.exe on git-bash PATH
-          # and failed with "-V: system cannot find the file specified".
-          cat "${parts[@]}" > "$ARCHIVE"
-          rm -f ${WEBKIT_PIN_PART_GLOB}
-          shopt -u nullglob
-          [[ -s "$ARCHIVE" ]] || { echo "::error::Stitched webkit-pin archive is empty"; exit 1; }
-
-          echo "Tarball: $(du -h "$ARCHIVE" | cut -f1)"
-
-          # Extract, excluding paths that contain macOS/iOS framework symlinks
-          # and test suites not needed for a Windows build.  Tolerate warnings
-          # from any remaining symlink entries inside Source/.
-          tar -xzf "$ARCHIVE" --strip-components=1 -C "$SRC" \
-            --exclude='*/LayoutTests/*' \
-            --exclude='*/WebKitLibraries/SDKs/*' \
-            --exclude='*/Websites/*' \
-            --exclude='*/JSTests/*' \
-            || true
-
-          rm -f "$ARCHIVE"
-
-          # Verify the source tree actually arrived
-          if [[ ! -d "$SRC/Source" ]]; then
-            echo "::error::Extraction failed -- Source/ directory missing"
-            exit 1
-          fi
-          python "$GITHUB_WORKSPACE/config/verify_webkit_pin_commit.py" \
-            --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" \
-            --webkit-root "$SRC"
-          echo "Source ready at $SRC_WIN"
+          bash "$GITHUB_WORKSPACE/scripts/ci_prepare_webkit_source.sh" "$SRC"
           ls "$SRC" | head -20
 
           # Fetch LiteRT-LM for WebNN backend (ref from config/webkit-build-matrix.json)
@@ -265,6 +164,43 @@ jobs:
             --platform windows \
             --mode apply
           echo "WEBKITIUM_BROWSER_SHELL_TARGET=windows" >> "$GITHUB_ENV"
+
+      - name: WebNN compile probe
+        shell: cmd
+        run: |
+          @echo on
+          setlocal
+          call "C:\BuildTools\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64
+          if errorlevel 1 exit /b %errorlevel%
+
+          set "SRC=C:\W\webkit-src"
+          set "PATH=%PATH:C:\Strawberry\c\bin;=%"
+          set "CC=C:\Program Files\LLVM\bin\clang-cl.exe"
+          set "CXX=C:\Program Files\LLVM\bin\clang-cl.exe"
+          set "PATH=C:\Bootstrap\toolbin;C:\Program Files\Git\cmd;C:\Ruby34-x64\bin;C:\Python314;C:\Python314\Scripts;C:\Program Files\LLVM\bin;C:\Program Files\CMake\bin;C:\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja;C:\Strawberry\perl\bin;%PATH%"
+          set "VCPKG_ROOT=C:\vcpkg"
+          set "CMAKE_PREFIX_PATH=%RUNNER_TEMP%\litert-lm;%RUNNER_TEMP%\litert-lm\prebuilt\windows_x86_64"
+
+          cd /d "%SRC%"
+          perl Tools\Scripts\build-webkit --debug --win --generate-project-only ^
+            -DCMAKE_C_COMPILER=C:/Progra~1/LLVM/bin/clang-cl.exe ^
+            -DCMAKE_CXX_COMPILER=C:/Progra~1/LLVM/bin/clang-cl.exe ^
+            -DCMAKE_LINKER=C:/Progra~1/LLVM/bin/lld-link.exe ^
+            -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld ^
+            -DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld ^
+            -DCMAKE_MODULE_LINKER_FLAGS=-fuse-ld=lld ^
+            -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded ^
+            -DCMAKE_C_FLAGS="-D_CRT_SECURE_NO_WARNINGS -Wno-missing-format-attribute" ^
+            -DCMAKE_CXX_FLAGS="-D_CRT_SECURE_NO_WARNINGS -Wno-missing-format-attribute" ^
+            -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake ^
+            -DVCPKG_TARGET_TRIPLET=x64-windows-webkit ^
+            -DVCPKG_INSTALLED_DIR=C:/vcpkg/installed ^
+            -DVCPKG_MANIFEST_MODE=OFF ^
+            %WINDOWS_BUILD_WEBKIT_EXTRA% -DENABLE_EXPERIMENTAL_FEATURES=%WEBKIT_CMAKE_ENABLE_EXPERIMENTAL_FEATURES% -DENABLE_WEBXR=%WEBKIT_CMAKE_ENABLE_WEBXR%
+          if errorlevel 1 exit /b %errorlevel%
+
+          python "%GITHUB_WORKSPACE%\scripts\ci_windows_webnn_probe.py" "%SRC%\WebKitBuild\Debug"
+          if errorlevel 1 exit /b %errorlevel%
 
       # ── Build ──────────────────────────────────────────────────────
       - name: Build

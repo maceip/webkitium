@@ -33,8 +33,48 @@ defaults:
     shell: bash
 
 jobs:
+  patches:
+    name: WebKit Patch Check
+    runs-on:
+      - self-hosted
+      - macOS
+      - ARM64
+      - webkitium
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Load CI matrix into environment
+        run: |
+          set -euo pipefail
+          python3 "$GITHUB_WORKSPACE/config/ci_matrix_env.py" \
+            --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" >> "$GITHUB_ENV"
+
+      - name: Check WebKit patch series
+        run: |
+          set -euo pipefail
+          export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
+          SRC="${NG_MACOS_PATCH_CHECK_SRC:-$HOME/webkit-patch-check-macos}"
+          bash "$GITHUB_WORKSPACE/scripts/ci_prepare_webkit_source.sh" "$SRC"
+          python3 "$GITHUB_WORKSPACE/config/apply_webkit_patches.py" \
+            --repo-root "$GITHUB_WORKSPACE" \
+            --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" \
+            --changes "$GITHUB_WORKSPACE/config/changes.json" \
+            --webkit-root "$SRC" \
+            --platform macos \
+            --mode check
+
+      - name: Cleanup patch check source
+        if: always()
+        run: |
+          rm -rf "${NG_MACOS_PATCH_CHECK_SRC:-$HOME/webkit-patch-check-macos}"
+
   build:
     name: macOS WebKit Build
+    needs: [patches]
     runs-on:
       - self-hosted
       - macOS
@@ -75,39 +115,19 @@ jobs:
           SRC="${NG_MACOS_WEBKIT_SRC:-$HOME/webkit-src}"
           echo "WEBKIT_SRC=$SRC" >> "$GITHUB_ENV"
           echo "WEBKITIUM_BROWSER_SHELL_TARGET=macos" >> "$GITHUB_ENV"
-          ARCHIVE="${RUNNER_TEMP}/webkit-pin.tar.gz"
-          rm -rf "$SRC"
-          mkdir -p "$SRC"
-          cd "$RUNNER_TEMP"
-          gh release download "${WEBKIT_PIN_RELEASE_TAG:?WEBKIT_PIN_RELEASE_TAG missing — run Load CI matrix step}" \
-            --repo "$GITHUB_REPOSITORY" \
-            --pattern "${WEBKIT_PIN_PART_GLOB:?WEBKIT_PIN_PART_GLOB missing}"
-          shopt -s nullglob
-          parts=( ${WEBKIT_PIN_PART_GLOB} )
-          if (( ${#parts[@]} == 0 )); then
-            echo "::error::No tarball parts matched WEBKIT_PIN_PART_GLOB after gh release download"
-            exit 1
-          fi
-          cat "${parts[@]}" > "$ARCHIVE"
-          rm -f ${WEBKIT_PIN_PART_GLOB}
-          shopt -u nullglob
-          [[ -s "$ARCHIVE" ]] || { echo "::error::Stitched webkit-pin archive is empty"; exit 1; }
-          tar -xzf "$ARCHIVE" --strip-components=1 -C "$SRC"
-          rm -f "$ARCHIVE"
+          bash "$GITHUB_WORKSPACE/scripts/ci_prepare_webkit_source.sh" "$SRC"
           if [[ ! -d "$SRC/Source" ]]; then
             echo "::error::Extraction failed — Source/ directory missing"
             exit 1
           fi
-          python3 "$GITHUB_WORKSPACE/config/verify_webkit_pin_commit.py" \
+          python3 "$GITHUB_WORKSPACE/config/apply_webkit_patches.py" \
+            --repo-root "$GITHUB_WORKSPACE" \
             --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" \
-            --webkit-root "$SRC"
+            --changes "$GITHUB_WORKSPACE/config/changes.json" \
+            --webkit-root "$SRC" \
+            --platform macos \
+            --mode apply
           echo "Source ready at $SRC"
-          for patch in "$GITHUB_WORKSPACE"/webkit/patches/common/*.patch "$GITHUB_WORKSPACE"/webkit/patches/macos/*.patch; do
-            [[ -f "$patch" ]] || continue
-            echo "Applying $(basename "$patch")"
-            git -C "$SRC" apply --check --whitespace=nowarn --unidiff-zero "$patch"
-            git -C "$SRC" apply --whitespace=nowarn --unidiff-zero "$patch"
-          done
 
       - name: Build
         run: |

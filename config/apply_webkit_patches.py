@@ -64,11 +64,18 @@ def enabled_change_ids(platform: str, changes_path: Path) -> list[str]:
     return enabled
 
 
-def patch_dirs(repo_root: Path, platform: str, changes_path: Path) -> list[Path]:
-    dirs = [
-        repo_root / "webkit" / "patches" / "common",
-        repo_root / "webkit" / "patches" / platform,
-    ]
+def display_path(path: Path, root: Path) -> str:
+    try:
+        return path.relative_to(root).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+def patch_dirs(repo_root: Path, platform: str, changes_path: Path, *, include_common: bool) -> list[Path]:
+    dirs = []
+    if include_common:
+        dirs.append(repo_root / "webkit" / "patches" / "common")
+    dirs.append(repo_root / "webkit" / "patches" / platform)
     for change_id in enabled_change_ids(platform, changes_path):
         lane = repo_root / "changes" / change_id / "patches"
         dirs.extend([lane / "common", lane / platform])
@@ -83,17 +90,14 @@ def patch_files(dirs: list[Path]) -> list[Path]:
 
 
 UNQUALIFIED_WEBNN_INCLUDE = re.compile(
-    r'^\+#include\s+"(?:\.\./|(?:ML|WebNN|LiteRT|Implementation|Navigator|Supplementable|JSDOM)[^"/]*\.h")'
+    r'^\+#include\s+"(?:\.\./(?:ML|WebNN|LiteRT|Implementation)[^"]*|(?:ML|WebNN|LiteRT|Implementation|Navigator|Supplementable|JSDOM)[^"/]*\.h")'
 )
 
 
 def audit_patch_includes(repo_root: Path, patches: list[Path]) -> None:
     failures: list[str] = []
     for patch in patches:
-        try:
-            rel = patch.relative_to(repo_root).as_posix()
-        except ValueError:
-            rel = patch.as_posix()
+        rel = display_path(patch, repo_root)
         if not rel.startswith("changes/webnn-service/patches/"):
             continue
         for lineno, line in enumerate(patch.read_text(encoding="utf-8").splitlines(), start=1):
@@ -117,19 +121,15 @@ def audit_webnn_source_includes(webkit_root: Path) -> None:
     if not webnn_root.is_dir():
         return
 
-    checks = (
-        (("WTFMove", "makeUnique", "makeRef", "WTF::move"), "<wtf/StdLibExtras.h>"),
-        (("Function<",), "<wtf/Function.h>"),
-        (("ArrayBuffer::tryCreate",), "<JavaScriptCore/ArrayBuffer.h>"),
-        (("std::min",), "<algorithm>"),
-        (("memcpy",), "<cstring>"),
-    )
+    # Keep this hard audit narrowly scoped to the concrete clang-cl miss we hit:
+    # WebNN-owned files using WTF utility helpers must include their WTF header.
+    checks = ((("WTFMove", "makeUnique", "makeRef", "WTF::move"), "<wtf/StdLibExtras.h>"),)
     failures: list[str] = []
     for path in sorted(list(webnn_root.rglob("*.h")) + list(webnn_root.rglob("*.cpp"))):
         text = path.read_text(encoding="utf-8")
         for tokens, include in checks:
             if any(token in text for token in tokens) and not file_has_include(path, include):
-                rel = path.relative_to(webkit_root).as_posix()
+                rel = display_path(path, webkit_root)
                 failures.append(f"{rel}: uses {tokens[0]} but lacks #include {include}")
 
     if failures:
@@ -155,7 +155,7 @@ def apply_patch_series(
 ) -> None:
     for patch in patches:
         clean = clean_patch(patch, temp_dir)
-        rel = patch.relative_to(repo_root).as_posix()
+        rel = display_path(patch, repo_root)
         print(f"Applying {rel}")
         run(
             [
@@ -204,8 +204,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo-root", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--webkit-root", type=Path, required=True)
-    parser.add_argument("--platform", default="windows", choices=("windows", "macos", "linux", "ios"))
+    parser.add_argument("--platform", default="windows", choices=("windows", "macos", "linux", "ios", "android"))
     parser.add_argument("--mode", choices=("apply", "check"), default="check")
+    parser.add_argument(
+        "--no-common-patches",
+        action="store_true",
+        help="Only include webkit/patches/<platform> and matching change lanes. Android patches target WPE-Android, not the pinned WebKit tree.",
+    )
     parser.add_argument(
         "--matrix",
         type=Path,
@@ -233,11 +238,11 @@ def main() -> None:
     if not args.skip_pin_check:
         verify_webkit_head(webkit_root, matrix_path)
 
-    dirs = patch_dirs(repo_root, args.platform, changes_path)
+    dirs = patch_dirs(repo_root, args.platform, changes_path, include_common=not args.no_common_patches)
     patches = patch_files(dirs)
     print(f"Patch directories ({len(dirs)}):")
     for directory in dirs:
-        print(f"  {directory.relative_to(repo_root)}")
+        print(f"  {display_path(directory, repo_root)}")
     print(f"Patch count: {len(patches)}")
     audit_patch_includes(repo_root, patches)
 

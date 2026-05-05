@@ -33,8 +33,47 @@ defaults:
     shell: bash
 
 jobs:
+  patches:
+    name: iOS WebKit Patch Check
+    runs-on:
+      - self-hosted
+      - macOS
+      - ARM64
+      - webkitium
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Load CI matrix into environment
+        run: |
+          set -euo pipefail
+          python3 "$GITHUB_WORKSPACE/config/ci_matrix_env.py" \
+            --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" >> "$GITHUB_ENV"
+
+      - name: Check iOS WebKit patch series
+        run: |
+          set -euo pipefail
+          export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
+          SRC="${NG_IOS_PATCH_CHECK_PATH:-$HOME/W/webkit-ios-patch-check}"
+          bash "$GITHUB_WORKSPACE/scripts/ci_prepare_webkit_source.sh" "$SRC"
+          python3 "$GITHUB_WORKSPACE/config/apply_webkit_patches.py" \
+            --repo-root "$GITHUB_WORKSPACE" \
+            --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" \
+            --changes "$GITHUB_WORKSPACE/config/changes.json" \
+            --webkit-root "$SRC" \
+            --platform ios \
+            --mode check
+
+      - name: Cleanup patch check source
+        if: always()
+        run: |
+          rm -rf "${NG_IOS_PATCH_CHECK_PATH:-$HOME/W/webkit-ios-patch-check}"
+
   build:
     name: iOS Simulator WebKit Build
+    needs: [patches]
     runs-on:
       - self-hosted
       - macOS
@@ -91,12 +130,13 @@ jobs:
             --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" \
             --webkit-root "$SRC"
 
-          for patch in "$GITHUB_WORKSPACE"/webkit/patches/common/*.patch "$GITHUB_WORKSPACE"/webkit/patches/ios/*.patch; do
-            [[ -f "$patch" ]] || continue
-            echo "Applying $(basename "$patch")"
-            git -C "$SRC" apply --check --whitespace=nowarn --unidiff-zero "$patch"
-            git -C "$SRC" apply --whitespace=nowarn --unidiff-zero "$patch"
-          done
+          python3 "$GITHUB_WORKSPACE/config/apply_webkit_patches.py" \
+            --repo-root "$GITHUB_WORKSPACE" \
+            --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" \
+            --changes "$GITHUB_WORKSPACE/config/changes.json" \
+            --webkit-root "$SRC" \
+            --platform ios \
+            --mode apply
 
           {
             sw_vers || true
