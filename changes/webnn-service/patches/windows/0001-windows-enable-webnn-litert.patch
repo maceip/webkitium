@@ -3,7 +3,7 @@ new file mode 100644
 index 00000000000..a1b2c3d4e5f
 --- /dev/null
 +++ b/Source/cmake/FindLiteRT.cmake
-@@ -0,0 +1,89 @@
+@@ -0,0 +1,41 @@
 +# FindLiteRT.cmake
 +#
 +# WebNN backend uses LiteRT (TFLite successor) via RUNTIME LOADING.
@@ -72,7 +72,7 @@ diff --git a/Source/WebCore/PlatformWin.cmake b/Source/WebCore/PlatformWin.cmake
 index 00000000001..00000000002 100644
 --- a/Source/WebCore/PlatformWin.cmake
 +++ b/Source/WebCore/PlatformWin.cmake
-@@ -250,3 +250,17 @@
+@@ -250,3 +250,14 @@
  if (USE_SKIA)
      list(APPEND WebCore_PRIVATE_LIBRARIES ${SHARPYUV_LIBS})
  endif ()
