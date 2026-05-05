@@ -86,7 +86,6 @@ index 00000000001..00000000002 100644
 +        Modules/WebNN/ML.cpp
 +        Modules/WebNN/NavigatorML.cpp
 +    )
-
 +endif ()
 diff --git a/Tools/Scripts/webkitperl/FeatureList.pm b/Tools/Scripts/webkitperl/FeatureList.pm
 index 2cdd50532f7..e3f4a5b6c7d 100644
