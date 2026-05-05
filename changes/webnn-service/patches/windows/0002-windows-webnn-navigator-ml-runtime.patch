@@ -165,7 +165,7 @@ new file mode 100644
 index 00000000000..e5f6a7b8c9d
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/ML.cpp
-@@ -0,0 +1,58 @@
+@@ -0,0 +1,59 @@
 +/*
 + * Copyright (C) 2024-2026 Webkitium Contributors
 + */
@@ -178,6 +178,7 @@ index 00000000000..e5f6a7b8c9d
 +#include "MLContext.h"
 +#include "MLContextOptions.h"
 +#include "JSDOMPromiseDeferred.h"
++#include <wtf/StdLibExtras.h>
 +#include "Implementation/WebNNLiteRTContext.h"
 +#include "Implementation/LiteRTLoader.h"
 +
