@@ -3,7 +3,7 @@ new file mode 100644
 index 0000000000..18a6ce387c
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/ML.cpp
-@@ -0,0 +1,60 @@
+@@ -0,0 +1,59 @@
 +/*
 + * Copyright (C) 2024-2026 Webkitium Contributors
 + */
@@ -17,7 +17,6 @@ index 0000000000..18a6ce387c
 +#include "Modules/WebNN/MLContextOptions.h"
 +#include "Modules/WebNN/Implementation/LiteRTLoader.h"
 +#include "Modules/WebNN/Implementation/WebNNLiteRTContext.h"
-+#include "bindings/js/JSDOMConvertInterface.h"
 +#include "bindings/js/JSDOMPromiseDeferred.h"
 +#include <wtf/StdLibExtras.h>
 +
@@ -58,7 +57,7 @@ index 0000000000..18a6ce387c
 +        return;
 +    }
 +
-+    promise->resolve<IDLInterface<MLContext>>(mlContext.releaseNonNull());
++    promise->resolve();
 +}
 +
 +} // namespace WebCore
