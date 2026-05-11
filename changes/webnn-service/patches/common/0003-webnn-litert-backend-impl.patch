@@ -531,9 +531,10 @@ diff --git a/Source/WebCore/Modules/WebNN/MLOperand.h b/Source/WebCore/Modules/W
 index 39f850acab..13904c00fe 100644
 --- a/Source/WebCore/Modules/WebNN/MLOperand.h
 +++ b/Source/WebCore/Modules/WebNN/MLOperand.h
-@@ -7,7 +7,9 @@
+@@ -7,8 +7,10 @@
  #if ENABLE(WEBNN)
  
+ #include <wtf/Ref.h>
  #include <wtf/RefCounted.h>
 +#include <wtf/StdLibExtras.h>
  #include <wtf/Vector.h>

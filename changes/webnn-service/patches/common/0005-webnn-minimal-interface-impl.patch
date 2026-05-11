@@ -78,12 +78,13 @@ new file mode 100644
 index 0000000000..2a3b4c5d6e
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/MLGraph.cpp
-@@ -0,0 +1,24 @@
+@@ -0,0 +1,25 @@
 +#include "config.h"
 +#include "Modules/WebNN/MLGraph.h"
 +
 +#if ENABLE(WEBNN)
 +
++#include "Modules/WebNN/Implementation/WebNNGraphImpl.h"
 +#include <wtf/StdLibExtras.h>
 +
 +namespace WebCore {

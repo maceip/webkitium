@@ -3,7 +3,7 @@ new file mode 100644
 index 0000000000..939b503394
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/MLContext.h
-@@ -0,0 +1,55 @@
+@@ -0,0 +1,56 @@
 +/*
 + * https://webmachinelearning.github.io/webnn/#api-mlcontext
 + */
@@ -13,6 +13,7 @@ index 0000000000..939b503394
 +#if ENABLE(WEBNN)
 +
 +#include "Modules/WebNN/MLContextOptions.h"
++#include <wtf/Ref.h>
 +#include <wtf/RefCounted.h>
 +#include <wtf/RefPtr.h>
 +#include <wtf/HashMap.h>
@@ -155,7 +156,7 @@ new file mode 100644
 index 0000000000..4fbbf181a5
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/MLGraph.h
-@@ -0,0 +1,33 @@
+@@ -0,0 +1,34 @@
 +/*
 + * https://webmachinelearning.github.io/webnn/#api-mlgraph
 + */
@@ -164,6 +165,7 @@ index 0000000000..4fbbf181a5
 +
 +#if ENABLE(WEBNN)
 +
++#include <wtf/Ref.h>
 +#include <wtf/RefCounted.h>
 +#include <memory>
 +
@@ -363,7 +365,7 @@ new file mode 100644
 index 0000000000..39f850acab
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/MLOperand.h
-@@ -0,0 +1,49 @@
+@@ -0,0 +1,50 @@
 +/*
 + * https://webmachinelearning.github.io/webnn/#api-mloperand
 + */
@@ -372,6 +374,7 @@ index 0000000000..39f850acab
 +
 +#if ENABLE(WEBNN)
 +
++#include <wtf/Ref.h>
 +#include <wtf/RefCounted.h>
 +#include <wtf/Vector.h>
 +#include <wtf/text/WTFString.h>
@@ -436,7 +439,7 @@ new file mode 100644
 index 0000000000..680e59e20c
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/MLTensor.h
-@@ -0,0 +1,48 @@
+@@ -0,0 +1,49 @@
 +/*
 + * https://webmachinelearning.github.io/webnn/#api-mltensor
 + */
@@ -445,6 +448,7 @@ index 0000000000..680e59e20c
 +
 +#if ENABLE(WEBNN)
 +
++#include <wtf/Ref.h>
 +#include <wtf/RefCounted.h>
 +#include <wtf/Vector.h>
 +#include <wtf/text/WTFString.h>
