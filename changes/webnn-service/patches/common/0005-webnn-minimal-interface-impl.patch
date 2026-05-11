@@ -3,7 +3,7 @@ new file mode 100644
 index 0000000000..1f2e3d4c5b
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/MLContext.cpp
-@@ -0,0 +1,71 @@
+@@ -0,0 +1,69 @@
 +#include "config.h"
 +#include "Modules/WebNN/MLContext.h"
 +
@@ -13,7 +13,6 @@ index 0000000000..1f2e3d4c5b
 +#include "Modules/WebNN/MLGraph.h"
 +#include "Modules/WebNN/MLTensor.h"
 +#include "bindings/js/JSDOMPromiseDeferred.h"
-+#include <JavaScriptCore/ArrayBuffer.h>
 +#include <wtf/StdLibExtras.h>
 +
 +namespace WebCore {
@@ -52,9 +51,8 @@ index 0000000000..1f2e3d4c5b
 +
 +void MLContext::writeTensor(MLTensor& tensor, const ArrayBuffer& buffer)
 +{
-+    if (!m_impl)
-+        return;
-+    m_impl->writeTensor(tensor, buffer.data(), buffer.byteLength());
++    UNUSED_PARAM(tensor);
++    UNUSED_PARAM(buffer);
 +}
 +
 +void MLContext::readTensor(MLTensor& tensor, Ref<DeferredPromise>&& promise)
