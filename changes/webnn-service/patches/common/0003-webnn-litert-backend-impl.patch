@@ -40,7 +40,7 @@ index 0000000000..bc55fa2d78
 +private:
 +    LiteRTTensor(MLTensorDescriptor&& desc, size_t byteLength)
 +        : MLTensor(WTF::move(desc))
-+        , m_buffer(byteLength, 0)
++        , m_buffer(byteLength)
 +    {
 +    }
 +
