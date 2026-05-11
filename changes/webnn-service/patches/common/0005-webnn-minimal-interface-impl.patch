@@ -1,0 +1,191 @@
+diff --git a/Source/WebCore/Modules/WebNN/MLContext.cpp b/Source/WebCore/Modules/WebNN/MLContext.cpp
+new file mode 100644
+index 0000000000..1f2e3d4c5b
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/MLContext.cpp
+@@ -0,0 +1,71 @@
++#include "config.h"
++#include "Modules/WebNN/MLContext.h"
++
++#if ENABLE(WEBNN)
++
++#include "Modules/WebNN/Implementation/WebNNContextImpl.h"
++#include "Modules/WebNN/MLGraph.h"
++#include "Modules/WebNN/MLTensor.h"
++#include "bindings/js/JSDOMPromiseDeferred.h"
++#include <JavaScriptCore/ArrayBuffer.h>
++#include <wtf/StdLibExtras.h>
++
++namespace WebCore {
++
++RefPtr<MLContext> MLContext::create(std::unique_ptr<WebNN::WebNNContextImpl>&& impl)
++{
++    if (!impl)
++        return nullptr;
++    return adoptRef(*new MLContext(WTF::move(impl)));
++}
++
++MLContext::MLContext(std::unique_ptr<WebNN::WebNNContextImpl>&& impl)
++    : m_impl(WTF::move(impl))
++{
++    if (m_impl)
++        m_devicePreference = m_impl->devicePreference();
++}
++
++MLContext::~MLContext() = default;
++
++void MLContext::createTensor(MLTensorDescriptor&& descriptor, Ref<DeferredPromise>&& promise)
++{
++    if (!m_impl) {
++        promise->reject(Exception { ExceptionCode::InvalidStateError, "WebNN context is not initialized"_s });
++        return;
++    }
++
++    auto tensor = m_impl->createTensor(WTF::move(descriptor));
++    if (!tensor) {
++        promise->reject(Exception { ExceptionCode::OperationError, "WebNN tensor creation failed"_s });
++        return;
++    }
++
++    promise->resolve();
++}
++
++void MLContext::writeTensor(MLTensor& tensor, const ArrayBuffer& buffer)
++{
++    if (!m_impl)
++        return;
++    m_impl->writeTensor(tensor, buffer.data(), buffer.byteLength());
++}
++
++void MLContext::readTensor(MLTensor& tensor, Ref<DeferredPromise>&& promise)
++{
++    if (!m_impl) {
++        promise->reject(Exception { ExceptionCode::InvalidStateError, "WebNN context is not initialized"_s });
++        return;
++    }
++    m_impl->readTensor(tensor, [promise = WTF::move(promise)](RefPtr<JSC::ArrayBuffer>) mutable {
++        promise->resolve();
++    });
++}
++
++void MLContext::dispatch(MLGraph&, MLNamedTensors&&, MLNamedTensors&&)
++{
++}
++
++} // namespace WebCore
++
++#endif // ENABLE(WEBNN)
+diff --git a/Source/WebCore/Modules/WebNN/MLGraph.cpp b/Source/WebCore/Modules/WebNN/MLGraph.cpp
+new file mode 100644
+index 0000000000..2a3b4c5d6e
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/MLGraph.cpp
+@@ -0,0 +1,24 @@
++#include "config.h"
++#include "Modules/WebNN/MLGraph.h"
++
++#if ENABLE(WEBNN)
++
++#include <wtf/StdLibExtras.h>
++
++namespace WebCore {
++
++Ref<MLGraph> MLGraph::create(std::unique_ptr<WebNN::WebNNGraphImpl>&& impl)
++{
++    return adoptRef(*new MLGraph(WTF::move(impl)));
++}
++
++MLGraph::MLGraph(std::unique_ptr<WebNN::WebNNGraphImpl>&& impl)
++    : m_impl(WTF::move(impl))
++{
++}
++
++MLGraph::~MLGraph() = default;
++
++} // namespace WebCore
++
++#endif // ENABLE(WEBNN)
+diff --git a/Source/WebCore/Modules/WebNN/MLOperand.cpp b/Source/WebCore/Modules/WebNN/MLOperand.cpp
+new file mode 100644
+index 0000000000..3b4c5d6e7f
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/MLOperand.cpp
+@@ -0,0 +1,40 @@
++#include "config.h"
++#include "Modules/WebNN/MLOperand.h"
++
++#if ENABLE(WEBNN)
++
++#include <wtf/StdLibExtras.h>
++
++namespace WebCore {
++
++Ref<MLOperand> MLOperand::createInput(const String& name, const String& dataType, Vector<unsigned>&& dimensions)
++{
++    return adoptRef(*new MLOperand(Kind::Input, name, dataType, WTF::move(dimensions)));
++}
++
++Ref<MLOperand> MLOperand::createConstant(const String& dataType, Vector<unsigned>&& dimensions, const void* data, size_t byteLength)
++{
++    auto operand = adoptRef(*new MLOperand(Kind::Constant, emptyString(), dataType, WTF::move(dimensions)));
++    operand->m_constantData = data;
++    operand->m_constantByteLength = byteLength;
++    return operand;
++}
++
++Ref<MLOperand> MLOperand::createOutput(const String& dataType, Vector<unsigned>&& dimensions)
++{
++    return adoptRef(*new MLOperand(Kind::Output, emptyString(), dataType, WTF::move(dimensions)));
++}
++
++MLOperand::MLOperand(Kind kind, const String& name, const String& dataType, Vector<unsigned>&& dimensions)
++    : m_kind(kind)
++    , m_name(name)
++    , m_dataType(dataType)
++    , m_dimensions(WTF::move(dimensions))
++{
++}
++
++MLOperand::~MLOperand() = default;
++
++} // namespace WebCore
++
++#endif // ENABLE(WEBNN)
+diff --git a/Source/WebCore/Modules/WebNN/MLTensor.cpp b/Source/WebCore/Modules/WebNN/MLTensor.cpp
+new file mode 100644
+index 0000000000..4c5d6e7f8a
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/MLTensor.cpp
+@@ -0,0 +1,32 @@
++#include "config.h"
++#include "Modules/WebNN/MLTensor.h"
++
++#if ENABLE(WEBNN)
++
++#include <wtf/StdLibExtras.h>
++
++namespace WebCore {
++
++Ref<MLTensor> MLTensor::create(MLTensorDescriptor&& descriptor)
++{
++    return adoptRef(*new MLTensor(WTF::move(descriptor)));
++}
++
++MLTensor::MLTensor(MLTensorDescriptor&& descriptor)
++    : m_dataType(WTF::move(descriptor.dataType))
++    , m_shape(WTF::move(descriptor.shape))
++    , m_readable(descriptor.readable)
++    , m_writable(descriptor.writable)
++{
++}
++
++MLTensor::~MLTensor() = default;
++
++void MLTensor::destroy()
++{
++    m_destroyed = true;
++}
++
++} // namespace WebCore
++
++#endif // ENABLE(WEBNN)
