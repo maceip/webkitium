@@ -25,6 +25,8 @@ if [[ -z "$CACHE" ]]; then
   else
     cache_roots=()
     [[ -n "${XDG_CACHE_HOME:-}" ]] && cache_roots+=("${XDG_CACHE_HOME}/webkitium/webkit-pin")
+    [[ -n "${HOME:-}" ]] && cache_roots+=("${HOME}/W/webkit-pin-cache")
+    [[ -n "${HOME:-}" ]] && cache_roots+=("${HOME}/webkit-pin-cache")
     [[ -n "${HOME:-}" ]] && cache_roots+=("${HOME}/.cache/webkitium/webkit-pin")
     [[ -n "${RUNNER_TEMP:-}" ]] && cache_roots+=("${RUNNER_TEMP}/webkitium/webkit-pin")
     cache_roots+=("${TMPDIR:-/tmp}/webkitium-${USER:-$(id -u)}/webkit-pin")
