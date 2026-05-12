@@ -72,6 +72,14 @@ verify_checkout() {
   "$PYTHON" "$VERIFY" --matrix "$MATRIX" --webkit-root "$path" >/dev/null
 }
 
+if verify_checkout "$DEST"; then
+  echo "Using existing WebKit source at $DEST"
+  reset_checkout "$DEST"
+  "$PYTHON" "$VERIFY" --matrix "$MATRIX" --webkit-root "$DEST"
+  echo "Source ready at $DEST"
+  exit 0
+fi
+
 ensure_cache() {
   if verify_checkout "$CACHE"; then
     echo "Using cached WebKit pin at $CACHE"
