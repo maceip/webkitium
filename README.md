@@ -1,4 +1,4 @@
-# Webkitium
+<img width="599" alt="image" src="https://github.com/user-attachments/assets/e9e1b6a3-a827-4cf8-9390-8258b4ffbad1" />
 
 Browser-on-WebKit monorepo: **orchestrator**, **downstream WebKit** (single patch tree), **per-platform chrome**, **shared portable C++**.
 
