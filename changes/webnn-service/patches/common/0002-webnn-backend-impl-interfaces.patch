@@ -15,6 +15,8 @@ index 00000000000..a1b2c3d4e5f
 +
 +#include "Modules/WebNN/MLContextOptions.h"
 +#include "Modules/WebNN/MLTensor.h"
++#include <JavaScriptCore/ArrayBuffer.h>
++#include <wtf/FastMalloc.h>
 +#include <wtf/RefPtr.h>
 +#include <wtf/HashMap.h>
 +#include <wtf/text/WTFString.h>
@@ -24,14 +26,12 @@ index 00000000000..a1b2c3d4e5f
 +namespace WebCore {
 +
 +class MLGraph;
-+class ArrayBuffer;
-+
++class MLOperand;
 +namespace WebNN {
 +
 +class WebNNGraphImpl;
 +
 +class WebNNContextImpl {
-+    WTF_MAKE_FAST_ALLOCATED;
 +public:
 +    virtual ~WebNNContextImpl() = default;
 +
@@ -40,7 +40,7 @@ index 00000000000..a1b2c3d4e5f
 +    virtual RefPtr<MLTensor> createTensor(MLTensorDescriptor&&) = 0;
 +    virtual void writeTensor(MLTensor&, const void* data, size_t byteLength) = 0;
 +    virtual void readTensor(MLTensor&,
-+                            std::function<void(RefPtr<ArrayBuffer>)>&&) = 0;
++                            std::function<void(RefPtr<JSC::ArrayBuffer>)>&&) = 0;
 +
 +    virtual void dispatch(WebNNGraphImpl&,
 +                          HashMap<String, RefPtr<MLTensor>>& inputs,
@@ -48,7 +48,7 @@ index 00000000000..a1b2c3d4e5f
 +                          std::function<void(bool)>&&) = 0;
 +
 +    virtual std::unique_ptr<WebNNGraphImpl> buildGraph(
-+        HashMap<String, RefPtr<class MLOperand>>& outputs) = 0;
++        HashMap<String, RefPtr<WebCore::MLOperand>>& outputs) = 0;
 +};
 +
 +} // namespace WebNN
@@ -69,6 +69,7 @@ index 00000000000..b2c3d4e5f6a
 +
 +#if ENABLE(WEBNN)
 +
++#include <wtf/FastMalloc.h>
 +#include <wtf/HashMap.h>
 +#include <wtf/text/WTFString.h>
 +
@@ -76,7 +77,6 @@ index 00000000000..b2c3d4e5f6a
 +namespace WebNN {
 +
 +class WebNNGraphImpl {
-+    WTF_MAKE_FAST_ALLOCATED;
 +public:
 +    virtual ~WebNNGraphImpl() = default;
 +

@@ -23,12 +23,36 @@ if [[ -z "$CACHE" ]]; then
   if command -v cygpath >/dev/null 2>&1; then
     CACHE="$(cygpath -u "C:/W/webkit-pin-cache/$EXPECTED_COMMIT")"
   else
-    CACHE="${HOME}/.cache/webkitium/webkit-pin/$EXPECTED_COMMIT"
+    cache_roots=()
+    [[ -n "${XDG_CACHE_HOME:-}" ]] && cache_roots+=("${XDG_CACHE_HOME}/webkitium/webkit-pin")
+    [[ -n "${HOME:-}" ]] && cache_roots+=("${HOME}/W/webkit-pin-cache")
+    [[ -n "${HOME:-}" ]] && cache_roots+=("${HOME}/webkit-pin-cache")
+    [[ -n "${HOME:-}" ]] && cache_roots+=("${HOME}/.cache/webkitium/webkit-pin")
+    [[ -n "${RUNNER_TEMP:-}" ]] && cache_roots+=("${RUNNER_TEMP}/webkitium/webkit-pin")
+    cache_roots+=("${TMPDIR:-/tmp}/webkitium-${USER:-$(id -u)}/webkit-pin")
+
+    for root in "${cache_roots[@]}"; do
+      [[ -n "$root" ]] || continue
+      candidate="$root/$EXPECTED_COMMIT"
+      parent="$(dirname "$candidate")"
+      if mkdir -p "$parent" 2>/dev/null && [[ -w "$parent" ]]; then
+        CACHE="$candidate"
+        break
+      fi
+    done
+
+    [[ -n "$CACHE" ]] || { echo "::error::No writable WebKit pin cache directory found"; exit 1; }
   fi
 fi
 
 git_safe() {
   git -c "safe.directory=$1" -C "$1" "${@:2}"
+}
+
+reset_checkout() {
+  local path="$1"
+  git_safe "$path" reset --hard HEAD >/dev/null
+  git_safe "$path" clean -ffdx >/dev/null
 }
 
 remove_path() {
@@ -48,9 +72,18 @@ verify_checkout() {
   "$PYTHON" "$VERIFY" --matrix "$MATRIX" --webkit-root "$path" >/dev/null
 }
 
+if verify_checkout "$DEST"; then
+  echo "Using existing WebKit source at $DEST"
+  reset_checkout "$DEST"
+  "$PYTHON" "$VERIFY" --matrix "$MATRIX" --webkit-root "$DEST"
+  echo "Source ready at $DEST"
+  exit 0
+fi
+
 ensure_cache() {
   if verify_checkout "$CACHE"; then
     echo "Using cached WebKit pin at $CACHE"
+    reset_checkout "$CACHE"
     return
   fi
 
@@ -102,6 +135,7 @@ git_safe "$CACHE" worktree remove --force "$DEST" >/dev/null 2>&1 || true
 remove_path "$DEST"
 mkdir -p "$(dirname "$DEST")"
 git_safe "$CACHE" worktree add --detach "$DEST" HEAD
+reset_checkout "$DEST"
 "$PYTHON" "$VERIFY" --matrix "$MATRIX" --webkit-root "$DEST"
 
 echo "Source ready at $DEST"

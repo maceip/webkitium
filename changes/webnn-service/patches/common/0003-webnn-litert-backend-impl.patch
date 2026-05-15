@@ -3,7 +3,7 @@ new file mode 100644
 index 0000000000..bc55fa2d78
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTContext.cpp
-@@ -0,0 +1,190 @@
+@@ -0,0 +1,189 @@
 +#include "config.h"
 +#include "Modules/WebNN/Implementation/WebNNLiteRTContext.h"
 +
@@ -26,21 +26,21 @@ index 0000000000..bc55fa2d78
 +public:
 +    static Ref<LiteRTTensor> create(MLTensorDescriptor&& desc, size_t byteLength)
 +    {
-+        return adoptRef(*new LiteRTTensor(WTFMove(desc), byteLength));
++        return adoptRef(*new LiteRTTensor(WTF::move(desc), byteLength));
 +    }
 +
-+    void* data() { return m_buffer.data(); }
-+    const void* data() const { return m_buffer.data(); }
++    void* data() { return m_buffer.mutableSpan().data(); }
++    const void* data() const { return m_buffer.span().data(); }
 +    size_t byteLength() const { return m_buffer.size(); }
 +    void* backendHandle() const override
 +    {
-+        return const_cast<uint8_t*>(m_buffer.data());
++        return const_cast<uint8_t*>(m_buffer.span().data());
 +    }
 +
 +private:
 +    LiteRTTensor(MLTensorDescriptor&& desc, size_t byteLength)
-+        : MLTensor(WTFMove(desc))
-+        , m_buffer(byteLength, 0)
++        : MLTensor(WTF::move(desc))
++        , m_buffer(byteLength)
 +    {
 +    }
 +
@@ -137,7 +137,7 @@ index 0000000000..bc55fa2d78
 +RefPtr<MLTensor> LiteRTContext::createTensor(MLTensorDescriptor&& desc)
 +{
 +    size_t byteLen = tensorByteLength(desc.dataType, desc.shape);
-+    return LiteRTTensor::create(WTFMove(desc), byteLen);
++    return LiteRTTensor::create(WTF::move(desc), byteLen);
 +}
 +
 +void LiteRTContext::writeTensor(MLTensor& tensor, const void* data,
@@ -150,16 +150,15 @@ index 0000000000..bc55fa2d78
 +
 +void LiteRTContext::readTensor(
 +    MLTensor& tensor,
-+    std::function<void(RefPtr<ArrayBuffer>)>&& callback)
++    std::function<void(RefPtr<JSC::ArrayBuffer>)>&& callback)
 +{
-+    auto promise = std::make_shared<std::promise<RefPtr<ArrayBuffer>>>();
++    auto promise = std::make_shared<std::promise<RefPtr<JSC::ArrayBuffer>>>();
 +    auto future = promise->get_future();
 +
 +    postWork([&tensor, p = std::move(promise)]() {
 +        auto& lrtTensor = static_cast<LiteRTTensor&>(tensor);
-+        auto buffer = ArrayBuffer::tryCreate(lrtTensor.data(),
-+                                              lrtTensor.byteLength());
-+        p->set_value(WTFMove(buffer));
++        auto buffer = JSC::ArrayBuffer::tryCreate(std::span { static_cast<uint8_t*>(lrtTensor.data()), lrtTensor.byteLength() });
++        p->set_value(WTF::move(buffer));
 +    });
 +
 +    callback(future.get());
@@ -176,9 +175,9 @@ index 0000000000..bc55fa2d78
 +    auto& lrtGraph = static_cast<LiteRTGraph&>(graph);
 +
 +    postWork([this, &lrtGraph,
-+              ins = WTFMove(inputsCopy),
-+              outs = WTFMove(outputsCopy),
-+              cb = WTFMove(callback)]() mutable {
++              ins = WTF::move(inputsCopy),
++              outs = WTF::move(outputsCopy),
++              cb = WTF::move(callback)]() mutable {
 +        bool success = lrtGraph.run(this, ins, outs);
 +        cb(success);
 +    });
@@ -199,7 +198,7 @@ new file mode 100644
 index 0000000000..69392997d1
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTContext.h
-@@ -0,0 +1,69 @@
+@@ -0,0 +1,70 @@
 +/*
 + * WebNN context backed by LiteRT via runtime-loaded C API.
 + *
@@ -213,6 +212,7 @@ index 0000000000..69392997d1
 +
 +#include "Modules/WebNN/Implementation/WebNNContextImpl.h"
 +#include "Modules/WebNN/MLContextOptions.h"
++#include <JavaScriptCore/ArrayBuffer.h>
 +#include <memory>
 +#include <thread>
 +#include <mutex>
@@ -237,7 +237,7 @@ index 0000000000..69392997d1
 +    RefPtr<MLTensor> createTensor(MLTensorDescriptor&&) override;
 +    void writeTensor(MLTensor&, const void* data, size_t byteLength) override;
 +    void readTensor(MLTensor&,
-+                    std::function<void(RefPtr<ArrayBuffer>)>&&) override;
++                    std::function<void(RefPtr<JSC::ArrayBuffer>)>&&) override;
 +
 +    void dispatch(WebNNGraphImpl&,
 +                  HashMap<String, RefPtr<MLTensor>>& inputs,
@@ -531,9 +531,10 @@ diff --git a/Source/WebCore/Modules/WebNN/MLOperand.h b/Source/WebCore/Modules/W
 index 39f850acab..13904c00fe 100644
 --- a/Source/WebCore/Modules/WebNN/MLOperand.h
 +++ b/Source/WebCore/Modules/WebNN/MLOperand.h
-@@ -7,7 +7,9 @@
+@@ -7,8 +7,10 @@
  #if ENABLE(WEBNN)
  
+ #include <wtf/Ref.h>
  #include <wtf/RefCounted.h>
 +#include <wtf/StdLibExtras.h>
  #include <wtf/Vector.h>
@@ -548,7 +549,7 @@ index 39f850acab..13904c00fe 100644
 +    const String& operationType() const { return m_operationType; }
 +    const Vector<RefPtr<MLOperand>>& inputOperands() const { return m_inputOperands; }
 +    void setOperationType(const String& op) { m_operationType = op; }
-+    void addInputOperand(RefPtr<MLOperand> operand) { m_inputOperands.append(WTFMove(operand)); }
++    void addInputOperand(RefPtr<MLOperand> operand) { m_inputOperands.append(WTF::move(operand)); }
 +
 +    const void* constantData() const { return m_constantData; }
 +    size_t constantByteLength() const { return m_constantByteLength; }

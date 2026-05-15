@@ -50,14 +50,14 @@ index 0000000000..18a6ce387c
 +        return;
 +    }
 +
-+    auto mlContext = MLContext::create(WTFMove(backendContext));
++    auto mlContext = MLContext::create(WTF::move(backendContext));
 +    if (!mlContext) {
 +        promise->reject(Exception { ExceptionCode::NotSupportedError,
 +            "WebNN: failed to wrap ML context"_s });
 +        return;
 +    }
 +
-+    promise->resolve<IDLInterface<MLContext>>(mlContext.releaseNonNull());
++    promise->resolve();
 +}
 +
 +} // namespace WebCore

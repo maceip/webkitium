@@ -9,7 +9,7 @@ name: windows-release
 
 on:
   push:
-    branches: [master]
+    branches: [master, macprimeci-action-green-verify-b14f]
   workflow_dispatch:
     inputs:
       release_tag:

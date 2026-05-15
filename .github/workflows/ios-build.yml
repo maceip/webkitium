@@ -9,7 +9,7 @@ name: ios-release
 
 on:
   push:
-    branches: [master]
+    branches: [master, macprimeci-action-green-verify-b14f]
   workflow_dispatch:
     inputs:
       release_tag:
@@ -40,6 +40,7 @@ jobs:
       - macOS
       - ARM64
       - webkitium
+    timeout-minutes: 180
     env:
       GH_TOKEN: ${{ github.token }}
       GITHUB_TOKEN: ${{ github.token }}
