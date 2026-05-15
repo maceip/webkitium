@@ -65,6 +65,10 @@ final class BrowserViewModel {
     enum TabStripMode: Hashable { case horizontal, vertical }
     var tabStripMode: TabStripMode = .horizontal
 
+    /// Drives `NavigationSplitView.columnVisibility`. The sidebar's hide-sidebar icon
+    /// toggles this between `.all` (sidebar shown) and `.detailOnly` (sidebar hidden).
+    var sidebarVisibility: NavigationSplitViewVisibility = .all
+
     // Tab overview
     var showTabs: Bool = false
     var overviewSearch: String = ""

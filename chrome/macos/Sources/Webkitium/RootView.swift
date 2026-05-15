@@ -12,12 +12,12 @@ struct RootView: View {
     var body: some View {
         @Bindable var browserBinding = browser
 
-        NavigationSplitView(columnVisibility: .constant(.all)) {
+        NavigationSplitView(columnVisibility: $browserBinding.sidebarVisibility) {
             SidebarView(tabMorph: tabMorph)
-                // Wide drag range so the framework divider has room to resize; matches
-                // Safari which lets you pull the sidebar from skinny-tab-only (~120pt) to
-                // wide-with-titles (~420pt).
-                .navigationSplitViewColumnWidth(min: 120, ideal: 220, max: 420)
+                // Per spec (design/toolbar-spec.md): default sidebar should be wide
+                // enough to show full tab titles. The previous ideal of 220 truncated
+                // most titles; 260 matches Safari's default at first launch.
+                .navigationSplitViewColumnWidth(min: 200, ideal: 260, max: 420)
                 .toolbar(removing: .sidebarToggle)
                 // Private tint on the sidebar container.
                 .privateChromeTint(browser.isPrivate)

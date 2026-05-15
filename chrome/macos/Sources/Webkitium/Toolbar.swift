@@ -1,10 +1,15 @@
 import SwiftUI
 
-/// The window toolbar. Matches Safari's layout exactly:
-///   • Left:   `[< | >]`  back/forward in one Liquid Glass pill with hairline divider.
-///   • Center: URL field — reader/search/text/reload, with autocomplete dropdown.
-///   • Right:  `[⊕ ⇧ + ▢ ↓]` — extensions / share / new tab / overview / downloads in one
-///             glass pill.
+/// The window toolbar. **Locked spec:** `design/toolbar-spec.md`
+/// (single source of truth — change that file + the reference PNG
+/// BEFORE changing this code).
+///
+///   • Left:   `[< >]`     back/forward in one Liquid Glass pill, **no internal divider**.
+///   • Center: URL field   — cursor leading-aligned when focused.
+///   • Right:  `[⇧ + ▢]`   share / new tab / overview. **3 icons only.**
+///                          Share greys out when there's no active page.
+///                          Extensions / downloads / add-to-dock are NOT in the toolbar
+///                          (menu-reachable only) per the spec.
 struct TopToolbar: ToolbarContent {
     @Environment(BrowserViewModel.self) private var browser
 
@@ -25,13 +30,17 @@ struct TopToolbar: ToolbarContent {
     // MARK: - Back / Forward pill
 
     private var backForwardPill: some View {
+        // Per spec: the **pill** is the only border. Inner buttons must NOT draw their
+        // own top/bottom edges. `.buttonStyle(.plain)` strips all chrome — `.borderless`
+        // still rendered hover/pressed bands that showed up as horizontal lines.
         HStack(spacing: 0) {
             Button { browser.goBack() } label: {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 13, weight: .medium))
                     .frame(width: 28, height: 22)
+                    .contentShape(Rectangle())
             }
-            .buttonStyle(.borderless)
+            .buttonStyle(.plain)
             .disabled(!browser.canGoBack)
 
             Rectangle()
@@ -42,8 +51,9 @@ struct TopToolbar: ToolbarContent {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 13, weight: .medium))
                     .frame(width: 28, height: 22)
+                    .contentShape(Rectangle())
             }
-            .buttonStyle(.borderless)
+            .buttonStyle(.plain)
             .disabled(!browser.canGoForward)
         }
         .glassEffect(.regular, in: .capsule)
@@ -52,35 +62,20 @@ struct TopToolbar: ToolbarContent {
     // MARK: - Right cluster pill — extensions, share, +, overview, downloads
 
     private var rightClusterPill: some View {
-        @Bindable var browserBinding = browser
-        return HStack(spacing: 4) {
-            Button { browser.showExtensionsPopover.toggle() } label: {
-                Image(systemName: "puzzlepiece.extension")
-                    .font(.system(size: 13, weight: .medium))
-                    .frame(width: 28, height: 22)
-            }
-            .buttonStyle(.borderless)
-            .popover(isPresented: $browserBinding.showExtensionsPopover, arrowEdge: .bottom) {
-                ExtensionsPopover(
-                    onManage: { openSettings(target: .extensions) },
-                    onStore:  { openSettings(target: .extensionsStore) })
-                    .frame(width: 320)
-            }
-            .contextMenu {
-                Button("Manage Extensions…") { openSettings(target: .extensions) }
-                Button("More Extensions in Store…") { openSettings(target: .extensionsStore) }
-                Divider()
-                Button("Hide Extensions Button") { }
-            }
-
+        // Per spec: exactly 3 icons. Share / new tab / overview. Share disables when
+        // there's no active page. Inner buttons use `.plain` so the pill is the only
+        // border (same rationale as backForwardPill).
+        return HStack(spacing: 0) {
             ShareToolbarButton()
+                .disabled(browser.selectedTab == nil)
 
             Button { browser.newTab() } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 13, weight: .medium))
                     .frame(width: 28, height: 22)
+                    .contentShape(Rectangle())
             }
-            .buttonStyle(.borderless)
+            .buttonStyle(.plain)
 
             Button {
                 withAnimation(.smooth) { browser.showTabs.toggle() }
@@ -88,10 +83,9 @@ struct TopToolbar: ToolbarContent {
                 Image(systemName: "square.on.square")
                     .font(.system(size: 13, weight: .medium))
                     .frame(width: 28, height: 22)
+                    .contentShape(Rectangle())
             }
-            .buttonStyle(.borderless)
-
-            DownloadsToolbarButton()
+            .buttonStyle(.plain)
         }
         .glassEffect(.regular, in: .capsule)
     }

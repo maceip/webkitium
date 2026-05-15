@@ -1,8 +1,12 @@
 import SwiftUI
 
-/// Sidebar — "N Tabs" header pill, flat list of open tabs (with right-click context),
-/// "Saved" section (Bookmarks / Reading List / Shared with You), and a profile footer
-/// chip at the bottom.
+/// Sidebar — top icon row (new-tab-group disabled, hide-sidebar), "N Tabs" pill,
+/// tab groups bar, tabs list, "Saved" leaves, profile footer chip.
+///
+/// **Locked spec:** see `design/toolbar-spec.md` — the two top icons (new-tab-group
+/// + hide-sidebar) live HERE on the sidebar header, NOT on the window toolbar.
+/// The sidebar must show a visible right edge as a 1px hairline (matches the top
+/// edge, see Safari reference).
 struct SidebarView: View {
     @Environment(BrowserViewModel.self) private var browser
     let tabMorph: Namespace.ID
@@ -14,6 +18,9 @@ struct SidebarView: View {
                 HStack { PrivateModeBadge(); Spacer() }
                     .padding(.horizontal, 10).padding(.top, 6)
             }
+            headerIconRow
+                .padding(.horizontal, 10)
+                .padding(.top, 6)
             tabsHeaderPill
                 .padding(.horizontal, 8)
                 .padding(.top, 6)
@@ -52,6 +59,50 @@ struct SidebarView: View {
                 .padding(.horizontal, 6)
                 .padding(.vertical, 4)
         }
+        // Per spec: visible 1px hairline on the trailing edge of the sidebar so the
+        // boundary with the detail column reads clearly (matches the top edge that's
+        // already visible). The system separator from NavigationSplitView sometimes
+        // disappears under our backgroundExtensionEffect tab strip; this overlay
+        // guarantees it.
+        .overlay(alignment: .trailing) {
+            Rectangle()
+                .fill(Color.primary.opacity(0.14))
+                .frame(width: 1)
+        }
+    }
+
+    /// Top icon row: new tab group (disabled today — Tab Groups feature isn't built)
+    /// + hide sidebar. Mirrors the corresponding section in Safari's sidebar.
+    private var headerIconRow: some View {
+        HStack(spacing: 8) {
+            Spacer()
+            Button {
+                // Tab Groups not yet implemented — button is disabled.
+            } label: {
+                Image(systemName: "square.stack.3d.up")
+                    .font(.system(size: 12, weight: .medium))
+                    .frame(width: 22, height: 22)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(true)
+            .help("New Tab Group")
+
+            Button {
+                withAnimation(.smooth) {
+                    browser.sidebarVisibility =
+                        (browser.sidebarVisibility == .all) ? .detailOnly : .all
+                }
+            } label: {
+                Image(systemName: "sidebar.left")
+                    .font(.system(size: 12, weight: .medium))
+                    .frame(width: 22, height: 22)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Hide Sidebar")
+        }
+        .frame(height: 22)
     }
 
     private var tabsHeaderPill: some View {

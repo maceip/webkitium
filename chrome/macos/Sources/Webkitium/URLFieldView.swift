@@ -8,6 +8,9 @@ struct URLFieldView: View {
     @Environment(BrowserViewModel.self) private var browser
     @Environment(\.openWindow) private var openWindow
     @FocusState private var focused: Bool
+    /// Per Safari behavior: certain inline icons (e.g. Add Bookmark "+") only appear
+    /// when the pointer is over the URL field. Drives the opacity of those icons.
+    @State private var hovering: Bool = false
 
     var body: some View {
         @Bindable var browserBinding = browser
@@ -20,8 +23,10 @@ struct URLFieldView: View {
                         .stroke(Color.accentColor.opacity(focused ? 0.85 : 0),
                                 lineWidth: focused ? 1.5 : 0)
                 )
+                .onHover { hovering = $0 }
         }
         .animation(.smooth(duration: SafariDecompiled.focusAnimationDuration), value: focused)
+        .animation(.smooth(duration: 0.12), value: hovering)
         .onChange(of: focused) { _, newValue in
             browser.urlFieldFocused = newValue
         }
@@ -73,11 +78,28 @@ struct URLFieldView: View {
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
 
+            // Hover-only Add Bookmark "+" icon — matches Safari's behavior where
+            // certain inline URL-field actions only reveal on pointer hover.
+            // Currently disabled when there's no active page.
+            Button {
+                browser.showAddBookmarkSheet = true
+            } label: {
+                Image(systemName: "plus.circle")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.borderless)
+            .help("Add Bookmark")
+            .opacity(hovering ? 1 : 0)
+            .disabled(browser.selectedTab == nil)
+
+            // Per spec: cursor must be leading-aligned, NOT centered. Centered text
+            // alignment caused the caret to jump to mid-field on focus.
             TextField("", text: $browserBinding.urlText,
                        prompt: Text("Search or enter website name").foregroundStyle(.secondary))
                 .textFieldStyle(.plain)
                 .font(.system(size: 13))
-                .multilineTextAlignment(.center)
+                .multilineTextAlignment(.leading)
                 .focused($focused)
                 .onSubmit {
                     // Hand the typed text to the active tab's WKWebView. The wrapper
