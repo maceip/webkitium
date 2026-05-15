@@ -57,6 +57,7 @@ struct DownloadsPopover: View {
 }
 
 private struct DownloadRow: View {
+    @Environment(BrowserViewModel.self) private var browser
     let item: DownloadItem
 
     var body: some View {
@@ -91,7 +92,9 @@ private struct DownloadRow: View {
                 .buttonStyle(.borderless)
                 .help("Show in Finder")
             } else {
-                Button { /* cancel */ } label: {
+                Button {
+                    browser.downloads.removeAll { $0.id == item.id }
+                } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 18))
                         .foregroundStyle(.secondary)

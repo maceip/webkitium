@@ -1,5 +1,6 @@
 import SwiftUI
 import Observation
+@preconcurrency import WebKit
 
 /// Central observable state for the browser window. One source of truth (mirrors the
 /// `BrowserPageViewModel` pattern from Apple's BrowserExample sample).
@@ -194,6 +195,54 @@ final class BrowserViewModel {
     /// touching native code. Production code (`WebkitiumApp`) always passes one in.
     let services: BrowserServices?
 
+    /// One `TabWebView` (wrapping a `WKWebView`) per tab, lazily created on first
+    /// access. Lives for the tab's lifetime so navigation history survives tab
+    /// switching. Pruned in `close(tab:)`.
+    private var webViews: [UUID: TabWebView] = [:]
+
+    /// One-at-a-time pre-warmed `WKWebView`. Cold-starting WebContent process is
+    /// ~150-300ms on M-series; pre-warming hides that latency on Cmd+T / new-tab.
+    /// We keep exactly **one** spare ready — never a pool — to bound memory cost.
+    /// Same isolation guarantees as the regular tab pool: private windows pre-warm
+    /// with `.nonPersistent()` from the start.
+    private var prewarmedWebView: WKWebView?
+
+    /// Lazily create-or-fetch the webview for a tab. If a pre-warmed instance is
+    /// available, it's consumed and a fresh one is queued to replace it.
+    func webView(for tab: Tab) -> WKWebView {
+        wrapper(for: tab.id).webView
+    }
+    private func wrapper(for tabID: UUID) -> TabWebView {
+        if let existing = webViews[tabID] { return existing }
+        let preset = prewarmedWebView
+        prewarmedWebView = nil
+        let fresh = TabWebView(tabID: tabID, browser: self, presetWebView: preset)
+        webViews[tabID] = fresh
+        prewarmIfNeeded()
+        // If the tab carries a seed URL, navigate the just-claimed webview to it.
+        // Without this, the seed tab list ("Apple", "Hacker News", …) would render
+        // as a row of about:blank pages until the user types something.
+        if let tab = tabs.first(where: { $0.id == tabID }),
+           !tab.url.isEmpty, tab.url != "about:blank" {
+            fresh.load(tab.url)
+        }
+        return fresh
+    }
+
+    /// Spawn the next pre-warmed `WKWebView` if the slot is empty. Loads
+    /// `about:blank` so the WebContent process actually starts up (WKWebView's
+    /// process spawn is lazy until first load).
+    func prewarmIfNeeded() {
+        guard prewarmedWebView == nil else { return }
+        let config = WKWebViewConfiguration()
+        if isPrivate { config.websiteDataStore = .nonPersistent() }
+        let wv = WKWebView(frame: .zero, configuration: config)
+        if let blank = URL(string: "about:blank") {
+            wv.load(URLRequest(url: blank))
+        }
+        prewarmedWebView = wv
+    }
+
     init(isPrivate: Bool = false,
          services:          BrowserServices?       = nil,
          suggestionProvider: any SuggestionProvider = MockSuggestionProvider.shared,
@@ -230,6 +279,9 @@ final class BrowserViewModel {
         selectedTabID = tabs.last?.id
         if let id = selectedTabID { sidebarSelection = .tab(id) }
         Task { await self.refreshFromStores() }
+        // Spawn the first pre-warmed `WKWebView` so the first Cmd+T (or the first
+        // navigation away from `about:blank`) doesn't pay WebContent cold-start cost.
+        prewarmIfNeeded()
     }
 
     /// Re-fetch history/bookmarks/passkeys/devices snapshots from the providers. Called
@@ -278,6 +330,7 @@ final class BrowserViewModel {
 
     func close(tab: Tab) {
         tabs.removeAll { $0.id == tab.id }
+        webViews.removeValue(forKey: tab.id)
         if selectedTabID == tab.id { selectedTabID = tabs.last?.id }
     }
 
@@ -324,27 +377,32 @@ final class BrowserViewModel {
     }
 
     // MARK: - Navigation
+    //
+    // All four routes dispatch to the per-tab `TabWebView` wrapper. KVO on the
+    // underlying `WKWebView` flows state back into the matching `Tab` struct
+    // (isLoading, loadProgress, canGoBack, canGoForward, title, url) — the chrome
+    // reads those for UI binding.
+
+    /// User submitted text in the URL bar. The wrapper normalizes input (URL vs.
+    /// search query) and kicks off a `WKWebView.load(...)`.
+    func navigateActive(to text: String) {
+        guard let tab = selectedTab else { return }
+        wrapper(for: tab.id).load(text)
+    }
 
     func reloadOrStop() {
-        guard let idx = tabs.firstIndex(where: { $0.id == selectedTabID }) else { return }
-        tabs[idx].isLoading.toggle()
-        if !tabs[idx].isLoading { tabs[idx].loadProgress = 1 }
+        guard let tab = selectedTab else { return }
+        let w = wrapper(for: tab.id)
+        if tab.isLoading { w.stop() } else { w.reload() }
     }
 
-    /// Back / forward — placeholders today. The WebKitium WebView host (Apple side =
-    /// patched WKWebView; non-Apple = platform MiniBrowser) will replace these with
-    /// calls into the native navigation API and KVO updates of `canGoBack/Forward` on
-    /// the selected `Tab`.
     func goBack() {
-        guard let idx = tabs.firstIndex(where: { $0.id == selectedTabID }),
-              tabs[idx].canGoBack else { return }
-        // Mock: just flip canGoForward true so the chrome reads coherent state.
-        tabs[idx].canGoForward = true
+        guard let tab = selectedTab, tab.canGoBack else { return }
+        wrapper(for: tab.id).goBack()
     }
     func goForward() {
-        guard let idx = tabs.firstIndex(where: { $0.id == selectedTabID }),
-              tabs[idx].canGoForward else { return }
-        tabs[idx].canGoForward = false
+        guard let tab = selectedTab, tab.canGoForward else { return }
+        wrapper(for: tab.id).goForward()
     }
 
     // MARK: - Find on page

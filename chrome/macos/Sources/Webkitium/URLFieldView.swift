@@ -79,7 +79,12 @@ struct URLFieldView: View {
                 .font(.system(size: 13))
                 .multilineTextAlignment(.center)
                 .focused($focused)
-                .onSubmit { focused = false }
+                .onSubmit {
+                    // Hand the typed text to the active tab's WKWebView. The wrapper
+                    // normalizes URL vs. search query.
+                    browser.navigateActive(to: browser.urlText)
+                    focused = false
+                }
                 // Route every keystroke through `SuggestionProvider` (today: mock; later:
                 // FFI). The VM debounces and replaces `urlSuggestions` atomically.
                 .onChange(of: browser.urlText) { _, _ in browser.refreshSuggestions() }

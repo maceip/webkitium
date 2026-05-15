@@ -75,8 +75,6 @@ struct TopToolbar: ToolbarContent {
 
             ShareToolbarButton()
 
-            AddToDockToolbarButton()
-
             Button { browser.newTab() } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 13, weight: .medium))
@@ -105,19 +103,3 @@ struct TopToolbar: ToolbarContent {
     }
 }
 
-/// Toolbar entry for the macOS Sonoma+ "Add to Dock" web-app prompt. Local `@State` for
-/// the popover so it anchors correctly to the button icon (vs. presenting as a sheet
-/// from the menu).
-private struct AddToDockToolbarButton: View {
-    @State private var showing = false
-    var body: some View {
-        Button { showing.toggle() } label: {
-            Image(systemName: "rectangle.dock")
-                .font(.system(size: 13, weight: .medium))
-                .frame(width: 28, height: 22)
-        }
-        .buttonStyle(.borderless)
-        .help("Add to Dock")
-        .popover(isPresented: $showing, arrowEdge: .bottom) { AddToDockPopover() }
-    }
-}

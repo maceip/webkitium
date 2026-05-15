@@ -106,7 +106,8 @@ struct RootView: View {
 }
 
 /// Picks what to render in the right pane below the tab strip based on the sidebar
-/// selection. Defaults to the Start Page when an open-tab leaf is selected.
+/// selection. For an open tab (the default case), we hand back the real `WKWebView`
+/// for that tab via `WebContentArea`. Saved-leaves still show placeholder panes.
 private struct ContentRouter: View {
     @Environment(BrowserViewModel.self) private var browser
 
@@ -115,7 +116,12 @@ private struct ContentRouter: View {
         case .leaf(.bookmarks):     PlaceholderPane(title: "Bookmarks", symbol: "book.closed")
         case .leaf(.readingList):   PlaceholderPane(title: "Reading List", symbol: "eyeglasses")
         case .leaf(.sharedWithYou): PlaceholderPane(title: "Shared with You", symbol: "person.2")
-        default:                    StartPageView()
+        default:
+            if let tab = browser.selectedTab {
+                WebContentArea(webView: browser.webView(for: tab))
+            } else {
+                PlaceholderPane(title: "New Tab", symbol: "globe")
+            }
         }
     }
 }
