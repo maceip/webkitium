@@ -2,7 +2,7 @@
 """
 Apply or validate the repo WebKit patch series against a pinned WebKit checkout.
 
-The script intentionally avoids --unidiff-zero. Each patch is checked and applied
+The script intentionally avoids --unidiff-zero. Each patch is applied
 cumulatively with git apply --3way so malformed hunks fail early, while small
 upstream context drift can still be resolved by Git.
 """
@@ -160,21 +160,19 @@ def apply_patch_series(
         run(
             [
                 *git(webkit_root, "apply"),
-                "--check",
                 "--3way",
                 "--whitespace=nowarn",
                 str(clean),
             ]
         )
-        run(
-            [
-                *git(webkit_root, "apply"),
-                "--3way",
-                "--whitespace=nowarn",
-                str(clean),
-            ]
-        )
+        run(git(webkit_root, "add", "-A"))
     audit_webnn_source_includes(webkit_root)
+    run(git(webkit_root, "reset"))
+
+
+def reset_worktree(webkit_root: Path) -> None:
+    run(git(webkit_root, "reset", "--hard", "HEAD"))
+    run(git(webkit_root, "clean", "-ffdx"))
 
 
 def check_in_temporary_worktree(
@@ -187,6 +185,7 @@ def check_in_temporary_worktree(
     worktree = temp_dir / "webkit-patch-check"
     try:
         run(git(webkit_root, "worktree", "add", "--detach", str(worktree), "HEAD"))
+        reset_worktree(worktree)
         apply_patch_series(repo_root, worktree, patches, temp_dir=temp_dir)
     finally:
         if worktree.exists():
