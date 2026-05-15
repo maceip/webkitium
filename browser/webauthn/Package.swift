@@ -1,9 +1,8 @@
 // swift-tools-version: 5.9
 //
-// SwiftPM view of browser/webauthn/.  Spans browser/ (path: "..") so
-// the target can pull in core/Origin.cpp alongside webauthn/*.cpp;
-// public headers are scoped to webauthn/ so the module map resolves
-// cleanly.
+// SwiftPM view of browser/webauthn/. Package root is `.` (browser/webauthn/);
+// `core/Origin.{h,cpp}` is reachable via a package-internal `core/` symlink
+// folder so we can stay within the package root that SwiftPM 5.10+ enforces.
 
 import PackageDescription
 
@@ -15,27 +14,22 @@ let package = Package(
     targets: [
         .target(
             name: "WebkitiumWebAuthn",
-            path: "..",
+            path: ".",
             exclude: [
+                "README.md",
                 "CMakeLists.txt",
-                "SHELL_PLAN.md",
-                "color",
-                "extensions",
-                "platform",
-                "sync",
-                "tabs",
-                "tests",
-                "third_party",
-                "webnn",
             ],
             sources: [
-                "core/Origin.cpp",
-                "webauthn/WebAuthnBridgeC.cc",
-                "webauthn/WebAuthnController.cpp",
+                "WebAuthnBridgeC.cc",
+                "WebAuthnController.cpp",
+                "core/Origin.cpp",          // symlinked from ../core/Origin.cpp
             ],
-            publicHeadersPath: "webauthn",
+            publicHeadersPath: "include",
+            // The package-internal `webauthn/` + `core/` symlink folders resolve
+            // `#include "webauthn/X.h"` and `#include "core/Origin.h"` against the
+            // package root.
             cxxSettings: [
-                .headerSearchPath("."),     // resolves "core/Origin.h" etc.
+                .headerSearchPath("."),
             ]
         ),
     ],

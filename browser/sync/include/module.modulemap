@@ -1,0 +1,8 @@
+// Module map for sync. Header lives one directory up alongside the
+// .cc sources; this scoped include/ folder exists so SwiftPM doesn't auto-
+// classify the whole package as a system-library target (which would skip
+// compilation of the .cc sources).
+module WebkitiumSync {
+    header "../SyncBridgeC.h"
+    export *
+}

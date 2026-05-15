@@ -23,9 +23,12 @@ let package = Package(
             sources: [
                 "SyncBridgeC.cc",
             ],
-            publicHeadersPath: ".",
+            publicHeadersPath: "include",
+            // The package-internal `sync/` symlink folder resolves the upstream
+            // `#include "sync/HEADER.h"` style without crossing the package root,
+            // so we no longer need the `..` search path that SwiftPM 5.10+ rejects.
             cxxSettings: [
-                .headerSearchPath(".."),
+                .headerSearchPath("."),
             ]
         ),
     ],

@@ -20,49 +20,55 @@ final class BrowserServices {
     private let webAuthnHandle:   OpaquePointer
 
     init?() {
-        guard let ext = wk_extensions_create(),
+        // The C `create` functions return `Wk*?` which Swift maps to `OpaquePointer?`.
+        // No further wrapping required.
+        guard let ext  = wk_extensions_create(),
               let sync = wk_sync_create(),
-              let wa  = wk_webauthn_create() else {
+              let wa   = wk_webauthn_create() else {
             return nil
         }
-        self.extensionsHandle = OpaquePointer(ext)
-        self.syncHandle       = OpaquePointer(sync)
-        self.webAuthnHandle   = OpaquePointer(wa)
+        self.extensionsHandle = ext
+        self.syncHandle       = sync
+        self.webAuthnHandle   = wa
     }
 
     deinit {
-        wk_extensions_destroy(UnsafeMutablePointer(extensionsHandle))
-        wk_sync_destroy(UnsafeMutablePointer(syncHandle))
-        wk_webauthn_destroy(UnsafeMutablePointer(webAuthnHandle))
+        // The C ABI types `Wk*` map to `OpaquePointer` in Swift; pass the handles
+        // directly. (Wrapping in `UnsafeMutablePointer(...)` was an upstream bug —
+        // Swift can't infer Pointee for a fresh-pointer constructor and the C funcs
+        // expect the opaque type directly.)
+        wk_extensions_destroy(extensionsHandle)
+        wk_sync_destroy(syncHandle)
+        wk_webauthn_destroy(webAuthnHandle)
     }
 
     // MARK: - Extensions
 
     var extensionCount: Int {
-        Int(wk_extensions_count(UnsafePointer(extensionsHandle)))
+        Int(wk_extensions_count(extensionsHandle))
     }
 
     // MARK: - Sync
 
     var syncRecordCount: Int {
-        Int(wk_sync_record_count(UnsafePointer(syncHandle)))
+        Int(wk_sync_record_count(syncHandle))
     }
 
     var syncCurrentVersion: Int64 {
-        wk_sync_current_version(UnsafePointer(syncHandle))
+        wk_sync_current_version(syncHandle)
     }
 
     // MARK: - WebAuthn
 
     var webAuthnReady: Bool {
-        wk_webauthn_is_initialized(UnsafePointer(webAuthnHandle)) != 0
+        wk_webauthn_is_initialized(webAuthnHandle) != 0
     }
 
     var webAuthnRequestCount: Int {
-        Int(wk_webauthn_request_count(UnsafePointer(webAuthnHandle)))
+        Int(wk_webauthn_request_count(webAuthnHandle))
     }
 
     var webAuthnRejectionCount: Int {
-        Int(wk_webauthn_rejection_count(UnsafePointer(webAuthnHandle)))
+        Int(wk_webauthn_rejection_count(webAuthnHandle))
     }
 }

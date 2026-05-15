@@ -1,4 +1,0 @@
-module WebkitiumExtensions {
-    header "ExtensionBridgeC.h"
-    export *
-}
