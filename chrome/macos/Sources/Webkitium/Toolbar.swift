@@ -14,18 +14,6 @@ struct TopToolbar: ToolbarContent {
     @Environment(BrowserViewModel.self) private var browser
 
     var body: some ToolbarContent {
-        // Per spec: the two sidebar-header icons (new-tab-group disabled +
-        // hide-sidebar) sit in the toolbar at the leading edge, next to the
-        // traffic lights, on the SAME row as back/forward. They look like
-        // "sidebar icons" because they govern the sidebar, but the actual
-        // SwiftUI placement is the navigation toolbar slot.
-        ToolbarItem(placement: .navigation) { sidebarIconPill }
-
-        // Force a separator so the macOS 26 toolbar doesn't fuse these two
-        // ToolbarItems into one visual pill — they need to read as two
-        // distinct glass capsules per the spec reference.
-        ToolbarSpacer(.fixed, placement: .navigation)
-
         ToolbarItem(placement: .navigation) { backForwardPill }
 
         ToolbarSpacer(.flexible)
@@ -37,36 +25,6 @@ struct TopToolbar: ToolbarContent {
         ToolbarSpacer(.flexible)
 
         ToolbarItem(placement: .primaryAction) { rightClusterPill }
-    }
-
-    // MARK: - Sidebar-header icons (in the toolbar at .navigation placement)
-
-    private var sidebarIconPill: some View {
-        // Two icons: new tab group (disabled — Tab Groups not built) + hide
-        // sidebar. Inner targets are Image + onTapGesture (NOT Button) so the
-        // OS-supplied button chrome can't draw top/bottom border lines inside
-        // the glass pill.
-        HStack(spacing: 0) {
-            Image(systemName: "square.stack.3d.up")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.tertiary)        // visibly disabled
-                .frame(width: 28, height: 22)
-                .help("New Tab Group")
-
-            Image(systemName: "sidebar.left")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.primary)
-                .frame(width: 28, height: 22)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    withAnimation(.smooth) {
-                        browser.sidebarVisibility =
-                            (browser.sidebarVisibility == .all) ? .detailOnly : .all
-                    }
-                }
-                .help("Hide Sidebar")
-        }
-        .glassEffect(.regular, in: .capsule)
     }
 
     // MARK: - Back / Forward pill

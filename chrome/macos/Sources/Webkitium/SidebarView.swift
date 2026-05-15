@@ -14,6 +14,13 @@ struct SidebarView: View {
     var body: some View {
         @Bindable var browserBinding = browser
         VStack(spacing: 0) {
+            // Sidebar header icons — ON THE SIDEBAR (not in the window toolbar).
+            // Per spec: new-tab-group (disabled, Tab Groups not built) + hide-sidebar,
+            // anchored to the trailing edge of the sidebar's top row.
+            sidebarHeaderIcons
+                .padding(.horizontal, 10)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
             if browser.isPrivate {
                 HStack { PrivateModeBadge(); Spacer() }
                     .padding(.horizontal, 10).padding(.top, 6)
@@ -65,6 +72,32 @@ struct SidebarView: View {
             Rectangle()
                 .fill(Color.primary.opacity(0.14))
                 .frame(width: 1)
+        }
+    }
+
+    /// Sidebar header: new-tab-group (disabled — Tab Groups not built) + hide-sidebar.
+    /// Trailing-aligned so the icons sit clear of the system traffic-light reserve at
+    /// the leading edge. Inner targets are Image + .onTapGesture (no Button chrome).
+    private var sidebarHeaderIcons: some View {
+        HStack(spacing: 6) {
+            Spacer()
+            Image(systemName: "square.stack.3d.up")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.tertiary)        // visibly disabled
+                .frame(width: 22, height: 22)
+                .help("New Tab Group")
+            Image(systemName: "sidebar.left")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.primary)
+                .frame(width: 22, height: 22)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    withAnimation(.smooth) {
+                        browser.sidebarVisibility =
+                            (browser.sidebarVisibility == .all) ? .detailOnly : .all
+                    }
+                }
+                .help("Hide Sidebar")
         }
     }
 
