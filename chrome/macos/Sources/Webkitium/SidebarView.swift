@@ -18,9 +18,6 @@ struct SidebarView: View {
                 HStack { PrivateModeBadge(); Spacer() }
                     .padding(.horizontal, 10).padding(.top, 6)
             }
-            headerIconRow
-                .padding(.horizontal, 10)
-                .padding(.top, 6)
             tabsHeaderPill
                 .padding(.horizontal, 8)
                 .padding(.top, 6)
@@ -69,40 +66,6 @@ struct SidebarView: View {
                 .fill(Color.primary.opacity(0.14))
                 .frame(width: 1)
         }
-    }
-
-    /// Top icon row: new tab group (disabled today — Tab Groups feature isn't built)
-    /// + hide sidebar. Mirrors the corresponding section in Safari's sidebar.
-    private var headerIconRow: some View {
-        HStack(spacing: 8) {
-            Spacer()
-            Button {
-                // Tab Groups not yet implemented — button is disabled.
-            } label: {
-                Image(systemName: "square.stack.3d.up")
-                    .font(.system(size: 12, weight: .medium))
-                    .frame(width: 22, height: 22)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .disabled(true)
-            .help("New Tab Group")
-
-            Button {
-                withAnimation(.smooth) {
-                    browser.sidebarVisibility =
-                        (browser.sidebarVisibility == .all) ? .detailOnly : .all
-                }
-            } label: {
-                Image(systemName: "sidebar.left")
-                    .font(.system(size: 12, weight: .medium))
-                    .frame(width: 22, height: 22)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .help("Hide Sidebar")
-        }
-        .frame(height: 22)
     }
 
     private var tabsHeaderPill: some View {
