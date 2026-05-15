@@ -30,12 +30,12 @@ let package = Package(
                 "OklchColor.cpp",
                 "SemanticPalette.cpp",
             ],
-            publicHeadersPath: ".",
+            publicHeadersPath: "include",
+            // Package-internal `color/` symlink subdir resolves `#include "color/X.h"`
+            // style at the package root, avoiding the `..` search path that
+            // SwiftPM 5.10+ rejects as outside the package.
             cxxSettings: [
-                // Other .cc/.cpp files in this directory use paths like
-                // "color/ColorRamp.h" (rooted at browser/), so extend the
-                // header search path one level up.
-                .headerSearchPath(".."),
+                .headerSearchPath("."),
             ]
         ),
     ],

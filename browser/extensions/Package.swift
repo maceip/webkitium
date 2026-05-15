@@ -24,9 +24,11 @@ let package = Package(
                 "ExtensionManifest.cpp",
                 "ExtensionRegistry.cpp",
             ],
-            publicHeadersPath: ".",
+            publicHeadersPath: "include",
+            // Package-internal `extensions/` symlink subdir resolves the upstream
+            // `#include "extensions/X.h"` style at the package root.
             cxxSettings: [
-                .headerSearchPath(".."),
+                .headerSearchPath("."),
             ]
         ),
     ],
