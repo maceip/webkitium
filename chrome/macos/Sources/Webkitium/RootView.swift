@@ -24,6 +24,10 @@ struct RootView: View {
         } detail: {
             VStack(spacing: 0) {
                 TabStripView(tabMorph: tabMorph)
+                    // macOS 26 modifier: lets the tab strip's content + background
+                    // bleed under the translucent sidebar so horizontal scrolling
+                    // visually continues across the divider, matching Safari 26.
+                    .backgroundExtensionEffect()
                 if browser.findBarOpen {
                     FindOnPageBar()
                         .transition(.move(edge: .top).combined(with: .opacity))
