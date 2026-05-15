@@ -1,0 +1,125 @@
+import SwiftUI
+
+/// Sidebar — "N Tabs" header pill, flat list of open tabs (with right-click context),
+/// "Saved" section (Bookmarks / Reading List / Shared with You), and a profile footer
+/// chip at the bottom.
+struct SidebarView: View {
+    @Environment(BrowserViewModel.self) private var browser
+    let tabMorph: Namespace.ID
+
+    var body: some View {
+        @Bindable var browserBinding = browser
+        VStack(spacing: 0) {
+            if browser.isPrivate {
+                HStack { PrivateModeBadge(); Spacer() }
+                    .padding(.horizontal, 10).padding(.top, 6)
+            }
+            tabsHeaderPill
+                .padding(.horizontal, 8)
+                .padding(.top, 6)
+            TabGroupsBar()
+
+            List(selection: $browserBinding.sidebarSelection) {
+                Section {
+                    ForEach(browser.visibleTabs) { tab in
+                        TabSidebarRow(tab: tab)
+                            .tag(SidebarSelection.tab(tab.id))
+                            .contextMenu { tabContextMenu(for: tab) }
+                            .onHover { hovering in
+                                // Hover-URL → status bar overlay.
+                                browser.hoveredLink = hovering ? tab.url : nil
+                            }
+                    }
+                }
+                Section {
+                    ForEach(SidebarLeaf.allCases) { leaf in
+                        Label(leaf.title, systemImage: leaf.symbol)
+                            .font(.system(size: 12))
+                            .tag(SidebarSelection.leaf(leaf))
+                            .contextMenu { leafContextMenu(for: leaf) }
+                    }
+                } header: {
+                    Text("saved")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .listStyle(.sidebar)
+            .environment(\.defaultMinListRowHeight, 22)
+
+            Divider()
+            ProfileFooter()
+                .padding(.horizontal, 6)
+                .padding(.vertical, 4)
+        }
+    }
+
+    private var tabsHeaderPill: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "rectangle.stack")
+                .font(.system(size: 11))
+            // Show count of currently-visible tabs so the badge updates with the group
+            // filter.
+            Text("\(browser.visibleTabs.count) Tabs")
+                .font(.system(size: 12, weight: .medium))
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 8)
+        .frame(height: 26)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(SafariTheme.pillBorder, lineWidth: 1)
+        )
+    }
+
+    // MARK: - Context menus
+
+    @ViewBuilder
+    private func tabContextMenu(for tab: Tab) -> some View {
+        Button("New Tab")        { browser.newTab() }
+        Button("Duplicate Tab")  { browser.duplicate(tab) }
+        Divider()
+        Button(tab.isPinned ? "Unpin Tab" : "Pin Tab") { browser.togglePin(tab) }
+        if tab.audio != .none {
+            Button(tab.audio == .muted ? "Unmute Tab" : "Mute Tab") { browser.toggleMute(tab) }
+        }
+        Divider()
+        Button("Close Tab",        role: .destructive) { browser.close(tab: tab) }
+        Button("Close Other Tabs", role: .destructive) { browser.closeOthers(keeping: tab) }
+    }
+
+    @ViewBuilder
+    private func leafContextMenu(for leaf: SidebarLeaf) -> some View {
+        Button("Open") { browser.sidebarSelection = .leaf(leaf) }
+        Button("Open in New Tab") { browser.newTab() }
+    }
+}
+
+private struct TabSidebarRow: View {
+    let tab: Tab
+
+    var body: some View {
+        HStack(spacing: 6) {
+            if tab.isLoading {
+                ProgressView().progressViewStyle(.circular).controlSize(.mini)
+                    .frame(width: 14, height: 14)
+            } else {
+                tab.favicon.view(size: 14)
+            }
+            Text(tab.title)
+                .font(.system(size: 12))
+                .lineLimit(1)
+                .truncationMode(.tail)
+            Spacer(minLength: 0)
+            if tab.audio == .playing {
+                Image(systemName: "speaker.wave.2.fill")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.secondary)
+            } else if tab.audio == .muted {
+                Image(systemName: "speaker.slash.fill")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}

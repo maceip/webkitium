@@ -15,9 +15,13 @@ import WebkitiumWebAuthn
 
 @MainActor
 final class BrowserServices {
-    private let extensionsHandle: OpaquePointer
-    private let syncHandle:       OpaquePointer
-    private let webAuthnHandle:   OpaquePointer
+    // `nonisolated(unsafe)` lets the `deinit` (which is `nonisolated` by default in
+    // Swift 6.2 strict concurrency) reach the handles to call the C `_destroy` funcs.
+    // Safe because these `let`s are set once in init and never mutated; the C ABI
+    // funcs themselves are required to be thread-safe.
+    nonisolated(unsafe) private let extensionsHandle: OpaquePointer
+    nonisolated(unsafe) private let syncHandle:       OpaquePointer
+    nonisolated(unsafe) private let webAuthnHandle:   OpaquePointer
 
     init?() {
         // The C `create` functions return `Wk*?` which Swift maps to `OpaquePointer?`.
