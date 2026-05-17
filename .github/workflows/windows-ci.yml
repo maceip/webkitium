@@ -141,18 +141,37 @@ jobs:
       # on UIAutomation seeing the WinUI 3 window.
       - name: Capture Wikipedia screenshot
         if: success()
+        shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           Add-Type -AssemblyName System.Drawing,System.Windows.Forms
 
-          # PowerShell here-strings require the closing marker at column 0, which
-          # is incompatible with YAML block-scalar indentation. Use a regular
-          # multi-line string instead — built via string concatenation.
-          $cs = 'using System; using System.Runtime.InteropServices; ' +
-                'public class WinCap { ' +
-                '[DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr hwnd, IntPtr hdcBlt, int nFlags); ' +
+          # Diagnostic capture: enumerate ALL top-level windows owned by the
+          # Webkitium process via EnumWindows, log title/class/visibility, then
+          # PrintWindow on the best candidate. Falls back to full-desktop capture.
+          $cs = 'using System; ' +
+                'using System.Collections.Generic; ' +
+                'using System.Runtime.InteropServices; ' +
+                'using System.Text; ' +
+                'public class WinEnum { ' +
+                'public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam); ' +
+                '[DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam); ' +
+                '[DllImport("user32.dll", CharSet=CharSet.Auto)] public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount); ' +
+                '[DllImport("user32.dll", CharSet=CharSet.Auto)] public static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount); ' +
+                '[DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId); ' +
+                '[DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd); ' +
+                '[DllImport("user32.dll")] public static extern bool IsIconic(IntPtr hWnd); ' +
                 '[DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hwnd, out RECT rect); ' +
+                '[DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr hwnd, IntPtr hdcBlt, int nFlags); ' +
+                '[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hwnd, int nCmdShow); ' +
                 '[StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left, Top, Right, Bottom; } ' +
+                'public static List<IntPtr> WindowsFor(uint pid) { ' +
+                'var found = new List<IntPtr>(); ' +
+                'EnumWindows((h, l) => { uint p; GetWindowThreadProcessId(h, out p); if (p == pid) found.Add(h); return true; }, IntPtr.Zero); ' +
+                'return found; ' +
+                '} ' +
+                'public static string TitleOf(IntPtr h) { var sb = new StringBuilder(256); GetWindowText(h, sb, 256); return sb.ToString(); } ' +
+                'public static string ClassOf(IntPtr h) { var sb = new StringBuilder(256); GetClassName(h, sb, 256); return sb.ToString(); } ' +
                 '}'
           Add-Type -TypeDefinition $cs -Language CSharp
 
@@ -161,45 +180,69 @@ jobs:
           Write-Host "Launching $($exe.FullName)"
           $env:WEBKITIUM_LAUNCH_URL = 'https://en.wikipedia.org'
           $proc = Start-Process -FilePath $exe.FullName -PassThru
+          Write-Host "PID: $($proc.Id)"
 
-          $timeoutSec = 40
-          $elapsed = 0.0
-          while ($proc.MainWindowHandle -eq [IntPtr]::Zero -and $elapsed -lt $timeoutSec) {
-            Start-Sleep -Milliseconds 500
-            $elapsed += 0.5
+          for ($i = 0; $i -lt 60; $i++) {
+            Start-Sleep -Seconds 1
             $proc.Refresh()
-          }
-          if ($proc.MainWindowHandle -eq [IntPtr]::Zero) {
-            Write-Host "WARN: MainWindowHandle still zero after $timeoutSec s — capturing screen anyway"
-          } else {
-            Write-Host "MainWindowHandle: $($proc.MainWindowHandle)"
-            Start-Sleep -Seconds 12
+            $hasExited = $proc.HasExited
+            $mwh = $proc.MainWindowHandle
+            $owned = [WinEnum]::WindowsFor([uint32]$proc.Id)
+            $vis = $owned | Where-Object { [WinEnum]::IsWindowVisible($_) }
+            Write-Host "[$i s] HasExited=$hasExited MainWindowHandle=$mwh OwnedWindows=$($owned.Count) Visible=$($vis.Count)"
+            if ($hasExited) {
+              Write-Host "Process exited with code $($proc.ExitCode)"
+              break
+            }
+            if ($vis.Count -gt 0 -and $i -ge 12) { break }
           }
 
-          if ($proc.MainWindowHandle -ne [IntPtr]::Zero) {
-            $rect = New-Object WinCap+RECT
-            [void][WinCap]::GetWindowRect($proc.MainWindowHandle, [ref]$rect)
-            $w = $rect.Right - $rect.Left
-            $h = $rect.Bottom - $rect.Top
-            Write-Host "Window size: $w x $h"
+          $proc.Refresh()
+          $owned = [WinEnum]::WindowsFor([uint32]$proc.Id)
+          Write-Host "Final: owned windows = $($owned.Count)"
+          foreach ($h in $owned) {
+            $t = [WinEnum]::TitleOf($h)
+            $c = [WinEnum]::ClassOf($h)
+            $v = [WinEnum]::IsWindowVisible($h)
+            $r = New-Object WinEnum+RECT
+            [void][WinEnum]::GetWindowRect($h, [ref]$r)
+            Write-Host "  HWND=$h title='$t' class='$c' visible=$v rect=($($r.Left),$($r.Top))-($($r.Right),$($r.Bottom))"
+          }
+
+          $target = $owned | Where-Object { [WinEnum]::IsWindowVisible($_) -and -not [WinEnum]::IsIconic($_) -and ([WinEnum]::TitleOf($_)).Length -gt 0 } | Select-Object -First 1
+          if (-not $target) { $target = $owned | Where-Object { [WinEnum]::IsWindowVisible($_) } | Select-Object -First 1 }
+          if (-not $target -and $owned.Count -gt 0) {
+            $target = $owned | Select-Object -First 1
+            [void][WinEnum]::ShowWindow($target, 5)
+            Start-Sleep -Seconds 2
+          }
+
+          $out = Join-Path $env:GITHUB_WORKSPACE 'webkitium-windows-wikipedia.png'
+
+          if ($target) {
+            Write-Host "Capturing window $target"
+            $r = New-Object WinEnum+RECT
+            [void][WinEnum]::GetWindowRect($target, [ref]$r)
+            $w = [Math]::Max(1, $r.Right - $r.Left)
+            $h = [Math]::Max(1, $r.Bottom - $r.Top)
             $bmp = New-Object System.Drawing.Bitmap $w, $h
             $g = [System.Drawing.Graphics]::FromImage($bmp)
             $hdc = $g.GetHdc()
-            [void][WinCap]::PrintWindow($proc.MainWindowHandle, $hdc, 2)
+            [void][WinEnum]::PrintWindow($target, $hdc, 2)
             $g.ReleaseHdc($hdc)
             $g.Dispose()
+            $bmp.Save($out, [System.Drawing.Imaging.ImageFormat]::Png)
+            $bmp.Dispose()
+            Write-Host "Saved window capture to $out"
           } else {
+            Write-Host "WARN: No Webkitium window found at all — capturing primary screen"
             $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
             $bmp = New-Object System.Drawing.Bitmap $screen.Width, $screen.Height
             $g = [System.Drawing.Graphics]::FromImage($bmp)
             $g.CopyFromScreen(0, 0, 0, 0, $bmp.Size)
-            $g.Dispose()
+            $bmp.Save($out, [System.Drawing.Imaging.ImageFormat]::Png)
+            $g.Dispose(); $bmp.Dispose()
           }
-
-          $out = Join-Path $env:GITHUB_WORKSPACE 'webkitium-windows-wikipedia.png'
-          $bmp.Save($out, [System.Drawing.Imaging.ImageFormat]::Png)
-          $bmp.Dispose()
-          Write-Host "Saved $out"
 
           Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
 
