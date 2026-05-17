@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">     <Configuration>Debug</Configuration>  <Platform>x64</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">   <Configuration>Release</Configuration><Platform>x64</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|ARM64">   <Configuration>Debug</Configuration>  <Platform>ARM64</Platform></ProjectConfiguration>
+    <ProjectConfiguration Include="Release|ARM64"> <Configuration>Release</Configuration><Platform>ARM64</Platform></ProjectConfiguration>
+  </ItemGroup>
+
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{2E9A4D7B-9C45-4F6D-A8B2-6E1F4C9D5A22}</ProjectGuid>
+    <RootNamespace>BrowserCore</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectName>BrowserCore</ProjectName>
+    <BrowserSrcRoot>$(MSBuildThisFileDirectory)..\..\..\browser\</BrowserSrcRoot>
+  </PropertyGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+    <UseDebugLibraries Condition="'$(Configuration)'=='Debug'">true</UseDebugLibraries>
+    <UseDebugLibraries Condition="'$(Configuration)'=='Release'">false</UseDebugLibraries>
+    <WholeProgramOptimization Condition="'$(Configuration)'=='Release'">true</WholeProgramOptimization>
+  </PropertyGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+
+  <PropertyGroup>
+    <TargetName>webkitium_core</TargetName>
+    <OutDir>$(MSBuildThisFileDirectory)bin\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(MSBuildThisFileDirectory)obj\$(Platform)\$(Configuration)\</IntDir>
+    <!-- sqlite3 resolved via vcpkg manifest mode (chrome/windows/vcpkg.json).
+         The four C ABI sources compiled here use only <sqlite3.h>; no
+         protobuf, no other ng_browser_core deps. -->
+    <VcpkgEnableManifest>true</VcpkgEnableManifest>
+  </PropertyGroup>
+
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <ConformanceMode>true</ConformanceMode>
+      <SDLCheck>true</SDLCheck>
+      <WarningLevel>Level3</WarningLevel>
+      <TreatWarningAsError>false</TreatWarningAsError>
+      <!-- C ABI is cdecl; honor it for all sources so exports match the .def. -->
+      <CallingConvention>Cdecl</CallingConvention>
+      <!-- Match Webkitium.csproj's runtime: dynamic CRT (/MD or /MDd) to keep
+           allocator behavior consistent between the DLL and any C# malloc/free
+           shims that touch our pointers. -->
+      <RuntimeLibrary Condition="'$(Configuration)'=='Debug'">MultiThreadedDebugDLL</RuntimeLibrary>
+      <RuntimeLibrary Condition="'$(Configuration)'=='Release'">MultiThreadedDLL</RuntimeLibrary>
+      <AdditionalIncludeDirectories>$(BrowserSrcRoot);$(BrowserSrcRoot)url;$(BrowserSrcRoot)suggestions;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;_USRDLL;WEBKITIUM_CORE_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <ModuleDefinitionFile>$(MSBuildThisFileDirectory)BrowserCore.def</ModuleDefinitionFile>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>sqlite3.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+
+  <ItemGroup>
+    <!-- The four C ABI source files plus their direct C++ dependencies.
+         Suggestions module pulls in SQLite via vcpkg. URL module is
+         self-contained. -->
+    <ClCompile Include="$(BrowserSrcRoot)url\UrlBridgeC.cc" />
+    <ClCompile Include="$(BrowserSrcRoot)url\UrlNormalize.cpp" />
+    <ClCompile Include="$(BrowserSrcRoot)suggestions\SuggestionsBridgeC.cc" />
+    <ClCompile Include="$(BrowserSrcRoot)suggestions\SuggestionIndex.cpp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="BrowserCore.def" />
+  </ItemGroup>
+
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+
+</Project>

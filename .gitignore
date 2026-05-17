@@ -16,6 +16,12 @@ webkit-pin.tar.gz.part-*
 # CMake / Ninja out-of-source builds (browser/ smoke build lives here).
 build/
 
+# SwiftPM intermediates (per-target, sibling to Package.swift).
+.build/
+.swiftpm/
+**/.build/
+**/.swiftpm/
+
 # Windows shell MSBuild intermediate + output directories.
 chrome/windows/packages/
 chrome/windows/webkitium/
@@ -27,3 +33,23 @@ chrome/windows/Generated Files/
 chrome/windows/*.user
 # C++/WinRT header stubs that MSBuild writes at project root during build.
 chrome/windows/*_h.h
+
+# Linux Rust/Cargo build artifacts.
+chrome/linux/target/
+harness_linux/target/
+
+# Android Gradle / NDK / IDE artifacts.
+chrome/android/.gradle/
+chrome/android/.kotlin/
+chrome/android/.idea/
+chrome/android/build/
+chrome/android/app/build/
+chrome/android/app/.cxx/
+chrome/android/local.properties
+
+# iOS / Xcode user-local state.
+chrome/ios/Webkitium.xcodeproj/xcuserdata/
+chrome/ios/Webkitium.xcodeproj/project.xcworkspace/xcuserdata/
+chrome/ios/build/
+**/DerivedData/
+**/*.xcuserstate

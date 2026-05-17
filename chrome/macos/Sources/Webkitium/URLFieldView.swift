@@ -152,19 +152,76 @@ struct URLFieldView: View {
     }
 }
 
-/// Dropdown of URL suggestions — top hit, history, bookmarks, search. Renders below the
-/// URL field with an opacity + slide-down animation.
+/// Dropdown of URL suggestions, grouped into Top Hit / History / Bookmarks /
+/// Search sections with section headers. Order is preserved from the
+/// provider (which has already ranked); we just split at kind boundaries so
+/// headers appear above each group's first row.
 private struct URLSuggestionsDropdown: View {
     @Environment(BrowserViewModel.self) private var browser
     let suggestions: [URLSuggestion]
     @State private var hoveredID: UUID?
 
+    private struct Section: Identifiable {
+        let id = UUID()
+        let kind: URLSuggestion.Kind
+        let header: String?
+        let rows: [URLSuggestion]
+    }
+
+    /// Split a flat list (already ranked) into ordered sections by kind.
+    /// Top Hit gets no header (it's the special leading row); the others
+    /// get a small uppercased label.
+    private var sections: [Section] {
+        var out: [Section] = []
+        var buffer: [URLSuggestion] = []
+        var currentKind: URLSuggestion.Kind?
+
+        func flush() {
+            guard let k = currentKind, !buffer.isEmpty else { return }
+            out.append(Section(kind: k,
+                                header: headerLabel(for: k),
+                                rows: buffer))
+            buffer.removeAll(keepingCapacity: true)
+        }
+
+        for s in suggestions {
+            if currentKind == nil { currentKind = s.kind }
+            if s.kind != currentKind {
+                flush()
+                currentKind = s.kind
+            }
+            buffer.append(s)
+        }
+        flush()
+        return out
+    }
+
+    private func headerLabel(for kind: URLSuggestion.Kind) -> String? {
+        switch kind {
+        case .topHit:   return nil              // top hit has no header — it's the lead
+        case .history:  return "History"
+        case .bookmark: return "Bookmarks"
+        case .search:   return "Search"
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            ForEach(Array(suggestions.enumerated()), id: \.element.id) { idx, suggestion in
-                row(suggestion)
-                if idx < suggestions.count - 1 {
-                    Divider().padding(.leading, 32)
+            ForEach(sections) { section in
+                if let header = section.header {
+                    Text(header)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 10)
+                        .padding(.top, 6)
+                        .padding(.bottom, 2)
+                }
+                ForEach(Array(section.rows.enumerated()), id: \.element.id) { idx, suggestion in
+                    row(suggestion)
+                    if idx < section.rows.count - 1 {
+                        Divider().padding(.leading, 32)
+                    }
                 }
             }
         }

@@ -1,0 +1,371 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 60;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		5A0100000000000000000001 /* BottomURLBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0100000000000000000001 /* BottomURLBar.swift */; };
+		5A0200000000000000000001 /* BrowserViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0200000000000000000001 /* BrowserViewModel.swift */; };
+		5A0300000000000000000001 /* CoreSpotlightIndexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0300000000000000000001 /* CoreSpotlightIndexer.swift */; };
+		5A0400000000000000000001 /* ExtensionModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0400000000000000000001 /* ExtensionModels.swift */; };
+		5A0500000000000000000001 /* FFIBookmarkStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0500000000000000000001 /* FFIBookmarkStore.swift */; };
+		5A0600000000000000000001 /* FFIDownloadsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0600000000000000000001 /* FFIDownloadsManager.swift */; };
+		5A0700000000000000000001 /* FFIHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0700000000000000000001 /* FFIHistoryStore.swift */; };
+		5A0800000000000000000001 /* FFIOpenTabsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0800000000000000000001 /* FFIOpenTabsStore.swift */; };
+		5A0900000000000000000001 /* FFISuggestionProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0900000000000000000001 /* FFISuggestionProvider.swift */; };
+		5A0A00000000000000000001 /* FFITabGroupStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0A00000000000000000001 /* FFITabGroupStore.swift */; };
+		5A0B00000000000000000001 /* iOSRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0B00000000000000000001 /* iOSRootView.swift */; };
+		5A0C00000000000000000001 /* iOSSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0C00000000000000000001 /* iOSSettingsView.swift */; };
+		5A0D00000000000000000001 /* iOSStartPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0D00000000000000000001 /* iOSStartPage.swift */; };
+		5A0E00000000000000000001 /* iOSTabGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0E00000000000000000001 /* iOSTabGridView.swift */; };
+		5A0F00000000000000000001 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A0F00000000000000000001 /* Models.swift */; };
+		5A1000000000000000000001 /* MoreMenuSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A1000000000000000000001 /* MoreMenuSheet.swift */; };
+		5A1100000000000000000001 /* Providers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A1100000000000000000001 /* Providers.swift */; };
+		5A1200000000000000000001 /* SearchEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A1200000000000000000001 /* SearchEngine.swift */; };
+		5A1300000000000000000001 /* WebkitiumApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A1300000000000000000001 /* WebkitiumApp.swift */; };
+		5A1400000000000000000001 /* WebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A1400000000000000000001 /* WebView.swift */; };
+		8A0100000000000000000001 /* WebkitiumUrl in Frameworks */ = {isa = PBXBuildFile; productRef = 7A0100000000000000000001 /* WebkitiumUrl */; };
+		8A0200000000000000000001 /* WebkitiumSuggestions in Frameworks */ = {isa = PBXBuildFile; productRef = 7A0200000000000000000001 /* WebkitiumSuggestions */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		2A0000000000000000000005 /* Webkitium.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Webkitium.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3A0000000000000000000002 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		4A0100000000000000000001 /* BottomURLBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BottomURLBar.swift; sourceTree = "<group>"; };
+		4A0200000000000000000001 /* BrowserViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserViewModel.swift; sourceTree = "<group>"; };
+		4A0300000000000000000001 /* CoreSpotlightIndexer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreSpotlightIndexer.swift; sourceTree = "<group>"; };
+		4A0400000000000000000001 /* ExtensionModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtensionModels.swift; sourceTree = "<group>"; };
+		4A0500000000000000000001 /* FFIBookmarkStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FFIBookmarkStore.swift; sourceTree = "<group>"; };
+		4A0600000000000000000001 /* FFIDownloadsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FFIDownloadsManager.swift; sourceTree = "<group>"; };
+		4A0700000000000000000001 /* FFIHistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FFIHistoryStore.swift; sourceTree = "<group>"; };
+		4A0800000000000000000001 /* FFIOpenTabsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FFIOpenTabsStore.swift; sourceTree = "<group>"; };
+		4A0900000000000000000001 /* FFISuggestionProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FFISuggestionProvider.swift; sourceTree = "<group>"; };
+		4A0A00000000000000000001 /* FFITabGroupStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FFITabGroupStore.swift; sourceTree = "<group>"; };
+		4A0B00000000000000000001 /* iOSRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSRootView.swift; sourceTree = "<group>"; };
+		4A0C00000000000000000001 /* iOSSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSSettingsView.swift; sourceTree = "<group>"; };
+		4A0D00000000000000000001 /* iOSStartPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSStartPage.swift; sourceTree = "<group>"; };
+		4A0E00000000000000000001 /* iOSTabGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSTabGridView.swift; sourceTree = "<group>"; };
+		4A0F00000000000000000001 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		4A1000000000000000000001 /* MoreMenuSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoreMenuSheet.swift; sourceTree = "<group>"; };
+		4A1100000000000000000001 /* Providers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Providers.swift; sourceTree = "<group>"; };
+		4A1200000000000000000001 /* SearchEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchEngine.swift; sourceTree = "<group>"; };
+		4A1300000000000000000001 /* WebkitiumApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebkitiumApp.swift; sourceTree = "<group>"; };
+		4A1400000000000000000001 /* WebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		2A0000000000000000000007 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8A0100000000000000000001 /* WebkitiumUrl in Frameworks */,
+				8A0200000000000000000001 /* WebkitiumSuggestions in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		1A0000000000000000000005 /* / */ = {
+			isa = PBXGroup;
+			children = (
+				3A0000000000000000000001 /* Webkitium */,
+				1A0000000000000000000006 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		1A0000000000000000000006 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				2A0000000000000000000005 /* Webkitium.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		3A0000000000000000000001 /* Webkitium */ = {
+			isa = PBXGroup;
+			children = (
+				4A1300000000000000000001 /* WebkitiumApp.swift */,
+				4A0B00000000000000000001 /* iOSRootView.swift */,
+				4A0100000000000000000001 /* BottomURLBar.swift */,
+				4A1000000000000000000001 /* MoreMenuSheet.swift */,
+				4A0D00000000000000000001 /* iOSStartPage.swift */,
+				4A0E00000000000000000001 /* iOSTabGridView.swift */,
+				4A0C00000000000000000001 /* iOSSettingsView.swift */,
+				4A0200000000000000000001 /* BrowserViewModel.swift */,
+				4A1400000000000000000001 /* WebView.swift */,
+				4A0F00000000000000000001 /* Models.swift */,
+				4A1200000000000000000001 /* SearchEngine.swift */,
+				4A1100000000000000000001 /* Providers.swift */,
+				4A0400000000000000000001 /* ExtensionModels.swift */,
+				4A0300000000000000000001 /* CoreSpotlightIndexer.swift */,
+				4A0500000000000000000001 /* FFIBookmarkStore.swift */,
+				4A0600000000000000000001 /* FFIDownloadsManager.swift */,
+				4A0700000000000000000001 /* FFIHistoryStore.swift */,
+				4A0800000000000000000001 /* FFIOpenTabsStore.swift */,
+				4A0900000000000000000001 /* FFISuggestionProvider.swift */,
+				4A0A00000000000000000001 /* FFITabGroupStore.swift */,
+				3A0000000000000000000002 /* Info.plist */,
+			);
+			path = Webkitium;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		2A0000000000000000000001 /* Webkitium */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2A0000000000000000000002 /* Build configuration list for PBXNativeTarget "Webkitium" */;
+			buildPhases = (
+				2A0000000000000000000006 /* Sources */,
+				2A0000000000000000000007 /* Frameworks */,
+				2A0000000000000000000008 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Webkitium;
+			packageProductDependencies = (
+				7A0100000000000000000001 /* WebkitiumUrl */,
+				7A0200000000000000000001 /* WebkitiumSuggestions */,
+			);
+			productName = Webkitium;
+			productReference = 2A0000000000000000000005 /* Webkitium.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		1A0000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2640;
+				LastUpgradeCheck = 2640;
+				TargetAttributes = {
+					2A0000000000000000000001 = {
+						CreatedOnToolsVersion = 26.4.1;
+					};
+				};
+			};
+			buildConfigurationList = 1A0000000000000000000002 /* Build configuration list for PBXProject "Webkitium" */;
+			compatibilityVersion = "Xcode 15.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 1A0000000000000000000005;
+			packageReferences = (
+				6A0100000000000000000001 /* XCLocalSwiftPackageReference "../../browser/url" */,
+				6A0200000000000000000001 /* XCLocalSwiftPackageReference "../../browser/suggestions" */,
+			);
+			productRefGroup = 1A0000000000000000000006 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				2A0000000000000000000001 /* Webkitium */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		2A0000000000000000000008 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		2A0000000000000000000006 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5A0100000000000000000001 /* BottomURLBar.swift in Sources */,
+				5A0200000000000000000001 /* BrowserViewModel.swift in Sources */,
+				5A0300000000000000000001 /* CoreSpotlightIndexer.swift in Sources */,
+				5A0400000000000000000001 /* ExtensionModels.swift in Sources */,
+				5A0500000000000000000001 /* FFIBookmarkStore.swift in Sources */,
+				5A0600000000000000000001 /* FFIDownloadsManager.swift in Sources */,
+				5A0700000000000000000001 /* FFIHistoryStore.swift in Sources */,
+				5A0800000000000000000001 /* FFIOpenTabsStore.swift in Sources */,
+				5A0900000000000000000001 /* FFISuggestionProvider.swift in Sources */,
+				5A0A00000000000000000001 /* FFITabGroupStore.swift in Sources */,
+				5A0B00000000000000000001 /* iOSRootView.swift in Sources */,
+				5A0C00000000000000000001 /* iOSSettingsView.swift in Sources */,
+				5A0D00000000000000000001 /* iOSStartPage.swift in Sources */,
+				5A0E00000000000000000001 /* iOSTabGridView.swift in Sources */,
+				5A0F00000000000000000001 /* Models.swift in Sources */,
+				5A1000000000000000000001 /* MoreMenuSheet.swift in Sources */,
+				5A1100000000000000000001 /* Providers.swift in Sources */,
+				5A1200000000000000000001 /* SearchEngine.swift in Sources */,
+				5A1300000000000000000001 /* WebkitiumApp.swift in Sources */,
+				5A1400000000000000000001 /* WebView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		1A0000000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		1A0000000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 6.0;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		2A0000000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGNING_ALLOWED = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Webkitium/Info.plist;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = org.webkitium.ios;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		2A0000000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGNING_ALLOWED = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Webkitium/Info.plist;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = org.webkitium.ios;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1A0000000000000000000002 /* Build configuration list for PBXProject "Webkitium" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1A0000000000000000000003 /* Debug */,
+				1A0000000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		2A0000000000000000000002 /* Build configuration list for PBXNativeTarget "Webkitium" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2A0000000000000000000003 /* Debug */,
+				2A0000000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		6A0100000000000000000001 /* XCLocalSwiftPackageReference "../../browser/url" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../../browser/url;
+		};
+		6A0200000000000000000001 /* XCLocalSwiftPackageReference "../../browser/suggestions" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../../browser/suggestions;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		7A0100000000000000000001 /* WebkitiumUrl */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WebkitiumUrl;
+		};
+		7A0200000000000000000001 /* WebkitiumSuggestions */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WebkitiumSuggestions;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 1A0000000000000000000001 /* Project object */;
+}

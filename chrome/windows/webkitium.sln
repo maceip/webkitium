@@ -1,23 +1,35 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "webkitium", "webkitium.csproj", "{B4E2F0AE-5D1C-4F88-9D1C-AF1C8C9E3A21}"
+VisualStudioVersion = 17.10.0.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Webkitium", "Webkitium\Webkitium.csproj", "{6D1B5F44-3F4D-4D6B-9C2A-1A2E3E5F7B11}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "webkitium_color", "native\webkitium_color.vcxproj", "{A6C4B2E1-3F8D-4F1A-9C2E-5B9F0D7A1234}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BrowserCore", "BrowserCore\BrowserCore.vcxproj", "{2E9A4D7B-9C45-4F6D-A8B2-6E1F4C9D5A22}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
+		Debug|arm64 = Debug|arm64
 		Release|x64 = Release|x64
+		Release|arm64 = Release|arm64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{B4E2F0AE-5D1C-4F88-9D1C-AF1C8C9E3A21}.Debug|x64.ActiveCfg = Debug|x64
-		{B4E2F0AE-5D1C-4F88-9D1C-AF1C8C9E3A21}.Debug|x64.Build.0 = Debug|x64
-		{B4E2F0AE-5D1C-4F88-9D1C-AF1C8C9E3A21}.Release|x64.ActiveCfg = Release|x64
-		{B4E2F0AE-5D1C-4F88-9D1C-AF1C8C9E3A21}.Release|x64.Build.0 = Release|x64
-		{A6C4B2E1-3F8D-4F1A-9C2E-5B9F0D7A1234}.Debug|x64.ActiveCfg = Debug|x64
-		{A6C4B2E1-3F8D-4F1A-9C2E-5B9F0D7A1234}.Debug|x64.Build.0 = Debug|x64
-		{A6C4B2E1-3F8D-4F1A-9C2E-5B9F0D7A1234}.Release|x64.ActiveCfg = Release|x64
-		{A6C4B2E1-3F8D-4F1A-9C2E-5B9F0D7A1234}.Release|x64.Build.0 = Release|x64
+		{6D1B5F44-3F4D-4D6B-9C2A-1A2E3E5F7B11}.Debug|x64.ActiveCfg = Debug|x64
+		{6D1B5F44-3F4D-4D6B-9C2A-1A2E3E5F7B11}.Debug|x64.Build.0 = Debug|x64
+		{6D1B5F44-3F4D-4D6B-9C2A-1A2E3E5F7B11}.Debug|arm64.ActiveCfg = Debug|arm64
+		{6D1B5F44-3F4D-4D6B-9C2A-1A2E3E5F7B11}.Debug|arm64.Build.0 = Debug|arm64
+		{6D1B5F44-3F4D-4D6B-9C2A-1A2E3E5F7B11}.Release|x64.ActiveCfg = Release|x64
+		{6D1B5F44-3F4D-4D6B-9C2A-1A2E3E5F7B11}.Release|x64.Build.0 = Release|x64
+		{6D1B5F44-3F4D-4D6B-9C2A-1A2E3E5F7B11}.Release|arm64.ActiveCfg = Release|arm64
+		{6D1B5F44-3F4D-4D6B-9C2A-1A2E3E5F7B11}.Release|arm64.Build.0 = Release|arm64
+		{2E9A4D7B-9C45-4F6D-A8B2-6E1F4C9D5A22}.Debug|x64.ActiveCfg = Debug|x64
+		{2E9A4D7B-9C45-4F6D-A8B2-6E1F4C9D5A22}.Debug|x64.Build.0 = Debug|x64
+		{2E9A4D7B-9C45-4F6D-A8B2-6E1F4C9D5A22}.Debug|arm64.ActiveCfg = Debug|ARM64
+		{2E9A4D7B-9C45-4F6D-A8B2-6E1F4C9D5A22}.Debug|arm64.Build.0 = Debug|ARM64
+		{2E9A4D7B-9C45-4F6D-A8B2-6E1F4C9D5A22}.Release|x64.ActiveCfg = Release|x64
+		{2E9A4D7B-9C45-4F6D-A8B2-6E1F4C9D5A22}.Release|x64.Build.0 = Release|x64
+		{2E9A4D7B-9C45-4F6D-A8B2-6E1F4C9D5A22}.Release|arm64.ActiveCfg = Release|ARM64
+		{2E9A4D7B-9C45-4F6D-A8B2-6E1F4C9D5A22}.Release|arm64.Build.0 = Release|ARM64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

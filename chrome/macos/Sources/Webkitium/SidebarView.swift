@@ -1,12 +1,17 @@
 import SwiftUI
 
-/// Sidebar — top icon row (new-tab-group disabled, hide-sidebar), "N Tabs" pill,
+/// Sidebar — header icon row (new-tab-group + hide-sidebar), "N Tabs" pill,
 /// tab groups bar, tabs list, "Saved" leaves, profile footer chip.
 ///
-/// **Locked spec:** see `design/toolbar-spec.md` — the two top icons (new-tab-group
-/// + hide-sidebar) live HERE on the sidebar header, NOT on the window toolbar.
-/// The sidebar must show a visible right edge as a 1px hairline (matches the top
-/// edge, see Safari reference).
+/// The header icons sit AT the same Y as the back/forward pill on the detail
+/// side. To get that, the VStack uses `.ignoresSafeArea(.container, edges: .top)`
+/// so the sidebar's content area extends UP to the window's top edge (under the
+/// translucent titlebar) — the first row of the VStack then lands in the
+/// titlebar Y range, on the sidebar side of the column divider, matching the
+/// gold-standard Safari reference (LOOK.png / image #27).
+///
+/// The sidebar must show a visible right edge as a 1px hairline (matches the
+/// top edge, see Safari reference).
 struct SidebarView: View {
     @Environment(BrowserViewModel.self) private var browser
     let tabMorph: Namespace.ID
@@ -14,13 +19,7 @@ struct SidebarView: View {
     var body: some View {
         @Bindable var browserBinding = browser
         VStack(spacing: 0) {
-            // Sidebar header icons — ON THE SIDEBAR (not in the window toolbar).
-            // Per spec: new-tab-group (disabled, Tab Groups not built) + hide-sidebar,
-            // anchored to the trailing edge of the sidebar's top row.
             sidebarHeaderIcons
-                .padding(.horizontal, 10)
-                .padding(.top, 8)
-                .padding(.bottom, 4)
             if browser.isPrivate {
                 HStack { PrivateModeBadge(); Spacer() }
                     .padding(.horizontal, 10).padding(.top, 6)
@@ -69,36 +68,55 @@ struct SidebarView: View {
         // disappears under our backgroundExtensionEffect tab strip; this overlay
         // guarantees it.
         .overlay(alignment: .trailing) {
+            // Opacity 0.14 was barely visible against the translucent sidebar
+            // material — bumped to 0.34 so the divider reads clearly, matching
+            // Safari's column edge.
             Rectangle()
-                .fill(Color.primary.opacity(0.14))
+                .fill(Color.primary.opacity(0.34))
                 .frame(width: 1)
         }
+        // Extend the sidebar's content area up to the window's top edge so the
+        // first row (sidebarHeaderIcons) lands in the titlebar Y, matching the
+        // back/forward pill on the detail side. Without this the VStack starts
+        // BELOW the toolbar and the icons sit a row too low.
+        .ignoresSafeArea(.container, edges: .top)
+        // The ignoresSafeArea above was collapsing the sidebar's intrinsic
+        // width — navigationSplitViewColumnWidth's hints were getting silently
+        // ignored. An explicit frame minWidth re-asserts the width.
+        .frame(minWidth: 700)
     }
 
-    /// Sidebar header: new-tab-group (disabled — Tab Groups not built) + hide-sidebar.
-    /// Trailing-aligned so the icons sit clear of the system traffic-light reserve at
-    /// the leading edge. Inner targets are Image + .onTapGesture (no Button chrome).
+    /// Sidebar header: new-tab-group + hide-sidebar. Trailing-aligned, sized to
+    /// the toolbar row height so it lines up with back/forward across the
+    /// divider. The leading `Spacer(minLength: 70)` reserves space for the
+    /// traffic-light controls. Inner targets use Image + `.onTapGesture`
+    /// (no Button chrome) — matches the chrome-less treatment of the
+    /// back/forward chevrons in the detail toolbar.
     private var sidebarHeaderIcons: some View {
-        HStack(spacing: 6) {
-            Spacer()
-            Image(systemName: "square.stack.3d.up")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.tertiary)        // visibly disabled
-                .frame(width: 22, height: 22)
+        HStack(spacing: 8) {
+            Spacer(minLength: 70)
+            Image(systemName: "rectangle.stack.badge.plus")
+                .font(.system(size: 15, weight: .regular))
+                .foregroundStyle(.secondary)
+                .frame(width: 28, height: 22)
                 .help("New Tab Group")
-            Image(systemName: "sidebar.left")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.primary)
-                .frame(width: 22, height: 22)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    withAnimation(.smooth) {
-                        browser.sidebarVisibility =
-                            (browser.sidebarVisibility == .all) ? .detailOnly : .all
-                    }
-                }
-                .help("Hide Sidebar")
+            // Real Button — onTapGesture on a bare Image lost clicks to the
+            // NSWindow drag handler in the titlebar Y region. `.borderless`
+            // style means no visible chrome on hover.
+            Button {
+                browser.sidebarVisibility =
+                    (browser.sidebarVisibility == .all) ? .detailOnly : .all
+            } label: {
+                Image(systemName: "sidebar.left")
+                    .font(.system(size: 15, weight: .regular))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 28, height: 22)
+            }
+            .buttonStyle(.borderless)
+            .help("Hide Sidebar")
         }
+        .padding(.trailing, 10)
+        .frame(height: 38)
     }
 
     private var tabsHeaderPill: some View {

@@ -1,38 +1,29 @@
-// Android module — Compose + JNI.
-//
-// The native build links against browser/color/ through the CMakeLists
-// at src/main/cpp/. No Material You, no DynamicColors -- our
-// WebkitiumTheme composable passes its own ColorScheme in.
-
 plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.android")
-    id("org.jetbrains.kotlin.plugin.compose")
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
 }
 
 android {
-    namespace = "dev.webkitium"
+    namespace = "org.webkitium.android"
     compileSdk = 35
-    ndkVersion = "26.1.10909125"
+    ndkVersion = "27.0.12077973"
 
     defaultConfig {
-        applicationId = "dev.webkitium"
-        minSdk = 34           // Predictive back default
+        applicationId = "org.webkitium.android"
+        minSdk = 26
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
 
         externalNativeBuild {
             cmake {
-                // Same C++17 as the portable core's CMakeLists.
-                cppFlags += listOf("-std=c++17", "-Wall", "-Wextra")
+                cppFlags += listOf("-std=c++17", "-Wall", "-Wextra", "-fno-exceptions")
                 arguments += listOf("-DANDROID_STL=c++_shared")
             }
         }
 
         ndk {
-            // Reasonable default: build for modern 64-bit devices.
-            // Emulator-capable x86_64 is included for dev machines.
             abiFilters += listOf("arm64-v8a", "x86_64")
         }
     }
@@ -48,6 +39,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     externalNativeBuild {
@@ -64,26 +56,51 @@ android {
         release {
             isMinifyEnabled = true
             proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt")
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
             )
+        }
+    }
+
+    packaging {
+        // Be specific — `META-INF/*` would also strip META-INF/services/
+        // ServiceLoader definitions that some androidx and Kotlin
+        // libraries depend on, producing runtime NoSuchProviderError.
+        resources.excludes += setOf(
+            "META-INF/LICENSE",
+            "META-INF/LICENSE.txt",
+            "META-INF/LICENSE.md",
+            "META-INF/license.txt",
+            "META-INF/NOTICE",
+            "META-INF/NOTICE.txt",
+            "META-INF/notice.txt",
+            "META-INF/AL2.0",
+            "META-INF/LGPL2.1",
+            "META-INF/DEPENDENCIES",
+            "META-INF/INDEX.LIST"
+        )
+    }
+
+    sourceSets {
+        getByName("main") {
+            java.srcDirs("src/main/kotlin")
         }
     }
 }
 
 dependencies {
-    val composeBom = platform("androidx.compose:compose-bom:2024.09.00")
-    implementation(composeBom)
+    implementation(platform(libs.androidx.compose.bom))
 
-    implementation("androidx.core:core-ktx:1.13.1")
-    implementation("androidx.activity:activity-compose:1.9.2")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.6")
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
 
-    implementation("androidx.compose.ui:ui")
-    implementation("androidx.compose.ui:ui-graphics")
-    implementation("androidx.compose.material3:material3")
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.ui.graphics)
+    implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.extended)
 
-    // Compose tooling (used in @Preview; debugImplementation-only)
-    debugImplementation("androidx.compose.ui:ui-tooling")
-    implementation("androidx.compose.ui:ui-tooling-preview")
+    debugImplementation(libs.androidx.compose.ui.tooling)
+    implementation(libs.androidx.compose.ui.tooling.preview)
 }

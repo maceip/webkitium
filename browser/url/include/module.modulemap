@@ -1,0 +1,4 @@
+module WebkitiumUrlC {
+    header "../UrlBridgeC.h"
+    export *
+}

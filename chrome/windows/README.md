@@ -1,94 +1,50 @@
 # Webkitium — Windows shell
 
-First reference implementation of a webkitium chrome. WinUI 3 + Windows App SDK + C++/WinRT. Targets **Windows 11 build 22621** and above (Mica requires 22000+, MicaAlt requires 22621+).
+Starter kit. C# / WinUI 3 / Windows App SDK 1.6 + WebView2, with the C++ browser core (`browser/url/`, `browser/suggestions/`) compiled into `webkitium_core.dll` and consumed via cdecl P/Invoke (`LibraryImport` source generator).
 
-## Scope of the current sketch
+## What this gives you
 
-This is a *seed*, not a complete browser. It demonstrates the pieces that matter for validating the architecture:
+- A single MainWindow (1200×800) with a URL bar (back / forward / reload + `TextBox`) and a `WebView2` filling the body.
+- URL submission round-trips through the C++ core (`wk_url_normalize`) — the proof-of-life FFI call.
+- A `SuggestionsIndex` wrapper with `Open` / `RecordVisit` / `Dispose` to show the lifecycle pattern (open returns opaque handle, `Dispose` calls `wk_suggestions_close`).
+- Every other surface (tab strip, bookmarks UI, settings, downloads, extensions, history) deliberately not built. TODO comments at the call sites reference the `features.yaml` ID.
 
-- [x] Window with **Mica** backdrop (the system material)
-- [x] Custom title bar integration (omnibar sits in the title bar band)
-- [x] **Omnibar** component following `design/components/omnibar/SPEC.md` — pill shape, `shape.omnibar` radius, leading lockmark, trailing actions
-- [x] Token consumption from a single **ResourceDictionary** (`Tokens.xaml`) that mirrors the output of `browser/color/ColorRamp.cpp` for webkitium's default seed
-- [x] Light / Dark `ThemeDictionaries` that automatically follow the system appearance
-- [x] **Runtime palette updates** — `PaletteProvider` mutates the `SolidColorBrush` DPs in place; every bound control repaints without tearing down the visual tree. Bound to a dev-only **Ctrl+Shift+T** shortcut that cycles four test seeds (blue → magenta → green → near-mono) so the end-to-end OKLCH pipeline is visually verifiable.
-- [x] **Settings window** (Ctrl+,) — MicaAlt backdrop + NavigationView with three stub pages:
-    - **Paired devices** — mock list shaped like `browser/sync/LoopbackSyncServer` output
-    - **Theme** — live-wired ColorPicker + four presets; writes call `PaletteProvider::ApplySeed` end-to-end through OKLCH → semantic resolver → brush mutation. Only page currently touching app state.
-    - **Passwords** — mock ceremony log shaped like `WebAuthnController` events
-- [ ] WebView2 content area — stubbed, to be wired when we integrate the WebKit Windows port
-- [ ] Tab strip — not started
-- [ ] Context menu component
-- [ ] Authenticator window (separate from Settings; drawn by the browser process — see `design/components/authenticator/SECURITY_BOUNDARY.md`)
-- [ ] `browser.theme` extension API wiring — `PaletteProvider::ApplySeed` is the implementation target, exposed through the extension API host once that's ported
+## Prerequisites
 
-## File layout
+- Windows 11 22H2 or newer
+- Visual Studio 2022 17.10+ with the **.NET Desktop**, **Universal Windows Platform**, and **Desktop C++** workloads
+- Windows App SDK 1.6 (VS installer or NuGet)
+- .NET 8 SDK
+- WebView2 Runtime (pre-installed on Windows 11)
+- MSVC v143 toolchain (ships with VS 2022)
+- vcpkg integrated with Visual Studio (`vcpkg integrate install`) — the BrowserCore vcxproj uses **manifest-mode vcpkg** (see `vcpkg.json` at this directory) to pull in `sqlite3` at build time. No protobuf dependency: the four C ABI sources compiled here use only `<sqlite3.h>`.
+
+## Build
 
 ```
-chrome/windows/
-├── README.md                    this file
-├── Package.appxmanifest         MSIX package manifest
-├── src/
-│   ├── App.xaml                 Application-level ResourceDictionary merge
-│   ├── App.xaml.h / .cpp        Application bootstrap + activation
-│   ├── MainWindow.xaml          Top-level window (Mica, title bar, layout)
-│   ├── MainWindow.xaml.h / .cpp Mica backdrop setup, title bar customization
-│   ├── Omnibar.xaml             Omnibar UserControl (pill, lockmark, input)
-│   ├── Omnibar.xaml.h / .cpp    Omnibar behavior (focus, keyboard, submit)
-│   ├── Tokens.xaml              ResourceDictionary with every semantic color/size
-│   │                            — values are the algorithm's output for the default seed
-│   ├── Tokens.h                 Same values as C++ constants for code that needs them
-│   ├── PaletteProvider.h / .cpp Runtime brush mutator (Initialize + ApplySeed)
-│   ├── SettingsWindow.xaml      NavigationView + MicaAlt; hosts the three pages
-│   ├── SettingsWindow.xaml.h/.cpp/.idl
-│   ├── SettingsPairedDevicesPage.xaml{,.h,.cpp,.idl}
-│   ├── SettingsThemePage.xaml{,.h,.cpp,.idl}    live-wired to PaletteProvider
-│   └── SettingsPasswordsPage.xaml{,.h,.cpp,.idl}
+dotnet restore Webkitium.sln
+dotnet build Webkitium.sln -c Debug -p:Platform=x64
 ```
 
-## How to build
+Or open `Webkitium.sln` in Visual Studio and press F5.
 
-You need a Windows 11 dev machine with:
+## Run
 
-1. **Visual Studio 2022** (17.9 or later) with the "Desktop development with C++" and "Universal Windows Platform development" workloads.
-2. **Windows App SDK 1.5+** ([download](https://learn.microsoft.com/windows/apps/windows-app-sdk/)).
-3. **Windows 11 SDK 10.0.22621** or later.
-
-From a fresh clone:
-
-```cmd
-cd chrome\windows
-:: one-time: scaffold a .vcxproj matching this source layout
-dotnet new winui3 --language cpp --output . --name webkitium --force
-
-:: Visual Studio or MSBuild
-msbuild webkitium.sln /p:Platform=x64 /p:Configuration=Debug
+```
+.\Webkitium\bin\x64\Debug\net8.0-windows10.0.19041.0\Webkitium.exe
 ```
 
-> **Why no committed `.vcxproj`**: Visual Studio's C++/WinRT + Windows App SDK project files are generator-managed and verbose (>1500 lines). They pin specific NuGet package versions that rot quickly. The template command above is officially supported by Microsoft and produces a current project for the SDK you have installed. Commit the resulting `.sln` / `.vcxproj` locally if you prefer reproducible builds; out of tree until the SDK situation stabilizes.
+## What you do next
 
-Place the generated project files at the repo's root for `chrome/windows/`. The existing `src/*.xaml*`, `src/Tokens.*`, and `Package.appxmanifest` files are drop-in; the only wiring you do in Visual Studio is:
+Your roadmap is [`features.yaml`](../../features.yaml) at the repo root. Pick a row, implement the feature with native WinUI 3 widgets, then add a smoke test in [`harness_windows/`](../../harness_windows/) using UIAutomation. CI goes red when a `required: true` feature lacks a passing test once the harness is wired up.
 
-1. Add `src/*.xaml` as `Page` items.
-2. Add `src/*.cpp` as `ClCompile` items (code-behind is `<DependentUpon>` the `.xaml`).
-3. Add `Package.appxmanifest` as `AppxManifest`.
-4. Merge `src/App.xaml`'s merged dictionaries into the default `App.xaml`.
-5. Reference the portable C++ `ng_browser_core` static library (from `browser/`) when you wire the `browser.theme` API — not required for the current visual-only sketch.
+## Honest caveats
 
-## Design decisions worth reading the code for
+This was authored on macOS. Predictable failure surfaces, ranked by likelihood:
 
-- **Mica in XAML, not code.** `<Window.SystemBackdrop><MicaBackdrop Kind="Base"/></Window.SystemBackdrop>` — one line. No `MicaController`, no `SystemBackdropController` boilerplate. Works from Windows App SDK 1.3+.
-- **ExtendsContentIntoTitleBar**. The omnibar lives *in* the title bar region. We call `SetTitleBar(OmnibarHost)` so the OS knows which part is draggable. This mirrors Edge's title bar treatment.
-- **ThemeDictionaries, not code-switching.** Light and dark palettes both ship in `Tokens.xaml`; XAML resolves them automatically as the system appearance changes. No theme-change event handler needed.
-- **Tokens.xaml values are algorithmic output, committed.** The hex values match `GeneratePalette(kDefaultBrandSeed)` in `browser/color/ColorRamp.cpp`. When a user themes their browser, the runtime regenerates this dictionary from their seed (not implemented yet in this sketch — tracked under `browser.theme` wiring).
-- **No Fluent accent tinting on Mica.** Default `MicaBackdrop Kind="Base"` has `TintColor=null`, i.e., no brand tint through the material. Brand appears in discrete accent surfaces (buttons, selection, focus ring) rather than being smeared across the whole window. This reads cleaner against Windows 11's aesthetic.
-- **No RevealBrush on buttons.** The Fluent "light-follows-cursor" hover effect is dated in 2026. Disabled by default; re-enable via the `ClassicWindowsTheme` preset (future).
-- **No `SystemAccentColor` following.** Once a user has a webkitium theme, we stop following the Windows accent color. Pre-theme first-run uses the algorithmic default (webkitium blue), not the system accent.
-
-## What comes next
-
-1. **Wire the browser.theme runtime updates** — `Tokens.xaml` values become merged dictionaries refreshed from `GeneratePalette()` on token change.
-2. **Context menu component** following `design/components/context-menu/SPEC.md`.
-3. **Settings window** with `NavigationView` sidebar and MicaAlt backdrop.
-4. **WebView2 content area** stub → real WebKit Windows port integration.
-5. **Authenticator window** — a separate `Window` with a locked `Tokens` dictionary (the secure-ui tokens from `design/tokens/secure-ui/`), drawn by the browser process rather than any renderer.
+1. **CI-verified on `windows-latest` (Windows Server 2022 + VS 2022 build tools)** — see [`.github/workflows/windows-ci.yml`](../../.github/workflows/windows-ci.yml). First local-Windows build may still hit App SDK version skew if your installed VS lags the runner; mitigation: `dotnet workload update`, then re-run `dotnet restore`.
+2. **vcpkg manifest resolution for sqlite3.** `BrowserCore.vcxproj` sets `VcpkgEnableManifest=true` and `vcpkg.json` lists `sqlite3`. If link fails with `unresolved external symbol sqlite3_*`, your vcpkg either isn't integrated (`vcpkg integrate install` from an Admin shell) or the manifest didn't restore — check the build log for the `vcpkg install` step. Worst case: vendor the sqlite3 amalgamation (`sqlite3.c` + `sqlite3.h`) directly into `BrowserCore/` and drop the vcpkg dep.
+3. **WebView2 runtime.** Auto-installed on Windows 11. On Server / LTSC SKUs you may need the Evergreen bootstrapper.
+4. **P/Invoke calling convention.** The C ABI is cdecl; `LibraryImport` defaults to `Winapi` (which is `Stdcall` on x86). All five FFI methods carry an explicit `[UnmanagedCallConv(CallConvs = [CallConvCdecl])]` — if you see `BadImageFormatException` on first FFI call, an attribute is missing on a method you added.
+5. **DLL search path.** `webkitium_core.dll` must sit alongside `Webkitium.exe` at runtime. The `<ProjectReference>` and the explicit `CopyBrowserCoreDll` MSBuild target in `Webkitium.csproj` both copy it; if it isn't there after build, check `$(BrowserCoreOutputDir)` resolution and that the vcxproj actually produced output for that Platform/Configuration combination.
+6. **CRT runtime library mismatch.** The vcxproj uses `MultiThreadedDLL` (`/MD`) in Release and `MultiThreadedDebugDLL` (`/MDd`) in Debug — both match .NET's dynamic CRT expectation. If link errors mention `_CrtIsValidHeapPointer` or you see "different runtime libraries" warnings, something forced static CRT.

@@ -14,20 +14,20 @@ struct RootView: View {
 
         NavigationSplitView(columnVisibility: $browserBinding.sidebarVisibility) {
             SidebarView(tabMorph: tabMorph)
-                // Per spec (design/toolbar-spec.md): default sidebar should be wide
-                // enough to show full tab titles. The previous ideal of 220 truncated
-                // most titles; 260 matches Safari's default at first launch.
-                .navigationSplitViewColumnWidth(min: 200, ideal: 260, max: 420)
+                // Fixed-width form. The `min:ideal:max:` overload was being
+                // silently ignored — sidebar rendered well under the declared
+                // min. A single value forces SwiftUI to honor the width.
+                .navigationSplitViewColumnWidth(700)
                 .toolbar(removing: .sidebarToggle)
                 // Private tint on the sidebar container.
                 .privateChromeTint(browser.isPrivate)
         } detail: {
             VStack(spacing: 0) {
+                // NOTE: `backgroundExtensionEffect()` was removed — on macOS
+                // Tahoe the tab strip's material was also projecting UP into
+                // the translucent toolbar, producing a "mirrored tabs"
+                // artifact. Revisit when a more targeted directional API ships.
                 TabStripView(tabMorph: tabMorph)
-                    // macOS 26 modifier: lets the tab strip's content + background
-                    // bleed under the translucent sidebar so horizontal scrolling
-                    // visually continues across the divider, matching Safari 26.
-                    .backgroundExtensionEffect()
                 if browser.findBarOpen {
                     FindOnPageBar()
                         .transition(.move(edge: .top).combined(with: .opacity))
@@ -83,7 +83,10 @@ struct RootView: View {
                 }
             }
         }
-        .navigationSplitViewStyle(.balanced)
+        // `.balanced` was overriding per-column width hints — sidebar
+        // rendered at ~190pt regardless of `navigationSplitViewColumnWidth(700)`.
+        // `.prominentDetail` honors the sidebar's declared width.
+        .navigationSplitViewStyle(.prominentDetail)
     }
 
     /// Stacks the page content with the optional reader overlay and the optional
@@ -117,8 +120,8 @@ private struct ContentRouter: View {
 
     var body: some View {
         switch browser.sidebarSelection {
-        case .leaf(.bookmarks):     PlaceholderPane(title: "Bookmarks", symbol: "book.closed")
-        case .leaf(.readingList):   PlaceholderPane(title: "Reading List", symbol: "eyeglasses")
+        case .leaf(.bookmarks):     BookmarksLeafPane()
+        case .leaf(.readingList):   ReadingListLeafPane()
         case .leaf(.sharedWithYou): PlaceholderPane(title: "Shared with You", symbol: "person.2")
         default:
             if let tab = browser.selectedTab {

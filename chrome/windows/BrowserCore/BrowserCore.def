@@ -1,0 +1,56 @@
+; Exports from webkitium_core.dll consumed by Webkitium\FFI\*.cs via P/Invoke.
+;
+; Keep symbol order stable; tools that compute import-table offsets care.
+; All symbols are cdecl (the C ABI default — matches LibraryImport's
+; CallConvCdecl attribute on the C# side).
+
+LIBRARY webkitium_core
+
+EXPORTS
+    ; --- browser/url/UrlBridgeC.h ---
+    wk_url_normalize
+    wk_url_free
+    wk_url_scrub_tracking
+    wk_search_engine_search_url
+    wk_search_engine_suggest_url
+
+    ; --- browser/suggestions/SuggestionsBridgeC.h: lifecycle + URL bar ---
+    wk_suggestions_open
+    wk_suggestions_close
+    wk_suggestions_clear
+    wk_suggestions_record_visit
+    wk_suggestions_set_bookmarked
+    wk_suggestions_set_in_reading_list
+    wk_suggestions_query
+    wk_suggestions_recent_history
+    wk_suggestions_reading_list
+    wk_suggestions_bookmarks_flat
+    wk_suggestions_release_results
+
+    ; --- bookmarks (folders + entries) ---
+    wk_bookmarks_folders
+    wk_bookmarks_in
+    wk_bookmarks_add_folder
+    wk_bookmarks_add_entry
+    wk_bookmarks_remove_entry
+    wk_bookmarks_release_folders
+    wk_bookmarks_release_entries
+
+    ; --- tab groups ---
+    wk_tab_groups_list
+    wk_tab_groups_add
+    wk_tab_groups_remove
+    wk_tab_groups_release
+
+    ; --- open-tab persistence ---
+    wk_open_tabs_list
+    wk_open_tabs_set
+    wk_open_tabs_release
+
+    ; --- downloads ---
+    wk_downloads_list
+    wk_downloads_start
+    wk_downloads_progress
+    wk_downloads_complete
+    wk_downloads_cancel
+    wk_downloads_release

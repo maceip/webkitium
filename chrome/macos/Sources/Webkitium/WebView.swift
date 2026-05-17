@@ -11,7 +11,7 @@ import SwiftUI
 /// That's the data flow the rest of the chrome reads from (URL bar, tab strip cell,
 /// toolbar back/forward enable state, loading spinner).
 @MainActor
-final class TabWebView: NSObject {
+final class TabWebView: NSObject, WKNavigationDelegate {
     let webView: WKWebView
     private weak var browser: BrowserViewModel?
     private let tabID: UUID
@@ -40,6 +40,7 @@ final class TabWebView: NSObject {
 
         webView.allowsBackForwardNavigationGestures = true
         webView.allowsMagnification = true
+        webView.navigationDelegate = self
 
         // KVO bindings — the WKWebView pushes state into the matching Tab struct.
         observers = [
@@ -47,9 +48,33 @@ final class TabWebView: NSObject {
                 guard let progress = change.newValue else { return }
                 Task { @MainActor in self?.push { $0.loadProgress = progress } }
             },
-            webView.observe(\.isLoading, options: [.new]) { [weak self] _, change in
+            webView.observe(\.isLoading, options: [.new, .old]) { [weak self] _, change in
                 guard let loading = change.newValue else { return }
-                Task { @MainActor in self?.push { $0.isLoading = loading } }
+                Task { @MainActor in
+                    self?.push { $0.isLoading = loading }
+                    // Loading transitioned true → false = navigation completed.
+                    // Record into the suggestions index so the page ranks in
+                    // future URL-bar queries. Private windows still call into
+                    // the provider; the FFISuggestionProvider for those is
+                    // backed by an in-memory DB that dies with the window.
+                    if loading == false, change.oldValue == true,
+                       let strong = self,
+                       let browser = strong.browser,
+                       let tab = browser.tabs.first(where: { $0.id == strong.tabID }),
+                       !tab.url.isEmpty {
+                        await browser.suggestionProvider.recordVisit(
+                            title: tab.title, url: tab.url)
+                        await browser.historyStore.recordVisit(
+                            title: tab.title, url: tab.url)
+                        if !browser.isPrivate {
+                            CoreSpotlightIndexer.shared.indexVisit(
+                                title: tab.title, url: tab.url)
+                        }
+                        // Persist the tab snapshot so a relaunch restores
+                        // the right URL/title — not just the seeded one.
+                        browser.persistTabs()
+                    }
+                }
             },
             webView.observe(\.title, options: [.new]) { [weak self] _, change in
                 let title = change.newValue ?? nil
@@ -99,24 +124,35 @@ final class TabWebView: NSObject {
     func goBack()    { webView.goBack() }
     func goForward() { webView.goForward() }
 
-    /// URL normalization. Heuristic matching Safari's behavior: if the input contains a
-    /// dot or scheme, treat as URL; otherwise treat as search query (Google for now —
-    /// later this routes through the per-profile search engine).
+    // MARK: - WKNavigationDelegate (download handling)
+    //
+    // Convert navigation responses whose MIME type the webview can't render
+    // directly into WKDownload + route them through FFIDownloadsManager.
+    // The MainActor hop is required because BrowserViewModel.downloadsManager
+    // is `@MainActor`.
+
+    func webView(_ webView: WKWebView,
+                  decidePolicyFor navigationResponse: WKNavigationResponse) async
+                  -> WKNavigationResponsePolicy {
+        if !navigationResponse.canShowMIMEType {
+            return .download
+        }
+        return .allow
+    }
+
+    func webView(_ webView: WKWebView,
+                  navigationResponse: WKNavigationResponse,
+                  didBecome download: WKDownload) {
+        Task { @MainActor [weak self] in
+            self?.browser?.downloadsManager?.attach(download)
+        }
+    }
+
+    /// URL normalization — thin wrapper around `browser/url/` (C++). The
+    /// heuristic (scheme/dot/search) and search-engine routing both live
+    /// in the C ABI; this Swift call just hands the raw string across.
     static func normalize(_ raw: String) -> URL? {
-        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return nil }
-        if trimmed.hasPrefix("http://") || trimmed.hasPrefix("https://") {
-            return URL(string: trimmed)
-        }
-        // "domain.com" / "domain.com/path" — promote to https
-        if trimmed.contains(".") && !trimmed.contains(" ") {
-            return URL(string: "https://" + trimmed)
-        }
-        // Treat as a search query.
-        guard let encoded = trimmed.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
-            return nil
-        }
-        return URL(string: "https://www.google.com/search?q=" + encoded)
+        URLBridge.normalize(raw)
     }
 }
 

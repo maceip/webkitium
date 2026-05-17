@@ -32,13 +32,14 @@ struct ExtensionsPaneView: View {
 // MARK: - Installed list
 
 private struct InstalledExtensionsView: View {
-    @State private var extensions = ExtensionCatalog.installed
+    @Environment(BrowserViewModel.self) private var browser
     @State private var selectedID: String? = ExtensionCatalog.installed.first?.id
 
     var body: some View {
-        NavigationSplitView {
+        @Bindable var browserBinding = browser
+        return NavigationSplitView {
             List(selection: $selectedID) {
-                ForEach($extensions) { $ext in
+                ForEach($browserBinding.installedExtensions) { $ext in
                     HStack(spacing: 8) {
                         ExtensionIcon(ext: ext, size: 28)
                         Text(ext.name).font(.system(size: 13))
@@ -54,7 +55,7 @@ private struct InstalledExtensionsView: View {
             .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 280)
             .listStyle(.sidebar)
         } detail: {
-            if let selected = extensions.first(where: { $0.id == selectedID }) {
+            if let selected = browser.installedExtensions.first(where: { $0.id == selectedID }) {
                 ExtensionDetailView(ext: selected)
             } else {
                 Text("Select an extension")

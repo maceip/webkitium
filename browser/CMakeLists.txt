@@ -70,6 +70,8 @@ add_library(ng_browser_core STATIC
     sync/SyncTypes.cpp
     tabs/BrowserCommandController.cpp
     tabs/BrowserStateModel.cpp
+    url/UrlBridgeC.cc
+    url/UrlNormalize.cpp
     webauthn/WebAuthnBridgeC.cc
     webauthn/WebAuthnController.cpp
     webnn/BackendSelector.cpp

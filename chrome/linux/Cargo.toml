@@ -1,0 +1,23 @@
+[package]
+name = "webkitium-linux"
+version = "0.1.0"
+edition = "2021"
+description = "Webkitium GTK Linux shell — minimal starter wired to the C++ browser core."
+license = "Apache-2.0"
+
+[[bin]]
+name = "webkitium"
+path = "src/main.rs"
+
+[dependencies]
+gtk4 = { version = "0.9", features = ["v4_12"] }
+webkit6 = { version = "0.4" }
+glib = "0.20"
+
+[build-dependencies]
+bindgen = "0.70"
+cmake = "0.1"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

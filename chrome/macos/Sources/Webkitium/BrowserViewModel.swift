@@ -107,13 +107,41 @@ final class BrowserViewModel {
 
     /// Append a bookmark to the chosen folder. Writes through `BookmarkStore` and
     /// refreshes the cached snapshot.
+    /// Snapshot the current tab list to the persistent store. Cheap enough
+    /// to call after every meaningful mutation (open / close / navigate /
+    /// reorder). Private windows are skipped — their tabs live in memory
+    /// only.
+    func persistTabs() {
+        guard !isPrivate, let store = openTabsStore, windowID > 0 else { return }
+        let activeID = selectedTabID
+        let snapshot = tabs.enumerated().map { idx, tab in
+            PersistedTab(windowID: windowID,
+                          sortIndex: idx,
+                          url: tab.url,
+                          title: tab.title,
+                          groupID: 0,                // Tab Group sync = later
+                          isPinned: tab.isPinned,
+                          isActive: tab.id == activeID)
+        }
+        let wid = windowID
+        Task { await store.save(windowID: wid, tabs: snapshot) }
+    }
+
     func addBookmark(title: String, url: String, folder: BookmarkFolder) {
         let entry = BookmarkEntry(title: title, url: url,
                                     favicon: selectedTab?.favicon ?? .generic(symbol: "globe"))
         let store = bookmarkStore
+        let provider = suggestionProvider
+        let isPrivate = self.isPrivate
         Task { @MainActor in
             await store.addBookmark(entry, to: folder.id)
             self.bookmarkFolders = await store.folders()
+            await provider.setBookmarked(url: url, isBookmarked: true)
+            // Index in system-wide Spotlight so the user can find the
+            // bookmark from the menu bar. Private windows skip.
+            if !isPrivate {
+                CoreSpotlightIndexer.shared.indexBookmark(title: title, url: url)
+            }
         }
     }
 
@@ -194,6 +222,20 @@ final class BrowserViewModel {
     let passkeyStore:       any PasskeyStore
     let syncDeviceStore:    any SyncDeviceStore
 
+    /// FFI-backed stores that don't have a `protocol` seam yet — wired
+    /// directly. All optional so previews / tests work without native code.
+    var tabGroupStore: FFITabGroupStore?
+    let openTabsStore: FFIOpenTabsStore?
+    var downloadsManager: FFIDownloadsManager?
+
+    /// Per-window stable identifier used as the key for persisted open-tab
+    /// rows. Generated once per `BrowserWindowHost` and threaded through.
+    var windowID: Int64 = 0
+
+    /// Installed extensions (lifted from per-view local state so toggle
+    /// from any surface — popover, manage view, toolbar — propagates).
+    var installedExtensions: [BrowserExtension] = ExtensionCatalog.installed
+
     /// Live handles to the four C-ABI bridges (extensions / sync / webauthn / color).
     /// Optional so the model can still be constructed for previews/tests without
     /// touching native code. Production code (`WebkitiumApp`) always passes one in.
@@ -253,7 +295,10 @@ final class BrowserViewModel {
          historyStore:       any HistoryStore       = MockHistoryStore.shared,
          bookmarkStore:      any BookmarkStore      = MockBookmarkStore.shared,
          passkeyStore:       any PasskeyStore       = MockPasskeyStore.shared,
-         syncDeviceStore:    any SyncDeviceStore    = MockSyncDeviceStore.shared) {
+         syncDeviceStore:    any SyncDeviceStore    = MockSyncDeviceStore.shared,
+         tabGroupStore:     FFITabGroupStore? = nil,
+         openTabsStore:     FFIOpenTabsStore? = nil,
+         windowID:          Int64 = 0) {
         // `currentProfileID` must be initialized BEFORE any property-access referencing
         // `self` (e.g. `tabs`), per Swift's strict init rules with @Observable.
         currentProfileID = ProfileCatalog.all[0].id
@@ -264,6 +309,29 @@ final class BrowserViewModel {
         self.bookmarkStore      = bookmarkStore
         self.passkeyStore       = passkeyStore
         self.syncDeviceStore    = syncDeviceStore
+        self.tabGroupStore      = tabGroupStore
+        self.openTabsStore      = openTabsStore
+        self.windowID           = windowID
+
+        // Restore persisted tabs after init completes. The `Task` defers
+        // until after `self` is fully constructed (we read `tabs` inside).
+        if !isPrivate, let store = openTabsStore, windowID > 0 {
+            Task { @MainActor [weak self, store, windowID] in
+                let persisted = await store.load(windowID: windowID)
+                guard let self, !persisted.isEmpty else { return }
+                self.tabs = persisted.map { p in
+                    Tab(title: p.title.isEmpty ? p.url : p.title,
+                        url: p.url,
+                        favicon: BrandFavicon.match(for: p.title))
+                }
+                if let active = persisted.first(where: { $0.isActive }) {
+                    if let idx = persisted.firstIndex(where: { $0.isActive }) {
+                        self.sidebarSelection = .tab(self.tabs[idx].id)
+                    }
+                    _ = active
+                }
+            }
+        }
         // Assign tabs to groups now that we can reference the group catalog UUIDs.
         // tabs 0..1 → Today, tab 2 → Reading, tabs 3..5 → ungrouped (visible in "All").
         tabs[0].tabGroupID = tabGroups[0].id     // Today    — Apple
@@ -336,6 +404,7 @@ final class BrowserViewModel {
         tabs.removeAll { $0.id == tab.id }
         webViews.removeValue(forKey: tab.id)
         if selectedTabID == tab.id { selectedTabID = tabs.last?.id }
+        persistTabs()
     }
 
     func newTab() {
@@ -347,6 +416,7 @@ final class BrowserViewModel {
         tabs.append(t)
         selectedTabID = t.id
         sidebarSelection = .tab(t.id)
+        persistTabs()
     }
 
     func duplicate(_ tab: Tab) {

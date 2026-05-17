@@ -1,0 +1,120 @@
+name: windows-ci
+
+# Per-push CI for the WinUI 3 starter kit at chrome/windows/.
+# Distinct from windows-build.yml (the release/baseline-asset workflow).
+# Goal: catch breakage in the C# + native combo on every push, so the README
+# caveat upgrades from "untested" to "CI-verified on windows-latest."
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "chrome/windows/**"
+      - "browser/url/**"
+      - "browser/suggestions/**"
+      - ".github/workflows/windows-ci.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "chrome/windows/**"
+      - "browser/url/**"
+      - "browser/suggestions/**"
+      - ".github/workflows/windows-ci.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: windows-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: pwsh
+
+env:
+  SOLUTION: chrome/windows/Webkitium.sln
+  CONFIGURATION: Debug
+  PLATFORM: x64
+  VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
+
+jobs:
+  build:
+    name: build-${{ matrix.platform }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        platform: [x64]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('chrome/windows/**/*.csproj', 'chrome/windows/Directory.Build.props') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      # vcpkg in manifest mode resolves chrome/windows/vcpkg.json.
+      # x-gha binary cache piggybacks on GitHub Actions cache for the
+      # compiled native packages (sqlite3) so subsequent runs skip rebuild.
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgJsonGlob: "chrome/windows/vcpkg.json"
+          runVcpkgInstall: false
+
+      - name: Restore NuGet packages
+        run: nuget restore $env:SOLUTION
+
+      - name: Build solution
+        run: |
+          msbuild $env:SOLUTION `
+            /m `
+            /nologo `
+            /v:minimal `
+            /p:Configuration=$env:CONFIGURATION `
+            /p:Platform=${{ matrix.platform }} `
+            /p:RestorePackagesConfig=true `
+            /p:VcpkgEnableManifest=true `
+            /p:VcpkgEnableInstall=true `
+            /bl:msbuild.binlog
+
+      - name: Upload MSBuild binlog (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: msbuild-binlog-${{ matrix.platform }}
+          path: msbuild.binlog
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload build output
+        uses: actions/upload-artifact@v4
+        with:
+          name: webkitium-windows-${{ matrix.platform }}-${{ env.CONFIGURATION }}
+          path: |
+            chrome/windows/Webkitium/bin/${{ matrix.platform }}/${{ env.CONFIGURATION }}/**/Webkitium.exe
+            chrome/windows/Webkitium/bin/${{ matrix.platform }}/${{ env.CONFIGURATION }}/**/Webkitium.dll
+            chrome/windows/Webkitium/bin/${{ matrix.platform }}/${{ env.CONFIGURATION }}/**/webkitium_core.dll
+            chrome/windows/Webkitium/bin/${{ matrix.platform }}/${{ env.CONFIGURATION }}/**/*.deps.json
+            chrome/windows/Webkitium/bin/${{ matrix.platform }}/${{ env.CONFIGURATION }}/**/*.runtimeconfig.json
+            chrome/windows/Webkitium/bin/${{ matrix.platform }}/${{ env.CONFIGURATION }}/**/Microsoft.Web.WebView2.*
+            chrome/windows/Webkitium/bin/${{ matrix.platform }}/${{ env.CONFIGURATION }}/**/Microsoft.WindowsAppRuntime.*
+            chrome/windows/Webkitium/bin/${{ matrix.platform }}/${{ env.CONFIGURATION }}/**/*.winmd
+          if-no-files-found: warn
+          retention-days: 14

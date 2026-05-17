@@ -20,5 +20,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "webkitium"
+rootProject.name = "Webkitium"
 include(":app")

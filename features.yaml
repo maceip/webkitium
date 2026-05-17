@@ -1,0 +1,449 @@
+# Webkitium feature manifest — cross-platform conformance artifact.
+#
+# Each platform implements its own smoke harness (harness_macos/, harness_gtk/,
+# harness_winui/, harness_compose/, harness_ios/). CI runs every harness and
+# fails red if any feature with `required: true` lacks a passing smoke test on
+# that platform. Platform-only extras live in that platform's harness; they do
+# not appear here.
+#
+# Categories: navigation, tabs, sidebar, url_bar, bookmarks, reading_list,
+#             history, downloads, extensions, privacy, search, settings,
+#             security, dev, window, sync, share, profile.
+
+- id: navigate_to_url
+  name: Navigate to URL
+  description: Loading a typed URL into the active tab.
+  required: true
+  category: navigation
+
+- id: navigate_back_forward
+  name: Back / Forward
+  description: Step through the active tab's navigation history.
+  required: true
+  category: navigation
+
+- id: reload_stop
+  name: Reload / Stop
+  description: Reload the page or stop an in-flight load.
+  required: true
+  category: navigation
+
+- id: load_progress
+  name: Load progress indicator
+  description: Per-tab progress (0..1) surfaces in URL bar and tab cell.
+  required: true
+  category: navigation
+
+- id: hover_link_status
+  name: Hover link status bar
+  description: Hovering a link shows the URL in a floating status pill.
+  required: false
+  category: navigation
+
+- id: new_tab
+  name: New tab
+  description: Open a fresh tab. Inherits the current tab group if one is active.
+  required: true
+  category: tabs
+
+- id: close_tab
+  name: Close tab
+  description: Close the active or named tab.
+  required: true
+  category: tabs
+
+- id: select_tab
+  name: Select tab
+  description: Activate a tab by id or click.
+  required: true
+  category: tabs
+
+- id: duplicate_tab
+  name: Duplicate tab
+  description: Open a copy of a tab next to the original.
+  required: false
+  category: tabs
+
+- id: pin_tab
+  name: Pin / unpin tab
+  description: Pinned tabs render as narrow icon-only cells and persist across groups.
+  required: false
+  category: tabs
+
+- id: close_other_tabs
+  name: Close other tabs
+  description: Close every tab except the one specified.
+  required: false
+  category: tabs
+
+- id: mute_tab
+  name: Mute / unmute tab
+  description: Toggle audio mute for a tab that is producing sound.
+  required: false
+  category: tabs
+
+- id: tab_strip
+  name: Tab strip
+  description: Horizontal row of tab cells with selected highlight and edge fades on overflow.
+  required: true
+  category: tabs
+
+- id: tab_overview
+  name: Tab overview
+  description: Grid of thumbnail cards for all tabs with morph from tab strip; searchable.
+  required: false
+  category: tabs
+
+- id: prewarm_tab
+  name: Pre-warmed renderer
+  description: One renderer pre-spawned so the next new-tab navigation skips cold start.
+  required: false
+  category: tabs
+
+- id: tab_groups
+  name: Tab groups
+  description: Named, colored groups that filter the visible tab set.
+  required: false
+  category: tabs
+
+- id: persist_open_tabs
+  name: Persist open tabs
+  description: Snapshot tab list per window; restore on relaunch.
+  required: true
+  category: tabs
+
+- id: sidebar_visibility
+  name: Sidebar toggle
+  description: Show / hide the sidebar; toolbar surfaces a restore control when hidden.
+  required: true
+  category: sidebar
+
+- id: sidebar_tabs_list
+  name: Sidebar tabs list
+  description: Vertical list of tabs in the sidebar with context menu and selection.
+  required: true
+  category: sidebar
+
+- id: sidebar_tab_count
+  name: Sidebar tab count
+  description: "N Tabs" pill at the top of the sidebar reflecting visible-tab count.
+  required: false
+  category: sidebar
+
+- id: sidebar_saved_leaves
+  name: Saved leaves (Bookmarks / Reading List)
+  description: Bookmarks and Reading List pane entries selectable from the sidebar.
+  required: true
+  category: sidebar
+
+- id: sidebar_shared_with_you
+  name: Shared with You leaf
+  description: Sidebar leaf for content shared via Messages. Placeholder pane.
+  required: false
+  category: sidebar
+
+- id: url_bar
+  name: URL bar
+  description: Editable address/search field with focus state and submit-on-enter.
+  required: true
+  category: url_bar
+
+- id: url_suggestions
+  name: URL suggestions dropdown
+  description: Ranked Top Hit / History / Bookmarks / Search sections under the focused URL bar.
+  required: true
+  category: url_bar
+
+- id: url_inline_add_bookmark
+  name: Inline add-bookmark icon
+  description: Hover-only "+" inside the URL bar that opens the Add Bookmark sheet.
+  required: false
+  category: url_bar
+
+- id: url_reader_indicator
+  name: Reader-available indicator
+  description: URL bar shows a leading icon when the current page supports reader mode.
+  required: false
+  category: url_bar
+
+- id: page_settings_menu
+  name: Page Settings menu
+  description: Trailing "aA" popover with zoom, desktop-site, hide-toolbar, website-settings link.
+  required: false
+  category: url_bar
+
+- id: add_bookmark
+  name: Add bookmark
+  description: Save the current page to a chosen folder; index in suggestions and Spotlight.
+  required: true
+  category: bookmarks
+
+- id: list_bookmarks
+  name: List bookmarks
+  description: Read the bookmark folder tree (nested) and entries.
+  required: true
+  category: bookmarks
+
+- id: bookmarks_manager
+  name: Bookmarks manager
+  description: Two-column folder/table editor with New Folder, edit, delete.
+  required: false
+  category: bookmarks
+
+- id: new_bookmark_folder
+  name: New bookmark folder
+  description: Create a top-level or nested bookmark folder.
+  required: false
+  category: bookmarks
+
+- id: persist_bookmarks
+  name: Persist bookmarks
+  description: Bookmarks survive process restart.
+  required: true
+  category: bookmarks
+
+- id: reading_list
+  name: Reading list
+  description: Mark page for later; list and open from the sidebar leaf.
+  required: false
+  category: reading_list
+
+- id: record_visit
+  name: Record visit
+  description: Completed navigation writes a visit to the history store.
+  required: true
+  category: history
+
+- id: history_view
+  name: History view
+  description: Searchable sheet of past visits grouped by Today / Yesterday / Earlier.
+  required: true
+  category: history
+
+- id: clear_history
+  name: Clear history
+  description: Drop all history entries from the store.
+  required: true
+  category: history
+
+- id: history_keyboard_shortcut
+  name: History keyboard shortcut
+  description: Standard shortcut opens the History view (e.g. Cmd+Y / Ctrl+H).
+  required: false
+  category: history
+
+- id: download_to_disk
+  name: Download to disk
+  description: Non-renderable responses become downloads written to the user downloads folder.
+  required: true
+  category: downloads
+
+- id: downloads_list
+  name: Downloads list
+  description: Popover or pane listing recent/in-flight downloads with progress.
+  required: true
+  category: downloads
+
+- id: cancel_download
+  name: Cancel download
+  description: Cancel an in-flight download from the downloads list.
+  required: true
+  category: downloads
+
+- id: show_download_in_finder
+  name: Reveal completed download
+  description: Reveal a completed download in the platform file manager.
+  required: false
+  category: downloads
+
+- id: persist_downloads
+  name: Persist downloads
+  description: Download records survive process restart.
+  required: false
+  category: downloads
+
+- id: extensions_runtime
+  name: Extensions runtime
+  description: Load and run installed browser extensions per their manifest.
+  required: false
+  category: extensions
+
+- id: extensions_list
+  name: Installed extensions list
+  description: List installed extensions, toggle enable, show permissions / version / author.
+  required: true
+  category: extensions
+
+- id: extensions_toolbar_buttons
+  name: Per-extension toolbar buttons
+  description: Each enabled extension with hasToolbarButton renders an action button in the toolbar.
+  required: false
+  category: extensions
+
+- id: extensions_popover
+  name: Extensions popover
+  description: Toolbar popover listing installed extensions with quick enable toggles.
+  required: false
+  category: extensions
+
+- id: extensions_store
+  name: Extensions store
+  description: Discover pane with featured / top-charts / search and install actions.
+  required: false
+  category: extensions
+
+- id: private_window
+  name: Private window
+  description: Spawn a window whose state (tabs, history, cookies, suggestions) never persists.
+  required: true
+  category: privacy
+
+- id: private_chrome_tint
+  name: Private window tint
+  description: Visual distinction (dark tint) on private windows.
+  required: false
+  category: privacy
+
+- id: tracking_param_strip
+  name: Tracking parameter scrubbing
+  description: Strip known tracking params (utm_*, fbclid, gclid) before navigation/share.
+  required: false
+  category: privacy
+
+- id: site_permissions
+  name: Per-site permissions
+  description: Camera / mic / location / notifications / popups / autoplay rules per site.
+  required: true
+  category: privacy
+
+- id: search_engine_select
+  name: Search engine selection
+  description: User-selectable default engine; DuckDuckGo is the shipped default.
+  required: true
+  category: search
+
+- id: search_engine_route
+  name: Search engine routing
+  description: Non-URL URL-bar input routes through the selected engine.
+  required: true
+  category: search
+
+- id: url_normalization
+  name: URL normalization
+  description: Heuristic that decides URL vs. search query for typed input.
+  required: true
+  category: search
+
+- id: settings_window
+  name: Settings window
+  description: Standalone settings window with sidebar of panes.
+  required: true
+  category: settings
+
+- id: settings_search_pane
+  name: Search settings pane
+  description: Pane for choosing default engine and suggestion sources.
+  required: false
+  category: settings
+
+- id: settings_passwords_pane
+  name: Passwords settings pane
+  description: Pane for autofill toggles + entry to passkey manager.
+  required: false
+  category: settings
+
+- id: settings_extensions_pane
+  name: Extensions settings pane
+  description: Pane with Installed / Discover toggle and per-extension detail view.
+  required: false
+  category: settings
+
+- id: passkey_signin
+  name: Passkey sign-in prompt
+  description: Platform-native WebAuthn prompt for a site requesting passkey assertion.
+  required: false
+  category: security
+
+- id: passkey_manager
+  name: Passkey manager
+  description: Standalone window listing saved passkeys with detail / edit / delete.
+  required: false
+  category: security
+
+- id: web_inspector
+  name: Web inspector
+  description: Bottom-docked inspector with Elements / Console / Network / Storage / Sources panes.
+  required: false
+  category: dev
+
+- id: find_on_page
+  name: Find on page
+  description: In-page search bar with match count, prev/next, contains/begins-with mode, ESC closes.
+  required: true
+  category: navigation
+
+- id: reader_mode
+  name: Reader mode
+  description: Overlay rendering page as clean article with font-size and theme controls.
+  required: false
+  category: navigation
+
+- id: page_zoom
+  name: Page zoom
+  description: Zoom in / out / reset with transient HUD; clamped to a reasonable range.
+  required: true
+  category: navigation
+
+- id: translation
+  name: Page translation
+  description: Translate-page popover with from/to language pickers and auto-translate toggle.
+  required: false
+  category: navigation
+
+- id: share_page
+  name: Share page
+  description: Share popover routing to platform share targets (email/messages/airdrop/etc) plus more.
+  required: true
+  category: share
+
+- id: add_to_dock
+  name: Add to Dock / install web app
+  description: Add the current page as a standalone web-app entry in the platform launcher.
+  required: false
+  category: share
+
+- id: welcome_panel
+  name: Welcome panel
+  description: First-launch panel; reachable from Help thereafter.
+  required: false
+  category: window
+
+- id: multiple_windows
+  name: Multiple windows
+  description: Spawn multiple concurrent browser windows with independent state.
+  required: true
+  category: window
+
+- id: keyboard_shortcuts
+  name: Keyboard shortcuts
+  description: Standard shortcuts (new tab, close tab, find, reload, zoom, history, bookmarks).
+  required: true
+  category: window
+
+- id: spotlight_index
+  name: System search indexing
+  description: Visits and bookmarks indexed into the platform's system-wide search (Spotlight equivalent).
+  required: false
+  category: history
+
+- id: sync_pairing
+  name: Sync device pairing
+  description: Pair a second device via QR + numeric backup code; shared history/bookmarks/passkeys.
+  required: false
+  category: sync
+
+- id: profiles
+  name: Browser profiles
+  description: Switch between named profiles (e.g. Personal / Work) each with their own state.
+  required: false
+  category: profile

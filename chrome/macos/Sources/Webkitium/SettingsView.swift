@@ -59,6 +59,8 @@ struct SettingsView: View {
                 ExtensionsPaneView(mode: $extensionsSubsection)
             case .passwords:
                 PasswordsPaneView()
+            case .search:
+                SearchPaneView()
             default:
                 PlaceholderSettingsPane(pane: selection)
             }
@@ -77,6 +79,39 @@ struct SettingsView: View {
         case .extensions:      selection = .extensions; extensionsSubsection = .installed
         case .extensionsStore: selection = .extensions; extensionsSubsection = .discover
         }
+    }
+}
+
+/// Search pane — pick the URL-bar default engine. Persisted per-profile
+/// via `@AppStorage` (key `Webkitium.SearchEngine`); URL bar reads via
+/// `SearchEngineRouter.current` on every navigation.
+private struct SearchPaneView: View {
+    @AppStorage("Webkitium.SearchEngine") private var rawEngine: String = SearchEngine.defaultEngine.rawValue
+
+    var body: some View {
+        Form {
+            Section {
+                Picker("Search Engine", selection: $rawEngine) {
+                    ForEach(SearchEngine.allCases) { engine in
+                        Label(engine.displayName, systemImage: engine.faviconSymbol)
+                            .tag(engine.rawValue)
+                    }
+                }
+                .pickerStyle(.menu)
+                Text("Default is DuckDuckGo. Webkitium does not pre-select Google.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+            Section("Suggestions") {
+                Toggle("Include Search Engine Suggestions", isOn: .constant(true))
+                    .toggleStyle(.switch)
+                Toggle("Include History in Suggestions",  isOn: .constant(true))
+                    .toggleStyle(.switch)
+                Toggle("Include Bookmarks in Suggestions", isOn: .constant(true))
+                    .toggleStyle(.switch)
+            }
+        }
+        .formStyle(.grouped)
     }
 }
 

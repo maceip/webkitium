@@ -24,7 +24,7 @@ struct WebkitiumApp: App {
         WindowGroup(id: "browser") {
             BrowserWindowHost(isPrivate: false, services: services)
         }
-        .defaultSize(width: 1480, height: 900)
+        .defaultSize(width: 1880, height: 1000)
         .windowStyle(.titleBar)
         .windowToolbarStyle(.unified(showsTitle: false))
         .commands { SafariCommands(browser: sharedAuxBrowser) }
@@ -32,7 +32,7 @@ struct WebkitiumApp: App {
         WindowGroup(id: "private-browser") {
             BrowserWindowHost(isPrivate: true, services: services)
         }
-        .defaultSize(width: 1480, height: 900)
+        .defaultSize(width: 1880, height: 1000)
         .windowStyle(.titleBar)
         .windowToolbarStyle(.unified(showsTitle: false))
 
@@ -67,7 +67,51 @@ struct BrowserWindowHost: View {
     @State private var browser: BrowserViewModel
 
     init(isPrivate: Bool, services: BrowserServices) {
-        _browser = State(initialValue: BrowserViewModel(isPrivate: isPrivate, services: services))
+        // All FFI-backed stores point at the same SQLite DB per profile.
+        // Regular windows persist; private windows use in-memory (empty path).
+        let dbPath: String? = isPrivate ? nil : Self.defaultSuggestionsDBPath()
+        let provider     = FFISuggestionProvider(dbPath: dbPath)
+        let history      = FFIHistoryStore     (dbPath: dbPath)
+        let bookmarks    = FFIBookmarkStore    (dbPath: dbPath)
+        let tabGroups    = FFITabGroupStore    (dbPath: dbPath)
+        let openTabs     = FFIOpenTabsStore    (dbPath: dbPath)
+        let windowID     = Self.nextWindowID(isPrivate: isPrivate)
+
+        let vm = BrowserViewModel(isPrivate: isPrivate,
+                                   services: services,
+                                   suggestionProvider: provider,
+                                   historyStore: history,
+                                   bookmarkStore: bookmarks,
+                                   tabGroupStore: tabGroups,
+                                   openTabsStore: openTabs,
+                                   windowID: windowID)
+        // Downloads manager retains `browser` weakly — must construct it
+        // AFTER the VM exists so the back-pointer is valid.
+        vm.downloadsManager = FFIDownloadsManager(dbPath: dbPath, browser: vm)
+        vm.downloadsManager?.refreshSnapshot()
+        _browser = State(initialValue: vm)
+    }
+
+    /// Monotonic per-launch window id. Persisted across launches via
+    /// UserDefaults so reopening a window restores its tab snapshot.
+    /// Private windows always get id = 0 (their open_tabs rows are written
+    /// to an in-memory DB that dies with the window).
+    private static func nextWindowID(isPrivate: Bool) -> Int64 {
+        if isPrivate { return 0 }
+        let key = "Webkitium.NextWindowID"
+        let defaults = UserDefaults.standard
+        let current = defaults.object(forKey: key) as? Int64 ?? 1
+        defaults.set(current + 1, forKey: key)
+        return current
+    }
+
+    private static func defaultSuggestionsDBPath() -> String? {
+        let fm = FileManager.default
+        guard let appSupport = fm.urls(for: .applicationSupportDirectory,
+                                        in: .userDomainMask).first else { return nil }
+        let dir = appSupport.appendingPathComponent("Webkitium", isDirectory: true)
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("suggestions.db").path
     }
 
     var body: some View {

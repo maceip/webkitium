@@ -1,111 +1,53 @@
 # Webkitium — Android shell
 
-Jetpack Compose + JNI into the portable `browser/color/` C++ library.
-Third reference shell, companion to `chrome/windows/` and `chrome/macos/`.
-Same algorithm, same output, no Material You.
+Kotlin + Jetpack Compose + Material 3 + Android WebView. JNI binds the portable C ABI at `../../browser/url/` to power URL normalization and tracking-param scrubbing.
 
-## Scope of the current sketch
+## Stack
 
-- [x] Edge-to-edge `Activity` with **predictive back** (Android 14+ default)
-- [x] Compose `MaterialTheme` wrapper -- consumes OUR `ColorScheme`
-      derived from `browser/color/`, not `dynamicLightColorScheme()`
-- [x] **Omnibar** composable per `design/components/omnibar/SPEC.md`,
-      floating pill at the bottom (platform idiom)
-- [x] Light / Dark via `isSystemInDarkTheme()`, same semantic resolver
-      as Windows and macOS
-- [x] `PaletteProvider` `ViewModel` holds a `StateFlow<SemanticPalette>`;
-      Compose re-reads and rebinds on seed change
-- [x] Dev-only **three-finger tap anywhere** cycles the four test seeds
-      (blue → magenta → green → near-mono)
-- [x] JNI bridge to `browser/color/ColorBridgeC.h` -- the same C ABI the
-      macOS shell imports via Swift
-- [ ] WebView placeholder (will connect to the Android WPE / WebKit GTK
-      Android port eventually)
-- [ ] Tab strip, context menu, settings, authenticator
-- [ ] `browser.theme` extension API wiring
+- Kotlin 2.0.21
+- Android Gradle Plugin 8.7.3
+- Gradle 8.11.1
+- Compose BOM 2024.12.01 / Material 3 1.3.1
+- compileSdk 35 (Android 15), minSdk 26 (Android 8.0), targetSdk 35
+- NDK 27.0.12077973, CMake 3.22.1
+- JDK 17 source compatibility
 
-## File layout
+## Prerequisites
 
-```
-chrome/android/
-├── README.md                       this file
-├── settings.gradle.kts             project-level Gradle settings
-├── build.gradle.kts                project-level plugins
-├── gradle.properties
-└── app/
-    ├── build.gradle.kts            module build (compose, JNI)
-    └── src/main/
-        ├── AndroidManifest.xml
-        ├── cpp/
-        │   ├── CMakeLists.txt      builds browser/color + JNI wrapper
-        │   └── webkitium_color_jni.cc
-        ├── java/dev/webkitium/
-        │   ├── MainActivity.kt     entry; edge-to-edge + Compose host
-        │   ├── theme/
-        │   │   ├── ColorBridge.kt   JNI declarations + IntArray → Color
-        │   │   ├── PaletteProvider.kt  ViewModel + StateFlow
-        │   │   └── WebkitiumTheme.kt   MaterialTheme wrapper
-        │   └── ui/
-        │       └── Omnibar.kt       pill composable
-        └── res/values/              minimal (app name, themes)
+- Android Studio Ladybug (2024.2.1) or later, **or** the command-line tools
+- Android SDK 35
+- NDK 27.0+ (install via `sdkmanager "ndk;27.0.12077973"`)
+- JDK 17+ (recent Android Studios bundle one; `brew install --cask temurin@17` works too)
+
+On a fresh macOS dev box:
+
+```sh
+brew install --cask android-studio
+# Then in Android Studio: SDK Manager → install SDK 35, NDK 27, CMake 3.22
 ```
 
-The portable color library lives at `../../browser/color/`. The CMake
-build in `app/src/main/cpp/CMakeLists.txt` references those sources by
-relative path -- same files the Windows CMake build and macOS SwiftPM
-build compile.
-
-## How to build
-
-Requires:
-
-- **Android Studio Koala (2024.2) or later**, or command-line:
-- **Android SDK 35** (Android 15 preview/stable)
-- **NDK r26+** (bundled with Android Studio)
-- **Java 17+** (bundled with recent Android Studio)
-
-From a fresh checkout:
+## Build & run
 
 ```sh
 cd chrome/android
 ./gradlew assembleDebug
 # APK lands at app/build/outputs/apk/debug/app-debug.apk
+
+# Install + launch:
+./gradlew installDebug && \
+  adb shell am start -n org.webkitium.android/.MainActivity
 ```
 
-Or open in Android Studio: `File → Open → chrome/android`.
+## What this gives you
 
-A `gradlew` wrapper is not committed -- use whichever Gradle version your
-Android Studio ships (`gradle wrapper --gradle-version 8.10` to generate
-one, or let AS do it on first open).
+- One Activity, edge-to-edge, Material 3 theme with Android-12+ dynamic color
+- Compose `Scaffold`: bottomBar = `BottomUrlBar` (back / TextField / ⋯ ), content = `AndroidView { WebView }`
+- URL submit round-trips through `UrlBridge.normalize(input, "duckduckgo")` — the proof-of-life FFI call against `wk_url_normalize`
 
-## Design decisions worth reading the code for
+## What you do next
 
-- **Our ColorScheme, not Material You's.** `WebkitiumTheme` calls
-  `MaterialTheme(colorScheme = ourScheme, ...)` but the scheme is built
-  from the JNI-resolved semantic palette -- not from
-  `dynamicLightColorScheme(context)`. We never call
-  `DynamicColors.applyToActivitiesIfAvailable`. Users who set a brand
-  color on their Windows device see the same palette on their Android
-  device, independent of wallpaper.
-- **Compose material overlaps.** Our semantic tokens (e.g.
-  `SurfaceChrome`) are mapped onto Material 3's color roles (`surface`,
-  `surfaceVariant`, `primary`, etc.) in `WebkitiumTheme.kt` so standard
-  Compose components still look right. When a standard `Surface` picks up
-  our `surface` color, it picks up our OKLCH-derived value.
-- **One C++ library, three languages.** JNI in the Kotlin layer calls the
-  exact same `wk_palette_resolve_semantic()` function that the macOS
-  Swift layer calls and that the Windows C++ code calls. Cross-platform
-  sRGB invariant is enforced by construction: same seed → same 22 ARGB
-  outputs → same pixel on-screen.
-- **Edge-to-edge by default.** `enableEdgeToEdge()` + predictive back +
-  floating omnibar at the bottom. No Material You decorations.
-- **No Compose Preview wallpaper tricks.** `DynamicColors` is deliberately
-  absent; if a reviewer enables it on the device, our theme still wins
-  because `MaterialTheme` is passed our fixed `ColorScheme`.
+Your roadmap is [`features.yaml`](../../features.yaml) at the repo root. Pick a row, implement, add a smoke test in [`harness_android/`](../../harness_android/). CI will go red if a `required: true` feature lacks a passing test on Android once the harness is wired up.
 
-## Cross-platform contract test
+## Explicit non-goals for this starter kit
 
-Same manual test as `chrome/macos/README.md`: set seed `0xFFD21F6B`
-(magenta) on Windows / macOS / Android; inspect `SurfaceChrome`; all
-three produce the same ARGB. If any diverge, the bug is in one of the
-language bridges, not in the algorithm.
+Tab strip, multiple tabs, settings, bookmarks, history, downloads, extensions, profile switcher. URL bar + WebView only. Anywhere a feature would later go, there's a one-line `TODO: features.yaml#<id>` comment pointing at the manifest row.

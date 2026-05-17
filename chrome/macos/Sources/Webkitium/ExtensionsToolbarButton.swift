@@ -40,14 +40,15 @@ struct ExtensionsToolbarButton: View {
 struct ExtensionsPopover: View {
     let onManage: () -> Void
     let onStore: () -> Void
-    @State private var extensions: [BrowserExtension] = ExtensionCatalog.installed
+    @Environment(BrowserViewModel.self) private var browser
 
     var body: some View {
+        @Bindable var browserBinding = browser
         VStack(alignment: .leading, spacing: 8) {
             Text("Extensions")
                 .font(.system(size: 13, weight: .semibold))
             Divider()
-            ForEach($extensions) { $ext in
+            ForEach($browserBinding.installedExtensions) { $ext in
                 HStack(spacing: 8) {
                     ExtensionIcon(ext: ext, size: 22)
                     Text(ext.name).font(.system(size: 12))
