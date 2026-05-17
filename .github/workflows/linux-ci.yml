@@ -75,7 +75,11 @@ jobs:
           export GDK_BACKEND=x11
           export GSK_RENDERER=cairo
 
-          # Wrap app launch in dbus-run-session so a session bus exists
+          # Wrap app launch in dbus-run-session so a session bus exists.
+          # WEBKITIUM_LAUNCH_URL is honored by the GTK shell on startup so we
+          # don't have to drive the URL Entry via xdotool (which has been
+          # unreliable on Xvfb sessions without an active focus owner).
+          export WEBKITIUM_LAUNCH_URL='https://en.wikipedia.org'
           dbus-run-session -- bash -c "
             '$BIN' >/tmp/app.log 2>&1 &
             APP=\$!
@@ -86,12 +90,7 @@ jobs:
               exit 13
             fi
 
-            # Drive navigation
-            xdotool key ctrl+l 2>/dev/null || true
-            sleep 0.5
-            xdotool type --delay 25 'https://en.wikipedia.org'
-            sleep 0.3
-            xdotool key Return
+            # Wait for Wikipedia to fetch + render under software rendering.
             sleep 15
 
             # Capture

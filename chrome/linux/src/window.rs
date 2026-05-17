@@ -434,8 +434,20 @@ impl AppWindow {
         app.set_accels_for_action("win.close-tab", &["<Primary>w"]);
         app.set_accels_for_action("win.find",      &["<Primary>f"]);
 
-        // Open one initial tab + populate the bookmarks bar.
-        state.open_new_tab("about:blank");
+        // Open one initial tab + populate the bookmarks bar. Honor
+        // `WEBKITIUM_LAUNCH_URL` so headless / CI captures can seed a URL
+        // without driving the URL Entry via xdotool. Same pattern the iOS
+        // shell uses for its launch-URL hook.
+        let initial = std::env::var("WEBKITIUM_LAUNCH_URL")
+            .ok()
+            .filter(|s| !s.is_empty());
+        match initial {
+            Some(raw) => match crate::ffi::url::normalize(&raw, "duckduckgo") {
+                Some((_kind, target)) => state.open_new_tab(&target),
+                None => state.open_new_tab(&raw),
+            },
+            None => state.open_new_tab("about:blank"),
+        }
         state.refresh_bookmarks_bar();
 
         window
