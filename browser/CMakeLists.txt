@@ -67,6 +67,8 @@ add_library(ng_browser_core STATIC
     sync/LoopbackSyncRpc.cpp
     sync/LoopbackSyncServer.cpp
     sync/SyncBridgeC.cc
+    suggestions/SuggestionIndex.cpp
+    suggestions/SuggestionsBridgeC.cc
     sync/SyncTypes.cpp
     tabs/BrowserCommandController.cpp
     tabs/BrowserStateModel.cpp
