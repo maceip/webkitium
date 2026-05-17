@@ -1,0 +1,99 @@
+name: linux-ci
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'chrome/linux/**'
+      - 'browser/url/**'
+      - 'browser/suggestions/**'
+      - '.github/workflows/linux-ci.yml'
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: linux-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-screenshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            build-essential cmake pkg-config \
+            libgtk-4-dev libwebkitgtk-6.0-dev libclang-dev \
+            libprotobuf-dev libsqlite3-dev protobuf-compiler \
+            xvfb x11-utils xdotool imagemagick scrot
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            chrome/linux/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('chrome/linux/Cargo.lock') }}
+
+      - name: Cargo build
+        working-directory: chrome/linux
+        run: cargo build --release
+
+      - name: Run app under Xvfb and capture screenshot
+        run: |
+          BIN=$(find chrome/linux/target/release -maxdepth 1 -type f -executable | grep -v "\.d$" | head -1)
+          echo "BIN=$BIN"
+          file "$BIN"
+          Xvfb :99 -screen 0 1280x800x24 -ac +render -noreset >/tmp/xvfb.log 2>&1 &
+          XVFB=$!
+          sleep 2
+          export DISPLAY=:99
+          export WEBKIT_DISABLE_COMPOSITING_MODE=1
+          export WEBKIT_FORCE_SANDBOX=0
+          export WEBKIT_DISABLE_DMABUF_RENDERER=1
+          export LIBGL_ALWAYS_SOFTWARE=1
+          export GDK_BACKEND=x11
+          export GSK_RENDERER=cairo
+          "$BIN" >/tmp/app.log 2>&1 &
+          APP=$!
+          sleep 8
+          ps -p $APP >/dev/null || { echo "APP CRASHED"; tail -50 /tmp/app.log; exit 13; }
+          xdotool key ctrl+l 2>/dev/null || true
+          sleep 0.5
+          xdotool type --delay 25 "https://en.wikipedia.org"
+          sleep 0.3
+          xdotool key Return
+          sleep 15
+          import -window root /tmp/webkitium-linux-wikipedia.png || scrot /tmp/webkitium-linux-wikipedia.png
+          ls -la /tmp/webkitium-linux-wikipedia.png
+          kill $APP $XVFB 2>/dev/null || true
+
+      - name: Upload Wikipedia screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webkitium-linux-wikipedia
+          path: /tmp/webkitium-linux-wikipedia.png
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload logs (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-ci-logs
+          path: |
+            /tmp/xvfb.log
+            /tmp/app.log
