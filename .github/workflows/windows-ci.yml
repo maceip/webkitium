@@ -119,6 +119,22 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+      # The windows-latest runner doesn't ship the WindowsAppRuntime; unpackaged
+      # WinUI 3 apps refuse to launch without it. Install the 1.6 redist before
+      # the screenshot step.
+      - name: Install Windows App Runtime 1.6
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $url = 'https://aka.ms/windowsappsdk/1.6/latest/windowsappruntimeinstall-x64.exe'
+          $out = "$env:RUNNER_TEMP\WindowsAppRuntimeInstall.exe"
+          Write-Host "Downloading $url"
+          Invoke-WebRequest -Uri $url -OutFile $out
+          Write-Host "Installing..."
+          $p = Start-Process -FilePath $out -ArgumentList '--quiet' -PassThru -Wait
+          Write-Host "Installer exit code: $($p.ExitCode)"
+          if ($p.ExitCode -ne 0) { throw "Install failed: $($p.ExitCode)" }
+
       # Launch Webkitium, drive UIAutomation to navigate to Wikipedia, screenshot.
       # The screenshot is uploaded as an artifact below so the user can download it
       # from the Actions tab — the only way to visually verify the Windows shell
