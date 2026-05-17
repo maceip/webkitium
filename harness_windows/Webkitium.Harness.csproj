@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <Platforms>x64</Platforms>
+    <Nullable>enable</Nullable>
+    <LangVersion>12</LangVersion>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <RootNamespace>Webkitium.Harness</RootNamespace>
+  </PropertyGroup>
+
+  <!--
+    FlaUI.UIA3 chosen over raw UIAutomation: it wraps the COM API in a
+    saner managed surface (FindFirstByName / AsButton / etc.), is the
+    de-facto Windows UI-test library on GitHub, and matches Chromium's
+    "use the highest-level wrapper available" stance for test harnesses.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageReference Include="FlaUI.UIA3" Version="5.0.0" />
+  </ItemGroup>
+
+</Project>

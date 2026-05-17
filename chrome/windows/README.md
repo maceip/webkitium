@@ -4,10 +4,14 @@ Starter kit. C# / WinUI 3 / Windows App SDK 1.6 + WebView2, with the C++ browser
 
 ## What this gives you
 
-- A single MainWindow (1200×800) with a URL bar (back / forward / reload + `TextBox`) and a `WebView2` filling the body.
-- URL submission round-trips through the C++ core (`wk_url_normalize`) — the proof-of-life FFI call.
-- A `SuggestionsIndex` wrapper with `Open` / `RecordVisit` / `Dispose` to show the lifecycle pattern (open returns opaque handle, `Dispose` calls `wk_suggestions_close`).
-- Every other surface (tab strip, bookmarks UI, settings, downloads, extensions, history) deliberately not built. TODO comments at the call sites reference the `features.yaml` ID.
+- A single MainWindow (1200×800) hosting a `TabView` (multi-tab) with one `WebView2` per tab, a `CommandBar` with `AutoSuggestBox` URL bar + bookmark star + secondary back/forward/reload/find commands, a horizontal bookmarks bar (`ItemsRepeater`), and a find-on-page overlay.
+- Five `features.yaml` rows wired end-to-end:
+  - `back_forward_navigation` — `AppBarButton` Back/Forward, sensitivity bound to `CoreWebView2.CanGoBack/Forward` via `NavigationCompleted` (those properties don't raise `PropertyChanged`, so we refresh manually).
+  - `multiple_tabs` — `TabView` with `IsAddTabButtonVisible="True"`, `TabCloseRequested`, Ctrl+T / Ctrl+W accelerators.
+  - `url_autocomplete` — `AutoSuggestBox` driven by `wk_suggestions_query`; suggestion popup is WinUI-native.
+  - `bookmarks_persist` — star toggle via `wk_suggestions_set_bookmarked`, bookmarks bar reads `wk_suggestions_bookmarks_flat`.
+  - `find_on_page` — overlay over an injected JS find-controller (WebView2 has no native Find API, so we use the canonical Chromium-on-Windows `ExecuteScriptAsync` pattern: walk text nodes, wrap matches in `<mark>`, return counts via `JSON.stringify`).
+- Profile directory comes from a `--profile-dir=<path>` CLI flag (harness-friendly) or defaults to `%LocalAppData%\Webkitium`.
 
 ## Prerequisites
 
@@ -48,3 +52,9 @@ This was authored on macOS. Predictable failure surfaces, ranked by likelihood:
 4. **P/Invoke calling convention.** The C ABI is cdecl; `LibraryImport` defaults to `Winapi` (which is `Stdcall` on x86). All five FFI methods carry an explicit `[UnmanagedCallConv(CallConvs = [CallConvCdecl])]` — if you see `BadImageFormatException` on first FFI call, an attribute is missing on a method you added.
 5. **DLL search path.** `webkitium_core.dll` must sit alongside `Webkitium.exe` at runtime. The `<ProjectReference>` and the explicit `CopyBrowserCoreDll` MSBuild target in `Webkitium.csproj` both copy it; if it isn't there after build, check `$(BrowserCoreOutputDir)` resolution and that the vcxproj actually produced output for that Platform/Configuration combination.
 6. **CRT runtime library mismatch.** The vcxproj uses `MultiThreadedDLL` (`/MD`) in Release and `MultiThreadedDebugDLL` (`/MDd`) in Debug — both match .NET's dynamic CRT expectation. If link errors mention `_CrtIsValidHeapPointer` or you see "different runtime libraries" warnings, something forced static CRT.
+7. **`WebView2.ExecuteScriptAsync` return-value double-quoting.** WebView2's `ExecuteScriptAsync` always returns a *JSON-encoded* string of whatever the script's final expression evaluates to. The find controller therefore stringifies its own result (`JSON.stringify(window.__wkFind.search(q))`) and the C# side does two parses (outer string → inner object). If find shows `?/?` for the match count, the inner parse failed — most likely the page's CSP blocked our `<mark>` insertion, or a previous `<mark>` from a prior search leaked into the DOM.
+8. **AutoSuggestBox + URL bar feedback loop.** Setting `AutoSuggestBox.Text` from code fires `TextChanged` with `Reason == ProgrammaticChange`; we filter on `UserInput` to avoid querying SQLite on every page navigation that mirrors the new URL into the bar. If you see a barrage of `wk_suggestions_query` calls on navigation, that filter is missing on a new code path.
+
+## Harness coverage
+
+The five features above each have a smoke test under [`harness_windows/tests/`](../../harness_windows/tests/) driving the app via UIAutomation (FlaUI.UIA3). CI invokes them with `dotnet test --filter "Trait=Smoke"`.

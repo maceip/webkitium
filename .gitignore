@@ -23,14 +23,22 @@ build/
 **/.swiftpm/
 
 # Windows shell MSBuild intermediate + output directories.
+# NOTE: the source project lives at chrome/windows/Webkitium/ (capital W) —
+# do not blanket-ignore that path; only the explicit bin/obj/intermediate dirs.
 chrome/windows/packages/
-chrome/windows/webkitium/
 chrome/windows/x64/
 chrome/windows/ARM64/
 chrome/windows/Debug/
 chrome/windows/Release/
 chrome/windows/Generated Files/
 chrome/windows/*.user
+chrome/windows/Webkitium/bin/
+chrome/windows/Webkitium/obj/
+chrome/windows/BrowserCore/x64/
+chrome/windows/BrowserCore/Debug/
+chrome/windows/BrowserCore/Release/
+chrome/windows/BrowserCore/bin/
+chrome/windows/BrowserCore/obj/
 # C++/WinRT header stubs that MSBuild writes at project root during build.
 chrome/windows/*_h.h
 

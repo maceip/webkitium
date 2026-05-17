@@ -1,0 +1,24 @@
+[package]
+name = "webkitium-harness-linux"
+version = "0.1.0"
+edition = "2021"
+description = "AT-SPI smoke harness for the Webkitium GTK Linux shell. One test per features.yaml row."
+license = "Apache-2.0"
+
+# Library is just the helpers; the actual tests live in `tests/*.rs`.
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+anyhow   = "1"
+tempfile = "3"
+# Note on atspi: pinned to a recent stable. The crate's async API has
+# moved around minor versions, so the helpers in src/lib.rs use only
+# the surface that has remained stable.
+atspi    = { version = "0.25", default-features = false, features = ["async-std"] }
+async-std = { version = "1", features = ["attributes"] }
+
+[dev-dependencies]
+anyhow   = "1"
+tempfile = "3"
+async-std = { version = "1", features = ["attributes"] }
