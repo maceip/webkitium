@@ -33,7 +33,8 @@ jobs:
             build-essential cmake pkg-config \
             libgtk-4-dev libwebkitgtk-6.0-dev libclang-dev \
             libprotobuf-dev libsqlite3-dev protobuf-compiler \
-            xvfb x11-utils xdotool imagemagick scrot
+            xvfb x11-utils xdotool imagemagick scrot \
+            dbus-x11 at-spi2-core
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -56,29 +57,50 @@ jobs:
           BIN=$(find chrome/linux/target/release -maxdepth 1 -type f -executable | grep -v "\.d$" | head -1)
           echo "BIN=$BIN"
           file "$BIN"
+
+          # Xvfb session
           Xvfb :99 -screen 0 1280x800x24 -ac +render -noreset >/tmp/xvfb.log 2>&1 &
           XVFB=$!
           sleep 2
+
+          # Env for headless GTK/WebKitGTK on GHA
           export DISPLAY=:99
+          export GTK_A11Y=none
+          export NO_AT_BRIDGE=1
           export WEBKIT_DISABLE_COMPOSITING_MODE=1
-          export WEBKIT_FORCE_SANDBOX=0
           export WEBKIT_DISABLE_DMABUF_RENDERER=1
+          export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
+          export WEBKIT_FORCE_SANDBOX=0
           export LIBGL_ALWAYS_SOFTWARE=1
           export GDK_BACKEND=x11
           export GSK_RENDERER=cairo
-          "$BIN" >/tmp/app.log 2>&1 &
-          APP=$!
-          sleep 8
-          ps -p $APP >/dev/null || { echo "APP CRASHED"; tail -50 /tmp/app.log; exit 13; }
-          xdotool key ctrl+l 2>/dev/null || true
-          sleep 0.5
-          xdotool type --delay 25 "https://en.wikipedia.org"
-          sleep 0.3
-          xdotool key Return
-          sleep 15
-          import -window root /tmp/webkitium-linux-wikipedia.png || scrot /tmp/webkitium-linux-wikipedia.png
-          ls -la /tmp/webkitium-linux-wikipedia.png
-          kill $APP $XVFB 2>/dev/null || true
+
+          # Wrap app launch in dbus-run-session so a session bus exists
+          dbus-run-session -- bash -c "
+            '$BIN' >/tmp/app.log 2>&1 &
+            APP=\$!
+            sleep 8
+            if ! ps -p \$APP >/dev/null; then
+              echo 'APP CRASHED'
+              tail -80 /tmp/app.log
+              exit 13
+            fi
+
+            # Drive navigation
+            xdotool key ctrl+l 2>/dev/null || true
+            sleep 0.5
+            xdotool type --delay 25 'https://en.wikipedia.org'
+            sleep 0.3
+            xdotool key Return
+            sleep 15
+
+            # Capture
+            import -window root /tmp/webkitium-linux-wikipedia.png || scrot /tmp/webkitium-linux-wikipedia.png
+            ls -la /tmp/webkitium-linux-wikipedia.png
+            kill \$APP 2>/dev/null || true
+          "
+
+          kill $XVFB 2>/dev/null || true
 
       - name: Upload Wikipedia screenshot
         if: always()
