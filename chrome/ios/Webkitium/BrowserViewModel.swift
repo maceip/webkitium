@@ -360,6 +360,10 @@ final class BrowserViewModel {
     func navigateActive(to text: String) {
         if selectedTab == nil { newTab() }
         guard let tab = selectedTab else { return }
+        urlText = text
+        if let idx = tabs.firstIndex(where: { $0.id == tab.id }) {
+            tabs[idx].url = text
+        }
         wrapper(for: tab.id).load(text)
     }
 

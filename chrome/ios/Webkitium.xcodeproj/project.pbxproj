@@ -27,7 +27,6 @@
 		5A1200000000000000000001 /* SearchEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A1200000000000000000001 /* SearchEngine.swift */; };
 		5A1300000000000000000001 /* WebkitiumApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A1300000000000000000001 /* WebkitiumApp.swift */; };
 		5A1400000000000000000001 /* WebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A1400000000000000000001 /* WebView.swift */; };
-		5A1500000000000000000001 /* iOSRegularLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A1500000000000000000001 /* iOSRegularLayout.swift */; };
 		8A0100000000000000000001 /* WebkitiumUrl in Frameworks */ = {isa = PBXBuildFile; productRef = 7A0100000000000000000001 /* WebkitiumUrl */; };
 		8A0200000000000000000001 /* WebkitiumSuggestions in Frameworks */ = {isa = PBXBuildFile; productRef = 7A0200000000000000000001 /* WebkitiumSuggestions */; };
 /* End PBXBuildFile section */
@@ -55,7 +54,6 @@
 		4A1200000000000000000001 /* SearchEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchEngine.swift; sourceTree = "<group>"; };
 		4A1300000000000000000001 /* WebkitiumApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebkitiumApp.swift; sourceTree = "<group>"; };
 		4A1400000000000000000001 /* WebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebView.swift; sourceTree = "<group>"; };
-		4A1500000000000000000001 /* iOSRegularLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSRegularLayout.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -92,7 +90,6 @@
 			children = (
 				4A1300000000000000000001 /* WebkitiumApp.swift */,
 				4A0B00000000000000000001 /* iOSRootView.swift */,
-				4A1500000000000000000001 /* iOSRegularLayout.swift */,
 				4A0100000000000000000001 /* BottomURLBar.swift */,
 				4A1000000000000000000001 /* MoreMenuSheet.swift */,
 				4A0D00000000000000000001 /* iOSStartPage.swift */,
@@ -203,7 +200,6 @@
 				5A0900000000000000000001 /* FFISuggestionProvider.swift in Sources */,
 				5A0A00000000000000000001 /* FFITabGroupStore.swift in Sources */,
 				5A0B00000000000000000001 /* iOSRootView.swift in Sources */,
-				5A1500000000000000000001 /* iOSRegularLayout.swift in Sources */,
 				5A0C00000000000000000001 /* iOSSettingsView.swift in Sources */,
 				5A0D00000000000000000001 /* iOSStartPage.swift in Sources */,
 				5A0E00000000000000000001 /* iOSTabGridView.swift in Sources */,

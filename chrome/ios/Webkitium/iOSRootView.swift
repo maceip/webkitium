@@ -1,28 +1,9 @@
 import SwiftUI
 
-/// Adaptive root. Branches on `horizontalSizeClass`:
-///   - `.compact` (iPhone portrait, iPad Split View, Slide Over): mobile
-///     chrome — bottom URL bar, single pane, ⋯ menu as consolidated entry.
-///   - `.regular` (iPad full-screen, iPhone Plus/Pro Max landscape): desktop
-///     chrome — `NavigationSplitView` with sidebar + tab strip + top URL
-///     toolbar + WebView, mirroring `chrome/macos/Sources/Webkitium/RootView.swift`.
+/// iPhone-only root. iPad is not a target. Page surface above a bottom
+/// URL bar; the ⋯ button in the URL bar is the consolidated entry to
+/// bookmarks, history, settings, etc.
 struct iOSRootView: View {
-    @Environment(\.horizontalSizeClass) private var sizeClass
-
-    var body: some View {
-        switch sizeClass {
-        case .compact:
-            iOSRootViewCompact()
-        default:
-            iOSRootViewRegular()
-        }
-    }
-}
-
-/// Compact (iPhone / Split View) layout. Page surface above a bottom URL
-/// bar; the ⋯ button in the URL bar is the consolidated entry to
-/// bookmarks, history, settings, etc. No sidebar.
-struct iOSRootViewCompact: View {
     @Environment(BrowserViewModel.self) private var browser
 
     var body: some View {
@@ -55,6 +36,12 @@ struct iOSRootViewCompact: View {
         .sheet(isPresented: $browserBinding.showSettings) {
             iOSSettingsView()
         }
+        .onAppear {
+            if let url = ProcessInfo.processInfo.environment["WEBKITIUM_LAUNCH_URL"],
+               !url.isEmpty {
+                browser.navigateActive(to: url)
+            }
+        }
     }
 
     @ViewBuilder
@@ -85,7 +72,7 @@ struct iOSRootViewCompact: View {
     }
 }
 
-/// Compact find-on-page bar that sits above the URL bar when active.
+/// Find-on-page bar that sits above the URL bar when active.
 private struct CompactFindOnPageBar: View {
     @Environment(BrowserViewModel.self) private var browser
     @FocusState private var fieldFocused: Bool

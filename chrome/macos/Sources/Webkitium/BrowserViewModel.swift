@@ -324,11 +324,31 @@ final class BrowserViewModel {
                         url: p.url,
                         favicon: BrandFavicon.match(for: p.title))
                 }
-                if let active = persisted.first(where: { $0.isActive }) {
-                    if let idx = persisted.firstIndex(where: { $0.isActive }) {
-                        self.sidebarSelection = .tab(self.tabs[idx].id)
-                    }
-                    _ = active
+                // Crucial: re-bind `selectedTabID` to the new UUID for the
+                // active restored tab. Without this it still points at the
+                // seeded tab UUIDs (gone after the reassignment above) and
+                // `selectedTab` returns nil, leaving every URL-derived view
+                // (lock indicator, URL bar, go-back state) stuck on empty.
+                if let activeIdx = persisted.firstIndex(where: { $0.isActive }) {
+                    self.selectedTabID    = self.tabs[activeIdx].id
+                    self.sidebarSelection = .tab(self.tabs[activeIdx].id)
+                } else if let firstIdx = self.tabs.indices.first {
+                    self.selectedTabID    = self.tabs[firstIdx].id
+                    self.sidebarSelection = .tab(self.tabs[firstIdx].id)
+                }
+                // Actively navigate each restored tab's WebView so KVO
+                // re-pushes the URL/title/loading state into the model.
+                // Without this the WebViews are blank shells until clicked.
+                for tab in self.tabs where !tab.url.isEmpty {
+                    self.wrapper(for: tab.id).load(tab.url)
+                }
+                // Sensible fallback: if the active restored tab has no URL
+                // (fresh install, or first-run before any navigation), seed
+                // it to a known https page so the chrome has something
+                // meaningful to display.
+                if (self.selectedTab?.url ?? "").isEmpty,
+                   let tab = self.selectedTab {
+                    self.wrapper(for: tab.id).load("https://en.wikipedia.org")
                 }
             }
         }

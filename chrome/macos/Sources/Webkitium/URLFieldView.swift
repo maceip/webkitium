@@ -48,7 +48,11 @@ struct URLFieldView: View {
     }
 
     /// HTTPS lock indicator visibility — drives the leading glowing-blue lock.
-    private var isSecure: Bool { browser.urlText.hasPrefix("https://") }
+    /// Reads the active tab's URL (not the URL bar's typing buffer) so the lock
+    /// stays visible while the page is loaded but the field isn't focused.
+    private var isSecure: Bool {
+        (browser.selectedTab?.url ?? "").hasPrefix("https://")
+    }
 
     private var fieldContent: some View {
         @Bindable var browserBinding = browser
