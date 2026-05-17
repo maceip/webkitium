@@ -66,14 +66,14 @@
            vcpkg target auto-prepends include paths when manifest mode resolves,
            but we list the explicit path as a safety net so the build doesn't
            depend on automatic-targets ordering. -->
-      <AdditionalIncludeDirectories>$(BrowserSrcRoot);$(BrowserSrcRoot)url;$(BrowserSrcRoot)suggestions;$(VcpkgInstalledDir)$(VcpkgTriplet)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(BrowserSrcRoot);$(BrowserSrcRoot)url;$(BrowserSrcRoot)suggestions;$(VCPKG_ROOT)\installed\$(VcpkgTriplet)\include;$(RUNVCPKG_VCPKG_ROOT)\installed\$(VcpkgTriplet)\include;$(VcpkgInstalledDir)$(VcpkgTriplet)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_WINDOWS;_USRDLL;WEBKITIUM_CORE_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <ModuleDefinitionFile>$(MSBuildThisFileDirectory)BrowserCore.def</ModuleDefinitionFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(VcpkgInstalledDir)$(VcpkgTriplet)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(VCPKG_ROOT)\installed\$(VcpkgTriplet)\lib;$(RUNVCPKG_VCPKG_ROOT)\installed\$(VcpkgTriplet)\lib;$(VcpkgInstalledDir)$(VcpkgTriplet)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>sqlite3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
@@ -95,6 +95,10 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 
   <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(VCPKG_ROOT)\scripts\buildsystems\msbuild\vcpkg.targets"
+            Condition="Exists('$(VCPKG_ROOT)\scripts\buildsystems\msbuild\vcpkg.targets')" />
+    <Import Project="$(RUNVCPKG_VCPKG_ROOT)\scripts\buildsystems\msbuild\vcpkg.targets"
+            Condition="Exists('$(RUNVCPKG_VCPKG_ROOT)\scripts\buildsystems\msbuild\vcpkg.targets')" />
     <Import Project="$(VcpkgRoot)\scripts\buildsystems\msbuild\vcpkg.targets"
             Condition="Exists('$(VcpkgRoot)\scripts\buildsystems\msbuild\vcpkg.targets')" />
   </ImportGroup>
