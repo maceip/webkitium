@@ -135,54 +135,70 @@ jobs:
           Write-Host "Installer exit code: $($p.ExitCode)"
           if ($p.ExitCode -ne 0) { throw "Install failed: $($p.ExitCode)" }
 
-      # Launch Webkitium, drive UIAutomation to navigate to Wikipedia, screenshot.
-      # The screenshot is uploaded as an artifact below so the user can download it
-      # from the Actions tab — the only way to visually verify the Windows shell
-      # without a Windows machine on the user's side.
+      # Launch Webkitium with WEBKITIUM_LAUNCH_URL so it auto-navigates to
+      # Wikipedia on startup (no UI driving required), then capture the window
+      # via PrintWindow — works in non-interactive sessions and doesn't depend
+      # on UIAutomation seeing the WinUI 3 window.
       - name: Capture Wikipedia screenshot
         if: success()
         run: |
           $ErrorActionPreference = 'Stop'
-          Add-Type -AssemblyName System.Windows.Forms,System.Drawing,UIAutomationClient,UIAutomationTypes
+          Add-Type -AssemblyName System.Drawing,System.Windows.Forms
+
+          # PowerShell here-strings require the closing marker at column 0, which
+          # is incompatible with YAML block-scalar indentation. Use a regular
+          # multi-line string instead — built via string concatenation.
+          $cs = 'using System; using System.Runtime.InteropServices; ' +
+                'public class WinCap { ' +
+                '[DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr hwnd, IntPtr hdcBlt, int nFlags); ' +
+                '[DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hwnd, out RECT rect); ' +
+                '[StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left, Top, Right, Bottom; } ' +
+                '}'
+          Add-Type -TypeDefinition $cs -Language CSharp
 
           $exe = Get-ChildItem -Recurse -Filter Webkitium.exe -Path chrome/windows | Select-Object -First 1
           if (-not $exe) { throw "Webkitium.exe not found under chrome/windows" }
           Write-Host "Launching $($exe.FullName)"
+          $env:WEBKITIUM_LAUNCH_URL = 'https://en.wikipedia.org'
           $proc = Start-Process -FilePath $exe.FullName -PassThru
-          Start-Sleep -Seconds 8
 
-          $root = [System.Windows.Automation.AutomationElement]::RootElement
-          $cond = New-Object System.Windows.Automation.PropertyCondition(
-              [System.Windows.Automation.AutomationElement]::ProcessIdProperty, $proc.Id)
-          $window = $null
-          for ($i = 0; $i -lt 20 -and -not $window; $i++) {
-              $window = $root.FindFirst([System.Windows.Automation.TreeScope]::Children, $cond)
-              if (-not $window) { Start-Sleep -Milliseconds 500 }
+          $timeoutSec = 40
+          $elapsed = 0.0
+          while ($proc.MainWindowHandle -eq [IntPtr]::Zero -and $elapsed -lt $timeoutSec) {
+            Start-Sleep -Milliseconds 500
+            $elapsed += 0.5
+            $proc.Refresh()
           }
-          if (-not $window) { throw "Main window not found via UIAutomation" }
-
-          $nameCond = New-Object System.Windows.Automation.PropertyCondition(
-              [System.Windows.Automation.AutomationElement]::NameProperty, "Address bar")
-          $urlBar = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $nameCond)
-          if ($urlBar) {
-              $urlBar.SetFocus()
-              Start-Sleep -Milliseconds 300
-              [System.Windows.Forms.SendKeys]::SendWait("https://en.wikipedia.org")
-              Start-Sleep -Milliseconds 200
-              [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
-              Start-Sleep -Seconds 10
+          if ($proc.MainWindowHandle -eq [IntPtr]::Zero) {
+            Write-Host "WARN: MainWindowHandle still zero after $timeoutSec s — capturing screen anyway"
           } else {
-              Write-Host "WARN: Address bar not found by AutomationProperties.Name — capturing whatever is visible"
-              Start-Sleep -Seconds 5
+            Write-Host "MainWindowHandle: $($proc.MainWindowHandle)"
+            Start-Sleep -Seconds 12
           }
 
-          $rect = $window.Current.BoundingRectangle
-          $bmp = New-Object System.Drawing.Bitmap ([int]$rect.Width), ([int]$rect.Height)
-          $g = [System.Drawing.Graphics]::FromImage($bmp)
-          $g.CopyFromScreen([int]$rect.X, [int]$rect.Y, 0, 0, $bmp.Size)
-          $out = Join-Path $env:GITHUB_WORKSPACE "webkitium-windows-wikipedia.png"
+          if ($proc.MainWindowHandle -ne [IntPtr]::Zero) {
+            $rect = New-Object WinCap+RECT
+            [void][WinCap]::GetWindowRect($proc.MainWindowHandle, [ref]$rect)
+            $w = $rect.Right - $rect.Left
+            $h = $rect.Bottom - $rect.Top
+            Write-Host "Window size: $w x $h"
+            $bmp = New-Object System.Drawing.Bitmap $w, $h
+            $g = [System.Drawing.Graphics]::FromImage($bmp)
+            $hdc = $g.GetHdc()
+            [void][WinCap]::PrintWindow($proc.MainWindowHandle, $hdc, 2)
+            $g.ReleaseHdc($hdc)
+            $g.Dispose()
+          } else {
+            $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+            $bmp = New-Object System.Drawing.Bitmap $screen.Width, $screen.Height
+            $g = [System.Drawing.Graphics]::FromImage($bmp)
+            $g.CopyFromScreen(0, 0, 0, 0, $bmp.Size)
+            $g.Dispose()
+          }
+
+          $out = Join-Path $env:GITHUB_WORKSPACE 'webkitium-windows-wikipedia.png'
           $bmp.Save($out, [System.Drawing.Imaging.ImageFormat]::Png)
-          $g.Dispose(); $bmp.Dispose()
+          $bmp.Dispose()
           Write-Host "Saved $out"
 
           Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue

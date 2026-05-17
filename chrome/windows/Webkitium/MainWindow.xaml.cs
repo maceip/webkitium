@@ -119,8 +119,17 @@ public sealed partial class MainWindow : Window
     private async Task OpenInitialTabAsync()
     {
         var tab = await CreateTabAsync(activate: true);
-        // Leave the new tab on its blank state — user types into URL bar.
-        _ = tab;
+        // Headless / harness hook: auto-navigate the first tab if WEBKITIUM_LAUNCH_URL is set.
+        var launchUrl = Environment.GetEnvironmentVariable("WEBKITIUM_LAUNCH_URL");
+        if (!string.IsNullOrEmpty(launchUrl) && tab.CoreReady)
+        {
+            try
+            {
+                var (_, url) = UrlBridge.Normalize(launchUrl, DefaultEngineId);
+                tab.WebView.Source = new Uri(url);
+            }
+            catch (ArgumentException) { /* invalid input — leave blank */ }
+        }
     }
 
     private async Task<BrowserTab> CreateTabAsync(bool activate)
