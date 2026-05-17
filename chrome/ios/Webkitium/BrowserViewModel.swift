@@ -129,6 +129,10 @@ final class BrowserViewModel {
 
     var isPrivate: Bool = false
 
+    /// Driven by the regular-width layout (iPad) — same semantics as the
+    /// macOS shell. The compact layout ignores it (no sidebar).
+    var sidebarVisibility: NavigationSplitViewVisibility = .all
+
     var hoveredLink: String?  // unused on iOS but kept for cross-platform parity
 
     var showPageSettingsMenu: Bool = false
