@@ -118,3 +118,64 @@ jobs:
             chrome/windows/Webkitium/bin/${{ matrix.platform }}/${{ env.CONFIGURATION }}/**/*.winmd
           if-no-files-found: warn
           retention-days: 14
+
+      # Launch Webkitium, drive UIAutomation to navigate to Wikipedia, screenshot.
+      # The screenshot is uploaded as an artifact below so the user can download it
+      # from the Actions tab — the only way to visually verify the Windows shell
+      # without a Windows machine on the user's side.
+      - name: Capture Wikipedia screenshot
+        if: success()
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Add-Type -AssemblyName System.Windows.Forms,System.Drawing,UIAutomationClient,UIAutomationTypes
+
+          $exe = Get-ChildItem -Recurse -Filter Webkitium.exe -Path chrome/windows | Select-Object -First 1
+          if (-not $exe) { throw "Webkitium.exe not found under chrome/windows" }
+          Write-Host "Launching $($exe.FullName)"
+          $proc = Start-Process -FilePath $exe.FullName -PassThru
+          Start-Sleep -Seconds 8
+
+          $root = [System.Windows.Automation.AutomationElement]::RootElement
+          $cond = New-Object System.Windows.Automation.PropertyCondition(
+              [System.Windows.Automation.AutomationElement]::ProcessIdProperty, $proc.Id)
+          $window = $null
+          for ($i = 0; $i -lt 20 -and -not $window; $i++) {
+              $window = $root.FindFirst([System.Windows.Automation.TreeScope]::Children, $cond)
+              if (-not $window) { Start-Sleep -Milliseconds 500 }
+          }
+          if (-not $window) { throw "Main window not found via UIAutomation" }
+
+          $nameCond = New-Object System.Windows.Automation.PropertyCondition(
+              [System.Windows.Automation.AutomationElement]::NameProperty, "Address bar")
+          $urlBar = $window.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $nameCond)
+          if ($urlBar) {
+              $urlBar.SetFocus()
+              Start-Sleep -Milliseconds 300
+              [System.Windows.Forms.SendKeys]::SendWait("https://en.wikipedia.org")
+              Start-Sleep -Milliseconds 200
+              [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
+              Start-Sleep -Seconds 10
+          } else {
+              Write-Host "WARN: Address bar not found by AutomationProperties.Name — capturing whatever is visible"
+              Start-Sleep -Seconds 5
+          }
+
+          $rect = $window.Current.BoundingRectangle
+          $bmp = New-Object System.Drawing.Bitmap ([int]$rect.Width), ([int]$rect.Height)
+          $g = [System.Drawing.Graphics]::FromImage($bmp)
+          $g.CopyFromScreen([int]$rect.X, [int]$rect.Y, 0, 0, $bmp.Size)
+          $out = Join-Path $env:GITHUB_WORKSPACE "webkitium-windows-wikipedia.png"
+          $bmp.Save($out, [System.Drawing.Imaging.ImageFormat]::Png)
+          $g.Dispose(); $bmp.Dispose()
+          Write-Host "Saved $out"
+
+          Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+
+      - name: Upload Wikipedia screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webkitium-windows-wikipedia
+          path: webkitium-windows-wikipedia.png
+          if-no-files-found: warn
+          retention-days: 14
