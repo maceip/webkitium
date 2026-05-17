@@ -29,6 +29,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import org.webkitium.android.ui.SecureLockIndicator
 
 /**
  * Top chrome bar for the expanded layout. Mirrors macOS/Linux/Windows
@@ -81,6 +82,7 @@ fun TopChromeBar(
                     .onFocusChanged { onFocusChange(it.isFocused) }
                     .onSizeChanged { onMeasured(it.width) },
                 singleLine = true,
+                leadingIcon = { SecureLockIndicator(isSecure = url.startsWith("https://", ignoreCase = true)) },
                 keyboardOptions = KeyboardOptions(
                     imeAction = ImeAction.Go,
                     capitalization = KeyboardCapitalization.None,

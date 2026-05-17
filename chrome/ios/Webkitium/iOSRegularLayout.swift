@@ -181,9 +181,14 @@ private struct iPadURLField: View {
     var body: some View {
         @Bindable var b = browser
         HStack(spacing: 8) {
+            let isSecure = browser.selectedTab?.url.hasPrefix("https://") == true
             Image(systemName: "lock.fill")
-                .foregroundStyle(.secondary)
-                .font(.system(size: 11))
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color(red: 0.23, green: 0.51, blue: 0.96))
+                .shadow(color: Color(red: 0.23, green: 0.51, blue: 0.96).opacity(0.75), radius: 5)
+                .shadow(color: Color(red: 0.23, green: 0.51, blue: 0.96).opacity(0.45), radius: 10)
+                .opacity(isSecure ? 1.0 : 0.0)
+                .animation(.smooth(duration: 0.25), value: isSecure)
             TextField("Search or enter website", text: $b.urlText)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()

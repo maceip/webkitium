@@ -69,6 +69,7 @@ fun BottomUrlBar(
                     .onFocusChanged { onFocusChange(it.isFocused) },
                 singleLine = true,
                 placeholder = { Text(stringResource(R.string.omnibar_placeholder)) },
+                leadingIcon = { SecureLockIndicator(isSecure = url.startsWith("https://", ignoreCase = true)) },
                 keyboardOptions = KeyboardOptions(
                     imeAction = ImeAction.Go,
                     capitalization = KeyboardCapitalization.None,

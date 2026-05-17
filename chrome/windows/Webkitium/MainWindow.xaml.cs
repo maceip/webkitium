@@ -1,5 +1,7 @@
+using Microsoft.UI.Composition;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Windowing;
@@ -221,6 +223,44 @@ public sealed partial class MainWindow : Window
         finally { _suppressUrlBarFeedback = false; }
 
         BookmarkButton.Icon = new SymbolIcon(IsCurrentBookmarked() ? Symbol.SolidStar : Symbol.OutlineStar);
+
+        var url = tab?.CurrentUrl;
+        var isSecure = !string.IsNullOrEmpty(url)
+            && url.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+        SecureLock.Visibility = isSecure ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void SecureLock_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement element) return;
+        try
+        {
+            var compositor = ElementCompositionPreview.GetElementVisual(element).Compositor;
+            var dropShadow = compositor.CreateDropShadow();
+            dropShadow.Color = Windows.UI.Color.FromArgb(0xCC, 0x3B, 0x82, 0xF6);
+            dropShadow.BlurRadius = 10.0f;
+            dropShadow.Opacity = 0.85f;
+            dropShadow.Offset = new System.Numerics.Vector3(0, 0, 0);
+
+            var sprite = compositor.CreateSpriteVisual();
+            sprite.Size = new System.Numerics.Vector2(
+                (float)element.ActualWidth,
+                (float)element.ActualHeight);
+            sprite.Shadow = dropShadow;
+            ElementCompositionPreview.SetElementChildVisual(element, sprite);
+
+            element.SizeChanged += (_, ev) =>
+            {
+                sprite.Size = new System.Numerics.Vector2(
+                    (float)ev.NewSize.Width,
+                    (float)ev.NewSize.Height);
+            };
+        }
+        catch
+        {
+            // Compositor path unavailable on this host — vivid Foreground alone
+            // still communicates secure state; glow is a nice-to-have.
+        }
     }
 
     private void Back_Click(object sender, RoutedEventArgs e) =>

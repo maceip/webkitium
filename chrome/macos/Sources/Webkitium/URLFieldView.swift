@@ -47,9 +47,22 @@ struct URLFieldView: View {
         focused && !browser.urlText.isEmpty && !browser.urlSuggestions.isEmpty
     }
 
+    /// HTTPS lock indicator visibility — drives the leading glowing-blue lock.
+    private var isSecure: Bool { browser.urlText.hasPrefix("https://") }
+
     private var fieldContent: some View {
         @Bindable var browserBinding = browser
         return HStack(spacing: 6) {
+            // Glowing blue HTTPS lock — fades in on https:// URLs, hidden otherwise.
+            Image(systemName: "lock.fill")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color(red: 0.23, green: 0.51, blue: 0.96))
+                .shadow(color: Color(red: 0.23, green: 0.51, blue: 0.96).opacity(0.75), radius: 5)
+                .shadow(color: Color(red: 0.23, green: 0.51, blue: 0.96).opacity(0.45), radius: 10)
+                .opacity(isSecure ? 1.0 : 0.0)
+                .animation(.smooth(duration: 0.25), value: isSecure)
+                .accessibilityLabel("Connection is secure")
+
             if browser.hasReaderMode {
                 Button {
                     withAnimation(.smooth(duration: 0.22)) { browser.readerModeOn.toggle() }

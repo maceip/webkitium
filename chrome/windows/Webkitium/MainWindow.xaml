@@ -13,9 +13,19 @@
                     DefaultLabelPosition="Collapsed"
                     Background="{ThemeResource SystemControlBackgroundChromeMediumBrush}">
             <CommandBar.Content>
-                <Grid Padding="6,2,6,2" ColumnSpacing="6"
-                      ColumnDefinitions="*">
-                    <AutoSuggestBox x:Name="UrlBar" Grid.Column="0"
+                <Grid Padding="6,2,6,2" ColumnSpacing="0"
+                      ColumnDefinitions="Auto,*">
+                    <FontIcon x:Name="SecureLock" Grid.Column="0"
+                              Glyph="&#xE72E;"
+                              FontFamily="Segoe Fluent Icons"
+                              FontSize="13"
+                              Foreground="#3B82F6"
+                              Visibility="Collapsed"
+                              VerticalAlignment="Center"
+                              Margin="6,0,6,0"
+                              AutomationProperties.Name="Connection is secure"
+                              Loaded="SecureLock_Loaded" />
+                    <AutoSuggestBox x:Name="UrlBar" Grid.Column="1"
                                     PlaceholderText="Search or enter website"
                                     QueryIcon="Find"
                                     AutomationProperties.Name="Address bar"

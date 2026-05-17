@@ -22,10 +22,11 @@
 
 use gtk4 as gtk;
 use gtk::accessible::Property as Aria;
+use gtk::gdk;
 use gtk::glib::{self, clone};
 use gtk::prelude::*;
 use gtk::{
-    AccessibleRole, Application, ApplicationWindow, Box as GtkBox, Button, Entry,
+    AccessibleRole, Application, ApplicationWindow, Box as GtkBox, Button, CssProvider, Entry,
     EventControllerKey, HeaderBar, Label, ListBox, ListBoxRow, Notebook, Orientation, Popover,
     PositionType, Revealer, RevealerTransitionType, ScrolledWindow,
 };
@@ -41,6 +42,39 @@ use crate::ffi::url::{self, NormalizeKind};
 /// Engine id passed into the C++ URL normalizer. Real settings UI would
 /// persist this; the starter kit hard-codes the privacy default.
 const SEARCH_ENGINE_ID: &str = "duckduckgo";
+
+/// CSS rule that gives the URL entry's primary icon a blue tint plus a
+/// soft outward glow — only kicks in when the entry carries the
+/// `.secure-lock` class AND has a primary icon set (we toggle the icon
+/// presence based on `https://`).
+const SECURE_LOCK_CSS: &str = "
+entry.secure-lock image.left {
+  color: #3B82F6;
+  filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.75))
+          drop-shadow(0 0 8px rgba(59, 130, 246, 0.45));
+}
+";
+
+/// Install the secure-lock CSS once per display. Safe to call multiple
+/// times — GTK4 de-dupes provider lookups but we still avoid the work.
+fn install_secure_lock_css() {
+    use std::cell::Cell;
+    thread_local! {
+        static INSTALLED: Cell<bool> = Cell::new(false);
+    }
+    INSTALLED.with(|i| {
+        if i.get() { return; }
+        let Some(display) = gdk::Display::default() else { return; };
+        let provider = CssProvider::new();
+        provider.load_from_string(SECURE_LOCK_CSS);
+        gtk::style_context_add_provider_for_display(
+            &display,
+            &provider,
+            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+        );
+        i.set(true);
+    });
+}
 
 /// Resolve the suggestions DB path. Honours `WEBKITIUM_PROFILE_DIR` for
 /// harness test isolation; falls back to XDG.
@@ -68,6 +102,9 @@ impl AppWindow {
             .and_then(|p| Index::open(p.to_string_lossy().as_ref()))
             .map(Rc::new);
 
+        // Install secure-lock CSS once per display before any widgets show.
+        install_secure_lock_css();
+
         // ---- 2. Build chrome widgets. ----
         let notebook = Notebook::builder()
             .scrollable(true)
@@ -80,6 +117,8 @@ impl AppWindow {
             .width_request(420)
             .build();
         url_entry.update_property(&[Aria::Label("Address bar")]);
+        // CSS class is always present; the primary icon is what we toggle.
+        url_entry.add_css_class("secure-lock");
 
         let back = Button::from_icon_name("go-previous-symbolic");
         back.set_tooltip_text(Some("Back"));
@@ -451,6 +490,7 @@ impl WindowState {
                 if let Some(uri) = wv.uri() {
                     state.url_entry.set_text(uri.as_str());
                     state.update_bookmark_icon(uri.as_str());
+                    state.update_lock_icon(uri.as_str());
                 }
             }
             if matches!(event, LoadEvent::Finished) {
@@ -531,6 +571,7 @@ impl WindowState {
             let uri = wv.uri().map(|s| s.to_string()).unwrap_or_default();
             self.url_entry.set_text(&uri);
             self.update_bookmark_icon(&uri);
+            self.update_lock_icon(&uri);
         }
     }
 
@@ -542,6 +583,21 @@ impl WindowState {
             .unwrap_or(false);
         self.bookmark_btn
             .set_icon_name(if starred { "starred-symbolic" } else { "non-starred-symbolic" });
+    }
+
+    /// Show the glowing-blue padlock when the active URI is HTTPS;
+    /// clear the icon otherwise. CSS in `SECURE_LOCK_CSS` provides the
+    /// blue tint + outward glow on the primary icon.
+    fn update_lock_icon(&self, url: &str) {
+        if url.starts_with("https://") {
+            self.url_entry
+                .set_primary_icon_name(Some("system-lock-screen-symbolic"));
+            self.url_entry
+                .set_primary_icon_tooltip_text(Some("Secure connection"));
+        } else {
+            self.url_entry.set_primary_icon_name(None);
+            self.url_entry.set_primary_icon_tooltip_text(None);
+        }
     }
 
     fn refresh_suggestions(&self, prefix: &str) {

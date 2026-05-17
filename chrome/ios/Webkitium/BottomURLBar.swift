@@ -44,7 +44,15 @@ struct BottomURLBar: View {
 
     private var urlPill: some View {
         @Bindable var browserBinding = browser
+        let isSecure = browser.selectedTab?.url.hasPrefix("https://") == true
         return HStack(spacing: 8) {
+            Image(systemName: "lock.fill")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color(red: 0.23, green: 0.51, blue: 0.96))
+                .shadow(color: Color(red: 0.23, green: 0.51, blue: 0.96).opacity(0.75), radius: 5)
+                .shadow(color: Color(red: 0.23, green: 0.51, blue: 0.96).opacity(0.45), radius: 10)
+                .opacity(isSecure ? 1.0 : 0.0)
+                .animation(.smooth(duration: 0.25), value: isSecure)
             if !urlFocused {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 14, weight: .semibold))
