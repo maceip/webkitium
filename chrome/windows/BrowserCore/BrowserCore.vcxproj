@@ -94,13 +94,4 @@
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 
-  <ImportGroup Label="ExtensionTargets">
-    <Import Project="$(VCPKG_ROOT)\scripts\buildsystems\msbuild\vcpkg.targets"
-            Condition="Exists('$(VCPKG_ROOT)\scripts\buildsystems\msbuild\vcpkg.targets')" />
-    <Import Project="$(RUNVCPKG_VCPKG_ROOT)\scripts\buildsystems\msbuild\vcpkg.targets"
-            Condition="Exists('$(RUNVCPKG_VCPKG_ROOT)\scripts\buildsystems\msbuild\vcpkg.targets')" />
-    <Import Project="$(VcpkgRoot)\scripts\buildsystems\msbuild\vcpkg.targets"
-            Condition="Exists('$(VcpkgRoot)\scripts\buildsystems\msbuild\vcpkg.targets')" />
-  </ImportGroup>
-
 </Project>
