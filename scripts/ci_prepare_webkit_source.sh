@@ -124,7 +124,10 @@ git_safe "$CACHE" worktree prune
 git_safe "$CACHE" worktree remove --force "$DEST" >/dev/null 2>&1 || true
 remove_path "$DEST"
 mkdir -p "$(dirname "$DEST")"
-git_safe "$CACHE" worktree add --detach "$DEST" HEAD
+git_safe "$CACHE" -c core.autocrlf=false -c core.eol=lf worktree add --detach "$DEST" HEAD
+git_safe "$DEST" config core.autocrlf false
+git_safe "$DEST" config core.eol lf
+git_safe "$DEST" reset --hard HEAD >/dev/null
 "$PYTHON" "$VERIFY" --matrix "$MATRIX" --webkit-root "$DEST"
 
 echo "Source ready at $DEST"

@@ -177,6 +177,12 @@ def apply_patch_series(
     audit_webnn_source_includes(webkit_root)
 
 
+def normalize_patch_worktree(root: Path) -> None:
+    run(git(root, "config", "core.autocrlf", "false"))
+    run(git(root, "config", "core.eol", "lf"))
+    run(git(root, "reset", "--hard", "HEAD"))
+
+
 def check_in_temporary_worktree(
     repo_root: Path,
     webkit_root: Path,
@@ -187,6 +193,7 @@ def check_in_temporary_worktree(
     worktree = temp_dir / "webkit-patch-check"
     try:
         run(git(webkit_root, "worktree", "add", "--detach", str(worktree), "HEAD"))
+        normalize_patch_worktree(worktree)
         apply_patch_series(repo_root, worktree, patches, temp_dir=temp_dir)
     finally:
         if worktree.exists():
