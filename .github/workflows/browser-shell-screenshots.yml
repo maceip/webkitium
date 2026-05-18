@@ -37,15 +37,16 @@ jobs:
         shell: cmd
         run: |
           cd chrome\windows
-          dotnet build webkitium.csproj -c Debug
+          dotnet build Webkitium.sln -c Debug -p:Platform=x64
 
       - name: Launch and screenshot
         shell: pwsh
         run: |
-          $exe = Get-ChildItem -Recurse chrome\windows\bin -Filter "webkitium.exe" | Select-Object -First 1
-          if (-not $exe) { Write-Error "webkitium.exe not found"; exit 1 }
+          $exe = Get-ChildItem -Recurse chrome\windows\Webkitium\bin -Filter "Webkitium.exe" | Select-Object -First 1
+          if (-not $exe) { Write-Error "Webkitium.exe not found"; exit 1 }
+          $env:WEBKITIUM_LAUNCH_URL = 'https://en.wikipedia.org'
           $proc = Start-Process -FilePath $exe.FullName -PassThru
-          Start-Sleep -Seconds 8
+          Start-Sleep -Seconds 12
 
           Add-Type -AssemblyName System.Windows.Forms
           Add-Type -AssemblyName System.Drawing
@@ -83,22 +84,25 @@ jobs:
           set -euo pipefail
           export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
           cd chrome/macos
-          swift build 2>&1 | tail -20
+          swift build 2>&1 | tail -10
 
       - name: Launch and screenshot
         run: |
           set -euo pipefail
           export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
-          APP="$(find chrome/macos/.build -name 'Webkitium' -type f -perm +111 2>/dev/null | head -1)"
-          if [[ -z "$APP" ]]; then
-            echo "::error::Built binary not found"
-            exit 1
+          # Prefer the .app bundle (so Cocoa menu / window chrome works); fall back to raw binary
+          APP_BUNDLE="$(find chrome/macos/.build -name 'Webkitium.app' -type d 2>/dev/null | head -1)"
+          BIN="$(find chrome/macos/.build -name 'Webkitium' -type f -perm +111 2>/dev/null | head -1)"
+          export WEBKITIUM_LAUNCH_URL='https://en.wikipedia.org'
+          if [[ -n "$APP_BUNDLE" ]]; then
+            open -a "$APP_BUNDLE"
+          else
+            [[ -x "$BIN" ]] || { echo "::error::macOS binary not found"; exit 1; }
+            "$BIN" &
           fi
-          "$APP" &
-          APP_PID=$!
-          sleep 8
+          sleep 12
           screencapture -x "$RUNNER_TEMP/screenshot_macos_shell.png"
-          kill $APP_PID 2>/dev/null || true
+          pkill -f "Webkitium" 2>/dev/null || true
           echo "Screenshot saved"
 
       - name: Upload screenshot
@@ -118,40 +122,52 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Boot simulator and screenshot
+      - name: Build iOS app + boot simulator + screenshot
         run: |
           set -euo pipefail
           export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
 
-          # Find an available iPhone simulator
+          # Find an available iPhone (NOT iPad) simulator runtime
           RUNTIME=$(xcrun simctl list runtimes -j | python3 -c "
           import sys, json
           rts = json.load(sys.stdin)['runtimes']
           ios = [r for r in rts if r['isAvailable'] and 'iOS' in r['name']]
           print(ios[-1]['identifier'] if ios else '')
           ")
-          if [[ -z "$RUNTIME" ]]; then
-            echo "::error::No iOS simulator runtime found"
-            exit 1
-          fi
+          [[ -n "$RUNTIME" ]] || { echo "::error::No iOS simulator runtime found"; exit 1; }
           echo "Runtime: $RUNTIME"
 
-          DEVICE_TYPE="com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro"
-          SIM_UDID=$(xcrun simctl create "WebkitiumTest" "$DEVICE_TYPE" "$RUNTIME")
-          echo "Created simulator: $SIM_UDID"
+          # Prefer iPhone 17 Pro, fall back to whatever iPhone is available
+          DEVICE_TYPE="com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro"
+          SIM_UDID=$(xcrun simctl create "WebkitiumTest" "$DEVICE_TYPE" "$RUNTIME" 2>/dev/null || \
+                     xcrun simctl create "WebkitiumTest" "com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro" "$RUNTIME" 2>/dev/null || \
+                     xcrun simctl create "WebkitiumTest" "com.apple.CoreSimulator.SimDeviceType.iPhone-16" "$RUNTIME")
+          echo "Simulator: $SIM_UDID"
 
           xcrun simctl boot "$SIM_UDID"
-          sleep 5
+          xcrun simctl bootstatus "$SIM_UDID" -b
+          sleep 3
 
-          # Open Safari to example.com as a stand-in for the WKWebView experience
-          # (chrome/ios doesn't exist yet; this shows the iOS WebKit rendering)
-          xcrun simctl openurl "$SIM_UDID" "https://example.com"
-          sleep 5
+          # Build Webkitium for the booted simulator
+          cd chrome/ios
+          xcodebuild -project Webkitium.xcodeproj -scheme Webkitium \
+            -destination "id=$SIM_UDID" \
+            -derivedDataPath build build 2>&1 | tail -10
+          APP=$(find build -name 'Webkitium.app' -type d | head -1)
+          [[ -n "$APP" ]] || { echo "::error::Webkitium.app not built"; exit 1; }
+
+          # Install + launch with WEBKITIUM_LAUNCH_URL env so the app loads Wikipedia
+          xcrun simctl install "$SIM_UDID" "$APP"
+          xcrun simctl launch --console-pty "$SIM_UDID" org.webkitium.ios \
+            WEBKITIUM_LAUNCH_URL=https://en.wikipedia.org &
+          LAUNCH_PID=$!
+          sleep 12
 
           xcrun simctl io "$SIM_UDID" screenshot "$RUNNER_TEMP/screenshot_ios_simulator.png"
 
-          xcrun simctl shutdown "$SIM_UDID"
-          xcrun simctl delete "$SIM_UDID"
+          kill $LAUNCH_PID 2>/dev/null || true
+          xcrun simctl shutdown "$SIM_UDID" || true
+          xcrun simctl delete "$SIM_UDID" || true
           echo "iOS screenshot saved"
 
       - name: Upload screenshot
@@ -173,32 +189,49 @@ jobs:
       - name: Install deps
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq libadwaita-1-dev libwebkitgtk-6.0-dev \
-            meson pkg-config xvfb imagemagick 2>/dev/null || true
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            build-essential cmake pkg-config \
+            libgtk-4-dev libwebkitgtk-6.0-dev libclang-dev \
+            libprotobuf-dev libsqlite3-dev protobuf-compiler \
+            xvfb x11-utils xdotool imagemagick scrot \
+            dbus-x11 at-spi2-core
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Build Linux shell
         run: |
           set -euo pipefail
           cd chrome/linux
-          meson setup builddir
-          ninja -C builddir
+          cargo build --release
 
       - name: Launch in Xvfb and screenshot
         run: |
           set -euo pipefail
-          export DISPLAY=:99
-          Xvfb :99 -screen 0 1280x800x24 &
+          BIN=$(find chrome/linux/target/release -maxdepth 1 -type f -executable | grep -v "\.d$" | head -1)
+          [[ -x "$BIN" ]] || { echo "::error::Linux binary not found"; exit 1; }
+
+          Xvfb :99 -screen 0 1280x800x24 -ac +render -noreset >/tmp/xvfb.log 2>&1 &
           XVFB_PID=$!
           sleep 2
+          export DISPLAY=:99
+          export GTK_A11Y=none
+          export NO_AT_BRIDGE=1
+          export WEBKIT_DISABLE_COMPOSITING_MODE=1
+          export WEBKIT_DISABLE_DMABUF_RENDERER=1
+          export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
+          export LIBGL_ALWAYS_SOFTWARE=1
+          export GDK_BACKEND=x11
+          export GSK_RENDERER=cairo
+          export WEBKITIUM_LAUNCH_URL='https://en.wikipedia.org'
 
-          cd chrome/linux
-          GDK_BACKEND=x11 ./builddir/webkitium &
-          APP_PID=$!
-          sleep 6
-
-          import -window root "$RUNNER_TEMP/screenshot_linux_shell.png"
-
-          kill $APP_PID 2>/dev/null || true
+          dbus-run-session -- bash -c "
+            '$BIN' >/tmp/app.log 2>&1 &
+            APP=\$!
+            sleep 15
+            import -window root '$RUNNER_TEMP/screenshot_linux_shell.png' || scrot '$RUNNER_TEMP/screenshot_linux_shell.png'
+            kill \$APP 2>/dev/null || true
+          "
           kill $XVFB_PID 2>/dev/null || true
           echo "Linux screenshot saved"
 
