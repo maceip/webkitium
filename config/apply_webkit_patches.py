@@ -3,8 +3,9 @@
 Apply or validate the repo WebKit patch series against a pinned WebKit checkout.
 
 The script intentionally avoids --unidiff-zero. Each patch is checked and applied
-cumulatively with git apply --3way so malformed hunks fail early, while small
-upstream context drift can still be resolved by Git.
+cumulatively with direct git apply first so malformed hunks fail early. If a
+patch needs small upstream context drift resolved, the script falls back to
+git apply --3way.
 """
 from __future__ import annotations
 
@@ -24,6 +25,14 @@ def run(cmd: list[str], *, cwd: Path | None = None) -> str:
     except subprocess.CalledProcessError as exc:
         sys.stderr.write(exc.output)
         raise
+
+
+def run_captured(cmd: list[str], *, cwd: Path | None = None) -> tuple[bool, str]:
+    try:
+        output = subprocess.check_output(cmd, cwd=cwd, stderr=subprocess.STDOUT, text=True)
+        return True, output
+    except subprocess.CalledProcessError as exc:
+        return False, exc.output
 
 
 def git(root: Path, *args: str) -> list[str]:
@@ -157,23 +166,44 @@ def apply_patch_series(
         clean = clean_patch(patch, temp_dir)
         rel = display_path(patch, repo_root)
         print(f"Applying {rel}")
-        run(
-            [
-                *git(webkit_root, "apply"),
-                "--check",
-                "--3way",
-                "--whitespace=nowarn",
-                str(clean),
-            ]
-        )
-        run(
-            [
-                *git(webkit_root, "apply"),
-                "--3way",
-                "--whitespace=nowarn",
-                str(clean),
-            ]
-        )
+        direct_check = [
+            *git(webkit_root, "apply"),
+            "--check",
+            "--whitespace=nowarn",
+            str(clean),
+        ]
+        direct_apply = [
+            *git(webkit_root, "apply"),
+            "--whitespace=nowarn",
+            str(clean),
+        ]
+        ok, direct_output = run_captured(direct_check)
+        if ok:
+            run(direct_apply)
+            continue
+
+        try:
+            run(
+                [
+                    *git(webkit_root, "apply"),
+                    "--check",
+                    "--3way",
+                    "--whitespace=nowarn",
+                    str(clean),
+                ]
+            )
+            run(
+                [
+                    *git(webkit_root, "apply"),
+                    "--3way",
+                    "--whitespace=nowarn",
+                    str(clean),
+                ]
+            )
+        except subprocess.CalledProcessError:
+            print("Direct git apply failed before --3way fallback:", file=sys.stderr)
+            print(direct_output, file=sys.stderr, end="" if direct_output.endswith("\n") else "\n")
+            raise
     audit_webnn_source_includes(webkit_root)
 
 
