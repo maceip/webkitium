@@ -166,6 +166,10 @@ jobs:
           SRC="${WEBKIT_SRC:?}"
           cd "$SRC"
           JOBS="$(nproc 2>/dev/null || echo 4)"
+          if (( JOBS > 4 )); then
+            JOBS=4
+          fi
+          echo "Using $JOBS build jobs"
           export WEBKITIUM_BROWSER_SHELL_TARGET=linux-gtk
           # Thunder (WPE/RDK) is not available — stub FindThunder, install OpenCDM headers
           cp "$GITHUB_WORKSPACE/config/cmake/FindThunder.cmake" "$SRC/Source/cmake/FindThunder.cmake"
