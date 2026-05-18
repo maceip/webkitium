@@ -10,7 +10,7 @@ diff --git a/Source/WebCore/CMakeLists.txt b/Source/WebCore/CMakeLists.txt
      "${WEBCORE_DIR}/Modules/airplay"
      "${WEBCORE_DIR}/Modules/applepay"
      "${WEBCORE_DIR}/Modules/applepay/paymentrequest"
-@@ -2096,6 +2098,16 @@
+@@ -2096,6 +2098,11 @@
      Modules/WebGPU/GPUVertexStepMode.idl
      Modules/WebGPU/NavigatorGPU.idl
      Modules/WebGPU/WGSLLanguageFeatures.idl
@@ -18,12 +18,7 @@ diff --git a/Source/WebCore/CMakeLists.txt b/Source/WebCore/CMakeLists.txt
 +    Modules/WebNN/MLContext.idl
 +    Modules/WebNN/MLContextOptions.idl
 +    Modules/WebNN/MLDevicePreference.idl
-+    Modules/WebNN/MLGraph.idl
-+    Modules/WebNN/MLGraphBuilder.idl
-+    Modules/WebNN/MLOperand.idl
 +    Modules/WebNN/MLPowerPreference.idl
-+    Modules/WebNN/MLTensor.idl
-+    Modules/WebNN/MLTensorDescriptor.idl
  )
  
  set(WebCore_IDL_FILES
@@ -94,7 +89,7 @@ new file mode 100644
 index 0000000000..26d4960755
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/MLContext.idl
-@@ -0,0 +1,21 @@
+@@ -0,0 +1,11 @@
 +/*
 + * https://webmachinelearning.github.io/webnn/#api-mlcontext
 + */
@@ -105,16 +100,6 @@ index 0000000000..26d4960755
 +    SecureContext
 +] interface MLContext {
 +    readonly attribute MLDevicePreference devicePreference;
-+
-+    [NewObject] Promise<MLTensor> createTensor(MLTensorDescriptor descriptor);
-+
-+    undefined writeTensor(MLTensor tensor, ArrayBuffer data);
-+
-+    [NewObject] Promise<ArrayBuffer> readTensor(MLTensor tensor);
-+
-+    undefined dispatch(MLGraph graph,
-+        record<USVString, MLTensor> inputs,
-+        record<USVString, MLTensor> outputs);
 +};
 diff --git a/Source/WebCore/Modules/WebNN/MLContextOptions.h b/Source/WebCore/Modules/WebNN/MLContextOptions.h
 new file mode 100644
@@ -153,6 +138,21 @@ index 0000000000..3c52982489
 +
 +} // namespace WebCore
 +
++#endif // ENABLE(WEBNN)
+diff --git a/Source/WebCore/Modules/WebNN/MLDevicePreference.h b/Source/WebCore/Modules/WebNN/MLDevicePreference.h
+new file mode 100644
+index 0000000000..a6ad0d2b74
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/MLDevicePreference.h
+@@ -0,0 +1,9 @@
++/*
++ * https://webmachinelearning.github.io/webnn/#enumdef-mldevicepreference
++ */
++
++#pragma once
++
++#if ENABLE(WEBNN)
++#include "Modules/WebNN/MLContextOptions.h"
 +#endif // ENABLE(WEBNN)
 diff --git a/Source/WebCore/Modules/WebNN/MLContextOptions.idl b/Source/WebCore/Modules/WebNN/MLContextOptions.idl
 new file mode 100644
@@ -464,6 +464,21 @@ index 0000000000..270e7ad207
 +    readonly attribute DOMString dataType;
 +    readonly attribute FrozenArray<unsigned long> shape;
 +};
+diff --git a/Source/WebCore/Modules/WebNN/MLPowerPreference.h b/Source/WebCore/Modules/WebNN/MLPowerPreference.h
+new file mode 100644
+index 0000000000..5e6dc1460a
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/MLPowerPreference.h
+@@ -0,0 +1,9 @@
++/*
++ * https://webmachinelearning.github.io/webnn/#enumdef-mlpowerpreference
++ */
++
++#pragma once
++
++#if ENABLE(WEBNN)
++#include "Modules/WebNN/MLContextOptions.h"
++#endif // ENABLE(WEBNN)
 diff --git a/Source/WebCore/Modules/WebNN/MLPowerPreference.idl b/Source/WebCore/Modules/WebNN/MLPowerPreference.idl
 new file mode 100644
 index 0000000000..dbb6a253f1
