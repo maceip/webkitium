@@ -1,3 +1,63 @@
+diff --git a/Source/WebCore/page/Navigator.cpp b/Source/WebCore/page/Navigator.cpp
+--- a/Source/WebCore/page/Navigator.cpp
++++ b/Source/WebCore/page/Navigator.cpp
+@@ -35,6 +35,9 @@
+ #include "FrameInlines.h"
+ #include "FrameLoader.h"
+ #include "GPU.h"
++#if ENABLE(WEBNN)
++#include "Modules/WebNN/ML.h"
++#endif
+ #include "Geolocation.h"
+ #include "JSDOMPromiseDeferred.h"
+ #include "LoaderStrategy.h"
+@@ -394,6 +397,16 @@ GPU* Navigator::gpu()
+     return m_gpuForWebGPU.get();
+ }
+ 
++#if ENABLE(WEBNN)
++ML* Navigator::ml()
++{
++    if (!m_mlForWebNN)
++        m_mlForWebNN = ML::create(*this);
++
++    return m_mlForWebNN.get();
++}
++#endif
++
+ Page* Navigator::page()
+ {
+     auto* frame = this->frame();
+diff --git a/Source/WebCore/page/Navigator.h b/Source/WebCore/page/Navigator.h
+--- a/Source/WebCore/page/Navigator.h
++++ b/Source/WebCore/page/Navigator.h
+@@ -34,6 +34,7 @@ class DeferredPromise;
+ class DOMMimeTypeArray;
+ class DOMPluginArray;
+ class Page;
++class ML;
+ class ShareDataReader;
+ class NavigatorUAData;
+ 
+@@ -70,6 +71,10 @@ public:
+ 
+     WEBCORE_EXPORT GPU* gpu();
+ 
++#if ENABLE(WEBNN)
++    WEBCORE_EXPORT ML* ml();
++#endif
++
+     Page* NODELETE page();
+ 
+     const Document* NODELETE document() const;
+@@ -96,4 +101,7 @@ private:
+     mutable RefPtr<NavigatorUAData> m_navigatorUAData;
+     RefPtr<GPU> m_gpuForWebGPU;
++#if ENABLE(WEBNN)
++    RefPtr<ML> m_mlForWebNN;
++#endif
+ };
+ }
 diff --git a/Source/WebCore/Modules/WebNN/ML.cpp b/Source/WebCore/Modules/WebNN/ML.cpp
 new file mode 100644
 index 0000000000..18a6ce387c
