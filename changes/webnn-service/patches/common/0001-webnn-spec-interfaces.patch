@@ -78,7 +78,7 @@ index 0000000000..939b503394
 +    explicit MLContext(std::unique_ptr<WebNN::WebNNContextImpl>&&);
 +
 +    std::unique_ptr<WebNN::WebNNContextImpl> m_impl;
-+    MLDevicePreference m_devicePreference { MLDevicePreference::CPU };
++    MLDevicePreference m_devicePreference { MLDevicePreference::Cpu };
 +};
 +
 +} // namespace WebCore
@@ -120,9 +120,9 @@ index 0000000000..3c52982489
 +namespace WebCore {
 +
 +enum class MLDevicePreference : uint8_t {
-+    CPU,
-+    GPU,
-+    NPU,
++    Cpu,
++    Gpu,
++    Npu,
 +};
 +
 +enum class MLPowerPreference : uint8_t {
@@ -132,7 +132,7 @@ index 0000000000..3c52982489
 +};
 +
 +struct MLContextOptions {
-+    MLDevicePreference devicePreference { MLDevicePreference::CPU };
++    MLDevicePreference devicePreference { MLDevicePreference::Cpu };
 +    MLPowerPreference powerPreference { MLPowerPreference::Default };
 +};
 +
