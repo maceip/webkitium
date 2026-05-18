@@ -65,6 +65,24 @@ index 0000000000..18a6ce387c
 +} // namespace WebCore
 +
 +#endif // ENABLE(WEBNN)
+diff --git a/Source/WebCore/CMakeLists.txt b/Source/WebCore/CMakeLists.txt
+--- a/Source/WebCore/CMakeLists.txt
++++ b/Source/WebCore/CMakeLists.txt
+@@ -2099,12 +2099,14 @@
+     Modules/WebGPU/NavigatorGPU.idl
+     Modules/WebGPU/WGSLLanguageFeatures.idl
+ 
++    Modules/WebNN/ML.idl
+     Modules/WebNN/MLContext.idl
+     Modules/WebNN/MLContextOptions.idl
+     Modules/WebNN/MLGraph.idl
+     Modules/WebNN/MLGraphBuilder.idl
+     Modules/WebNN/MLOperand.idl
+     Modules/WebNN/MLTensor.idl
++    Modules/WebNN/NavigatorML.idl
+ )
+ 
+ set(WebCore_IDL_FILES
 diff --git a/Source/WebCore/Modules/WebNN/ML.h b/Source/WebCore/Modules/WebNN/ML.h
 new file mode 100644
 index 0000000000..cd78645c83
