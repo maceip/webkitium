@@ -213,6 +213,7 @@ jobs:
             --cmakeargs="-DENABLE_THUNDER=OFF" \
             --cmakeargs="-DENABLE_BUBBLEWRAP_SANDBOX=OFF" \
             --cmakeargs="-DUSE_OPENCDM=OFF" \
+            --cmakeargs="-DUSE_LIBBACKTRACE=OFF" \
             --cmakeargs="-DENABLE_ENCRYPTED_MEDIA=OFF"
 
       - name: Baseline package
