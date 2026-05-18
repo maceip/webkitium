@@ -68,17 +68,20 @@ index 0000000000..18a6ce387c
 diff --git a/Source/WebCore/CMakeLists.txt b/Source/WebCore/CMakeLists.txt
 --- a/Source/WebCore/CMakeLists.txt
 +++ b/Source/WebCore/CMakeLists.txt
-@@ -2099,12 +2099,14 @@
+@@ -2099,15 +2099,17 @@
      Modules/WebGPU/NavigatorGPU.idl
      Modules/WebGPU/WGSLLanguageFeatures.idl
  
 +    Modules/WebNN/ML.idl
      Modules/WebNN/MLContext.idl
      Modules/WebNN/MLContextOptions.idl
+     Modules/WebNN/MLDevicePreference.idl
      Modules/WebNN/MLGraph.idl
      Modules/WebNN/MLGraphBuilder.idl
      Modules/WebNN/MLOperand.idl
+     Modules/WebNN/MLPowerPreference.idl
      Modules/WebNN/MLTensor.idl
+     Modules/WebNN/MLTensorDescriptor.idl
 +    Modules/WebNN/NavigatorML.idl
  )
  
