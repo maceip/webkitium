@@ -44,9 +44,12 @@ using Microsoft::WRL::ComPtr;
 
 constexpr int kWinWidth = 1280;
 constexpr int kWinHeight = 800;
+constexpr int kAddressBarHeight = 40;
 
 HWND g_mainHwnd = nullptr;
 WKViewRef g_view = nullptr;
+std::wstring g_currentUrl;
+bool g_currentUrlIsSecure = false;
 
 struct CliArgs {
     std::string url = "https://en.wikipedia.org";
@@ -90,17 +93,92 @@ CliArgs ParseCli() {
     return args;
 }
 
+void PaintAddressBar(HDC dc, const RECT& rc) {
+    // Background.
+    HBRUSH bg = CreateSolidBrush(RGB(0xF5, 0xF5, 0xF7));
+    FillRect(dc, &rc, bg);
+    DeleteObject(bg);
+
+    // Bottom hairline.
+    HPEN hairline = CreatePen(PS_SOLID, 1, RGB(0xD0, 0xD0, 0xD4));
+    HGDIOBJ oldPen = SelectObject(dc, hairline);
+    MoveToEx(dc, rc.left, rc.bottom - 1, nullptr);
+    LineTo(dc, rc.right, rc.bottom - 1);
+    SelectObject(dc, oldPen);
+    DeleteObject(hairline);
+
+    SetBkMode(dc, TRANSPARENT);
+
+    // Lock — Segoe MDL2 Assets glyph U+E72E ("Lock"). Tailwind blue-500.
+    if (g_currentUrlIsSecure) {
+        HFONT lockFont = CreateFontW(20, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+                                      DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+                                      CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+                                      DEFAULT_PITCH | FF_DONTCARE,
+                                      L"Segoe MDL2 Assets");
+        HGDIOBJ oldFont = SelectObject(dc, lockFont);
+        SetTextColor(dc, RGB(0x3B, 0x82, 0xF6));
+
+        // Glow halo: draw the lock glyph at multiple offsets with low alpha
+        // to fake a halo. GDI doesn't do alpha; emulate by overdrawing a
+        // slightly larger ring in a paler blue first.
+        SetTextColor(dc, RGB(0xBF, 0xD7, 0xFD));
+        for (int dx = -1; dx <= 1; ++dx)
+            for (int dy = -1; dy <= 1; ++dy) {
+                if (!dx && !dy) continue;
+                RECT lr = {rc.left + 12 + dx, rc.top + 10 + dy,
+                           rc.left + 36 + dx, rc.top + 34 + dy};
+                DrawTextW(dc, L"\xE72E", 1, &lr, DT_SINGLELINE | DT_VCENTER | DT_CENTER);
+            }
+
+        // Solid centre.
+        SetTextColor(dc, RGB(0x3B, 0x82, 0xF6));
+        RECT lr = {rc.left + 12, rc.top + 10, rc.left + 36, rc.top + 34};
+        DrawTextW(dc, L"\xE72E", 1, &lr, DT_SINGLELINE | DT_VCENTER | DT_CENTER);
+
+        SelectObject(dc, oldFont);
+        DeleteObject(lockFont);
+    }
+
+    // URL text.
+    HFONT urlFont = CreateFontW(15, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+                                 DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+                                 CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+                                 DEFAULT_PITCH | FF_DONTCARE,
+                                 L"Segoe UI");
+    HGDIOBJ oldFont = SelectObject(dc, urlFont);
+    SetTextColor(dc, RGB(0x1A, 0x1A, 0x1A));
+    RECT tr = {rc.left + 44, rc.top, rc.right - 12, rc.bottom};
+    DrawTextW(dc, g_currentUrl.c_str(), -1, &tr,
+              DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    SelectObject(dc, oldFont);
+    DeleteObject(urlFont);
+}
+
+void LayoutChildren(HWND hwnd) {
+    if (!g_view) return;
+    HWND child = WKViewGetWindow(g_view);
+    if (!child) return;
+    RECT rc; GetClientRect(hwnd, &rc);
+    SetWindowPos(child, nullptr,
+                 0, kAddressBarHeight,
+                 rc.right - rc.left, (rc.bottom - rc.top) - kAddressBarHeight,
+                 SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
+    case WM_PAINT: {
+        PAINTSTRUCT ps;
+        HDC dc = BeginPaint(hwnd, &ps);
+        RECT rc; GetClientRect(hwnd, &rc);
+        RECT bar = {rc.left, rc.top, rc.right, rc.top + kAddressBarHeight};
+        PaintAddressBar(dc, bar);
+        EndPaint(hwnd, &ps);
+        return 0;
+    }
     case WM_SIZE:
-        if (g_view) {
-            HWND child = WKViewGetWindow(g_view);
-            if (child) {
-                RECT rc; GetClientRect(hwnd, &rc);
-                SetWindowPos(child, nullptr, 0, 0, rc.right - rc.left, rc.bottom - rc.top,
-                             SWP_NOZORDER | SWP_NOACTIVATE);
-            }
-        }
+        LayoutChildren(hwnd);
         return 0;
     case WM_DESTROY:
         PostQuitMessage(0);
@@ -138,8 +216,10 @@ bool CreateWebKitView(HWND parent, const std::string& url) {
     WKPageConfigurationRef pageConfig = WKPageConfigurationCreate();
     WKPageConfigurationSetContext(pageConfig, ctx);
 
+    // Reserve the top kAddressBarHeight for our URL bar; WKView fills the rest.
     RECT rc; GetClientRect(parent, &rc);
-    g_view = WKViewCreate(rc, ctx, pageConfig, parent);
+    RECT view = {rc.left, rc.top + kAddressBarHeight, rc.right, rc.bottom};
+    g_view = WKViewCreate(view, ctx, pageConfig, parent);
     WKRelease(pageConfig);
     WKRelease(ctx);
     if (!g_view) {
@@ -151,7 +231,9 @@ bool CreateWebKitView(HWND parent, const std::string& url) {
     HWND child = WKViewGetWindow(g_view);
     if (child) {
         ShowWindow(child, SW_SHOW);
-        SetWindowPos(child, nullptr, 0, 0, rc.right - rc.left, rc.bottom - rc.top,
+        SetWindowPos(child, nullptr,
+                     0, kAddressBarHeight,
+                     rc.right - rc.left, (rc.bottom - rc.top) - kAddressBarHeight,
                      SWP_NOZORDER | SWP_NOACTIVATE);
     }
 
@@ -160,6 +242,13 @@ bool CreateWebKitView(HWND parent, const std::string& url) {
         fwprintf(stderr, L"WKViewGetPage returned null\n");
         return false;
     }
+
+    // Seed the address-bar state — the lock and URL render before navigation
+    // actually completes, which is fine for the screenshot.
+    g_currentUrl = Utf8ToWide(url);
+    g_currentUrlIsSecure = (url.rfind("https://", 0) == 0);
+    InvalidateRect(parent, nullptr, FALSE);
+
     WKURLRef wkUrl = WKURLCreateWithUTF8CString(url.c_str());
     WKPageLoadURL(page, wkUrl);
     WKRelease(wkUrl);
