@@ -12,61 +12,119 @@ concurrency:
 
 jobs:
   windows:
-    name: Windows Shell Screenshot
+    name: Windows WebKit Mini Screenshot
     runs-on:
       - self-hosted
       - Windows
       - X64
       - webkitium
-    timeout-minutes: 20
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build browser core
+      - name: Prepend Python to PATH
+        shell: bash
+        run: |
+          echo "C:\Python314" >> "$GITHUB_PATH"
+          echo "C:\Python314\Scripts" >> "$GITHUB_PATH"
+
+      - name: Load CI matrix into environment
         shell: bash
         run: |
           set -euo pipefail
-          cd browser
-          mkdir -p build && cd build
-          cmake .. -G Ninja -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_COMPILER="C:/Program Files/LLVM/bin/clang-cl.exe" \
-            -DCMAKE_CXX_COMPILER="C:/Program Files/LLVM/bin/clang-cl.exe"
-          cmake --build . --target ng_browser_core
+          python "$GITHUB_WORKSPACE/config/ci_matrix_env.py" \
+            --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" >> "$GITHUB_ENV"
 
-      - name: Build WinUI shell
+      - name: Prepare WebKit source + patches
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC_WIN='C:/W/webkit-src'
+          SRC="$(cygpath -u "$SRC_WIN")"
+          bash "$GITHUB_WORKSPACE/scripts/ci_prepare_webkit_source.sh" "$SRC"
+          python "$GITHUB_WORKSPACE/config/apply_webkit_patches.py" \
+            --repo-root "$GITHUB_WORKSPACE" \
+            --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" \
+            --changes "$GITHUB_WORKSPACE/config/changes.json" \
+            --webkit-root "$SRC" \
+            --platform windows \
+            --mode apply
+
+      - name: Build WebKit (sccache-warmed)
         shell: cmd
         run: |
-          cd chrome\windows
-          dotnet build Webkitium.sln -c Debug -p:Platform=x64
+          @echo on
+          setlocal
+          call "C:\BuildTools\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64
+          if errorlevel 1 exit /b %errorlevel%
+          set "SRC=C:\W\webkit-src"
+          set "PATH=%PATH:C:\Strawberry\c\bin;=%"
+          set "CC=C:\Program Files\LLVM\bin\clang-cl.exe"
+          set "CXX=C:\Program Files\LLVM\bin\clang-cl.exe"
+          set "PATH=C:\Bootstrap\toolbin;C:\Program Files\Git\cmd;C:\Ruby34-x64\bin;C:\Python314;C:\Python314\Scripts;C:\Program Files\LLVM\bin;C:\Program Files\CMake\bin;C:\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja;C:\Strawberry\perl\bin;%PATH%"
+          set "VCPKG_ROOT=C:\vcpkg"
+          set "SCCACHE_DIR=C:\Bootstrap\sccache-gh\windows-webgpu-dawn"
+          set "SCCACHE_CACHE_SIZE=50G"
+          set "SCCACHE_IDLE_TIMEOUT=0"
+          C:\Bootstrap\toolbin\sccache.exe --start-server >NUL 2>&1
+          cd /d "%SRC%"
+          perl Tools\Scripts\build-webkit --debug --win --makeargs=-j%NUMBER_OF_PROCESSORS% ^
+            -DCMAKE_C_COMPILER=C:/Progra~1/LLVM/bin/clang-cl.exe ^
+            -DCMAKE_CXX_COMPILER=C:/Progra~1/LLVM/bin/clang-cl.exe ^
+            -DCMAKE_LINKER=C:/Progra~1/LLVM/bin/lld-link.exe ^
+            -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=lld ^
+            -DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=lld ^
+            -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded ^
+            -DCMAKE_C_COMPILER_LAUNCHER=C:/Bootstrap/toolbin/sccache.exe ^
+            -DCMAKE_CXX_COMPILER_LAUNCHER=C:/Bootstrap/toolbin/sccache.exe ^
+            -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake ^
+            -DVCPKG_TARGET_TRIPLET=x64-windows-webkit ^
+            -DVCPKG_INSTALLED_DIR=C:/vcpkg/installed ^
+            -DVCPKG_MANIFEST_MODE=OFF ^
+            -DENABLE_EXPERIMENTAL_FEATURES=%WEBKIT_CMAKE_ENABLE_EXPERIMENTAL_FEATURES% ^
+            -DENABLE_WEBXR=%WEBKIT_CMAKE_ENABLE_WEBXR%
+          if errorlevel 1 exit /b %errorlevel%
 
-      - name: Launch and screenshot
+      - name: Build webkitium-min (Win32 + WKView)
+        shell: cmd
+        run: |
+          @echo on
+          setlocal
+          call "C:\BuildTools\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64
+          set "PATH=C:\Program Files\LLVM\bin;C:\Program Files\CMake\bin;C:\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\Ninja;%PATH%"
+          cd /d "%GITHUB_WORKSPACE%\chrome\windows-min"
+          if exist build rd /s /q build
+          cmake -S . -B build -G Ninja ^
+            -DCMAKE_BUILD_TYPE=Debug ^
+            -DCMAKE_C_COMPILER=clang-cl ^
+            -DCMAKE_CXX_COMPILER=clang-cl ^
+            -DWEBKIT_SRC=C:/W/webkit-src ^
+            -DWEBKIT_BUILD=C:/W/webkit-src/WebKitBuild/Debug
+          if errorlevel 1 exit /b %errorlevel%
+          cmake --build build --config Debug
+          if errorlevel 1 exit /b %errorlevel%
+          dir build\bin
+
+      - name: Launch webkitium-min and capture Wikipedia
         shell: pwsh
         run: |
-          $exe = Get-ChildItem -Recurse chrome\windows\Webkitium\bin -Filter "Webkitium.exe" | Select-Object -First 1
-          if (-not $exe) { Write-Error "Webkitium.exe not found"; exit 1 }
-          $env:WEBKITIUM_LAUNCH_URL = 'https://en.wikipedia.org'
-          $proc = Start-Process -FilePath $exe.FullName -PassThru
-          Start-Sleep -Seconds 12
-
-          Add-Type -AssemblyName System.Windows.Forms
-          Add-Type -AssemblyName System.Drawing
-          $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-          $bmp = New-Object System.Drawing.Bitmap($bounds.Width, $bounds.Height)
-          $gfx = [System.Drawing.Graphics]::FromImage($bmp)
-          $gfx.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
-          $outPath = "$env:RUNNER_TEMP\screenshot_windows_shell.png"
-          $bmp.Save($outPath)
-          $gfx.Dispose()
-          $bmp.Dispose()
-
-          Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
-          Write-Host "Screenshot saved to $outPath"
+          $exe = Join-Path $env:GITHUB_WORKSPACE 'chrome\windows-min\build\bin\webkitium_min.exe'
+          if (-not (Test-Path $exe)) { throw "webkitium_min.exe not found at $exe" }
+          $out = Join-Path $env:RUNNER_TEMP 'webkitium-windows-wikipedia.png'
+          Write-Host "Launching: $exe"
+          & $exe --url 'https://en.wikipedia.org' --out $out --wait-seconds 18
+          $code = $LASTEXITCODE
+          Write-Host "Exit: $code"
+          if (-not (Test-Path $out)) { throw "Screenshot not written" }
+          Get-Item $out | Select-Object FullName,Length
 
       - name: Upload screenshot
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: screenshot-windows
-          path: ${{ runner.temp }}/screenshot_windows_shell.png
+          path: ${{ runner.temp }}/webkitium-windows-wikipedia.png
+          if-no-files-found: warn
 
   macos:
     name: macOS Shell Screenshot
