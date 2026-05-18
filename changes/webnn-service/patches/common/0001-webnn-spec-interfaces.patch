@@ -22,6 +22,18 @@ diff --git a/Source/WebCore/CMakeLists.txt b/Source/WebCore/CMakeLists.txt
  )
  
  set(WebCore_IDL_FILES
+diff --git a/Source/WebCore/bindings/js/WebCoreBuiltinNames.h b/Source/WebCore/bindings/js/WebCoreBuiltinNames.h
+--- a/Source/WebCore/bindings/js/WebCoreBuiltinNames.h
++++ b/Source/WebCore/bindings/js/WebCoreBuiltinNames.h
+@@ -305,6 +305,8 @@
+     macro(ManagedSourceBuffer) \
+     macro(MathMLElement) \
+     macro(MathMLMathElement) \
++    macro(ML) \
++    macro(MLContext) \
+     macro(MediaCapabilities) \
+     macro(MediaCapabilitiesInfo) \
+     macro(MediaDevices) \
 diff --git a/Source/WebCore/Modules/WebNN/MLContext.h b/Source/WebCore/Modules/WebNN/MLContext.h
 new file mode 100644
 index 0000000000..939b503394
