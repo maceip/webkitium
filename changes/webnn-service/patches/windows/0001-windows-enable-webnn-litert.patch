@@ -86,6 +86,8 @@ index 00000000001..00000000002 100644
 +        Modules/WebNN/MLContext.cpp
 +        Modules/WebNN/MLTensor.cpp
 +        Modules/WebNN/ML.cpp
++        Modules/WebNN/MLContext.cpp
++        Modules/WebNN/MLTensor.cpp
 +        Modules/WebNN/NavigatorML.cpp
 +    )
 +endif ()

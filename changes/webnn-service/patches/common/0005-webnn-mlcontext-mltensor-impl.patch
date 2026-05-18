@@ -1,0 +1,79 @@
+diff --git a/Source/WebCore/Modules/WebNN/MLContext.cpp b/Source/WebCore/Modules/WebNN/MLContext.cpp
+new file mode 100644
+index 0000000000..a000000001
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/MLContext.cpp
+@@ -0,0 +1,35 @@
++#include "config.h"
++#include "Modules/WebNN/MLContext.h"
++
++#if ENABLE(WEBNN)
++
++#include "Modules/WebNN/MLTensor.h"
++#include "Modules/WebNN/Implementation/WebNNContextImpl.h"
++#include <wtf/StdLibExtras.h>
++
++namespace WebCore {
++
++RefPtr<MLContext> MLContext::create(std::unique_ptr<WebNN::WebNNContextImpl>&& impl)
++{
++    if (!impl)
++        return nullptr;
++    return adoptRef(*new MLContext(WTF::move(impl)));
++}
++
++MLContext::MLContext(std::unique_ptr<WebNN::WebNNContextImpl>&& impl)
++    : m_impl(WTF::move(impl))
++{
++    if (m_impl)
++        m_devicePreference = m_impl->devicePreference();
++}
++
++MLContext::~MLContext() = default;
++
++void MLContext::createTensor(MLTensorDescriptor&&, Ref<DeferredPromise>&&) { }
++void MLContext::writeTensor(MLTensor&, const ArrayBuffer&) { }
++void MLContext::readTensor(MLTensor&, Ref<DeferredPromise>&&) { }
++void MLContext::dispatch(MLGraph&, MLNamedTensors&&, MLNamedTensors&&) { }
++
++} // namespace WebCore
++
++#endif // ENABLE(WEBNN)
+diff --git a/Source/WebCore/Modules/WebNN/MLTensor.cpp b/Source/WebCore/Modules/WebNN/MLTensor.cpp
+new file mode 100644
+index 0000000000..a000000002
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/MLTensor.cpp
+@@ -0,0 +1,32 @@
++#include "config.h"
++#include "Modules/WebNN/MLTensor.h"
++
++#if ENABLE(WEBNN)
++
++#include <wtf/StdLibExtras.h>
++
++namespace WebCore {
++
++Ref<MLTensor> MLTensor::create(MLTensorDescriptor&& desc)
++{
++    return adoptRef(*new MLTensor(WTF::move(desc)));
++}
++
++MLTensor::MLTensor(MLTensorDescriptor&& desc)
++    : m_dataType(WTF::move(desc.dataType))
++    , m_shape(WTF::move(desc.shape))
++    , m_readable(desc.readable)
++    , m_writable(desc.writable)
++{
++}
++
++MLTensor::~MLTensor() = default;
++
++void MLTensor::destroy()
++{
++    m_destroyed = true;
++}
++
++} // namespace WebCore
++
++#endif // ENABLE(WEBNN)
