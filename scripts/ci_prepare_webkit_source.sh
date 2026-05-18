@@ -19,11 +19,34 @@ PYTHON="${PYTHON:-$(command -v python3 2>/dev/null || command -v python)}"
 
 EXPECTED_COMMIT="$("$PYTHON" -c "import json, pathlib, sys; print(json.load(pathlib.Path(sys.argv[1]).open())['webkit']['expectedCommit'])" "$MATRIX")"
 CACHE="${2:-${WEBKIT_PIN_CACHE:-}}"
+CACHE_IS_DEFAULT=0
 if [[ -z "$CACHE" ]]; then
+  CACHE_IS_DEFAULT=1
   if command -v cygpath >/dev/null 2>&1; then
     CACHE="$(cygpath -u "C:/W/webkit-pin-cache/$EXPECTED_COMMIT")"
   else
     CACHE="${HOME}/.cache/webkitium/webkit-pin/$EXPECTED_COMMIT"
+  fi
+fi
+
+ensure_cache_parent() {
+  local cache_path="$1"
+  local cache_parent
+  cache_parent="$(dirname "$cache_path")"
+  mkdir -p "$cache_parent" 2>/dev/null && [[ -w "$cache_parent" ]]
+}
+
+if ! ensure_cache_parent "$CACHE"; then
+  if [[ "$CACHE_IS_DEFAULT" == "1" && -n "${RUNNER_TEMP:-}" ]]; then
+    echo "::warning::Cannot write WebKit pin cache under $(dirname "$CACHE"); using RUNNER_TEMP"
+    CACHE="${RUNNER_TEMP}/webkitium/webkit-pin/$EXPECTED_COMMIT"
+    ensure_cache_parent "$CACHE" || {
+      echo "::error::Cannot create WebKit pin cache parent: $(dirname "$CACHE")"
+      exit 1
+    }
+  else
+    echo "::error::Cannot create or write WebKit pin cache parent: $(dirname "$CACHE")"
+    exit 1
   fi
 fi
 
