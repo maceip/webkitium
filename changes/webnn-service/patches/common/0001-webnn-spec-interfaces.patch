@@ -34,6 +34,72 @@ diff --git a/Source/WebCore/bindings/js/WebCoreBuiltinNames.h b/Source/WebCore/b
      macro(MediaCapabilities) \
      macro(MediaCapabilitiesInfo) \
      macro(MediaDevices) \
+diff --git a/Source/WebCore/Modules/WebNN/MLContext.cpp b/Source/WebCore/Modules/WebNN/MLContext.cpp
+new file mode 100644
+index 0000000000..5377f15e42
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/MLContext.cpp
+@@ -0,0 +1,60 @@
++/*
++ * https://webmachinelearning.github.io/webnn/#api-mlcontext
++ */
++
++#include "config.h"
++#include "Modules/WebNN/MLContext.h"
++
++#if ENABLE(WEBNN)
++
++#include "Modules/WebNN/Implementation/WebNNContextImpl.h"
++#include "Modules/WebNN/MLTensor.h"
++#include "bindings/js/JSDOMPromiseDeferred.h"
++#include <wtf/StdLibExtras.h>
++
++namespace WebCore {
++
++RefPtr<MLContext> MLContext::create(std::unique_ptr<WebNN::WebNNContextImpl>&& impl)
++{
++    if (!impl)
++        return nullptr;
++    return adoptRef(*new MLContext(WTF::move(impl)));
++}
++
++MLContext::MLContext(std::unique_ptr<WebNN::WebNNContextImpl>&& impl)
++    : m_impl(WTF::move(impl))
++{
++    if (m_impl)
++        m_devicePreference = m_impl->devicePreference();
++}
++
++MLContext::~MLContext() = default;
++
++void MLContext::createTensor(MLTensorDescriptor&& descriptor, Ref<DeferredPromise>&& promise)
++{
++    UNUSED_PARAM(descriptor);
++    UNUSED_PARAM(promise);
++}
++
++void MLContext::writeTensor(MLTensor& tensor, const ArrayBuffer& source)
++{
++    UNUSED_PARAM(tensor);
++    UNUSED_PARAM(source);
++}
++
++void MLContext::readTensor(MLTensor& tensor, Ref<DeferredPromise>&& promise)
++{
++    UNUSED_PARAM(tensor);
++    UNUSED_PARAM(promise);
++}
++
++void MLContext::dispatch(MLGraph& graph, MLNamedTensors&& inputs, MLNamedTensors&& outputs)
++{
++    UNUSED_PARAM(graph);
++    UNUSED_PARAM(inputs);
++    UNUSED_PARAM(outputs);
++}
++
++} // namespace WebCore
++
++#endif // ENABLE(WEBNN)
 diff --git a/Source/WebCore/Modules/WebNN/MLContext.h b/Source/WebCore/Modules/WebNN/MLContext.h
 new file mode 100644
 index 0000000000..939b503394
@@ -556,6 +622,48 @@ index 0000000000..680e59e20c
 +    bool m_writable { false };
 +    bool m_destroyed { false };
 +};
++
++} // namespace WebCore
++
++#endif // ENABLE(WEBNN)
+diff --git a/Source/WebCore/Modules/WebNN/MLTensor.cpp b/Source/WebCore/Modules/WebNN/MLTensor.cpp
+new file mode 100644
+index 0000000000..f49c8a1a87
+--- /dev/null
++++ b/Source/WebCore/Modules/WebNN/MLTensor.cpp
+@@ -0,0 +1,36 @@
++/*
++ * https://webmachinelearning.github.io/webnn/#api-mltensor
++ */
++
++#include "config.h"
++#include "Modules/WebNN/MLTensor.h"
++
++#if ENABLE(WEBNN)
++
++#include <wtf/StdLibExtras.h>
++
++namespace WebCore {
++
++Ref<MLTensor> MLTensor::create(MLTensorDescriptor&& descriptor)
++{
++    return adoptRef(*new MLTensor(WTF::move(descriptor)));
++}
++
++MLTensor::MLTensor(MLTensorDescriptor&& descriptor)
++    : m_dataType(WTF::move(descriptor.dataType))
++    , m_shape(WTF::move(descriptor.shape))
++    , m_readable(descriptor.readable)
++    , m_writable(descriptor.writable)
++{
++}
++
++MLTensor::~MLTensor() = default;
++
++void MLTensor::destroy()
++{
++    m_destroyed = true;
++}
 +
 +} // namespace WebCore
 +

@@ -3,7 +3,7 @@ new file mode 100644
 index 00000000000..a1b2c3d4e5f
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/Implementation/WebNNContextImpl.h
-@@ -0,0 +1,51 @@
+@@ -0,0 +1,53 @@
 +/*
 + * Abstract backend interface for WebNN context implementations.
 + * Platform backends (ONNX Runtime, Core ML, TFLite) implement this.
@@ -14,6 +14,7 @@ index 00000000000..a1b2c3d4e5f
 +#if ENABLE(WEBNN)
 +
 +#include "Modules/WebNN/MLContextOptions.h"
++#include "Modules/WebNN/MLOperand.h"
 +#include "Modules/WebNN/MLTensor.h"
 +#include <JavaScriptCore/ArrayBuffer.h>
 +#include <wtf/FastMalloc.h>
@@ -26,6 +27,7 @@ index 00000000000..a1b2c3d4e5f
 +namespace WebCore {
 +
 +class MLGraph;
++class MLOperand;
 +namespace WebNN {
 +
 +class WebNNGraphImpl;
@@ -48,7 +50,7 @@ index 00000000000..a1b2c3d4e5f
 +                          std::function<void(bool)>&&) = 0;
 +
 +    virtual std::unique_ptr<WebNNGraphImpl> buildGraph(
-+        HashMap<String, RefPtr<class MLOperand>>& outputs) = 0;
++        HashMap<String, RefPtr<MLOperand>>& outputs) = 0;
 +};
 +
 +} // namespace WebNN
