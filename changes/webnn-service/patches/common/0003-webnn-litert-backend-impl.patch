@@ -17,7 +17,9 @@ index 0000000000..bc55fa2d78
 +#include <algorithm>
 +#include <cstring>
 +#include <future>
++#include <span>
 +#include <wtf/StdLibExtras.h>
++#include <vector>
 +
 +namespace WebCore {
 +namespace WebNN {
@@ -26,11 +28,12 @@ index 0000000000..bc55fa2d78
 +public:
 +    static Ref<LiteRTTensor> create(MLTensorDescriptor&& desc, size_t byteLength)
 +    {
-+        return adoptRef(*new LiteRTTensor(WTFMove(desc), byteLength));
++        return adoptRef(*new LiteRTTensor(WTF::move(desc), byteLength));
 +    }
 +
 +    void* data() { return m_buffer.data(); }
 +    const void* data() const { return m_buffer.data(); }
++    std::span<const uint8_t> span() const { return { m_buffer.data(), m_buffer.size() }; }
 +    size_t byteLength() const { return m_buffer.size(); }
 +    void* backendHandle() const override
 +    {
@@ -39,12 +42,12 @@ index 0000000000..bc55fa2d78
 +
 +private:
 +    LiteRTTensor(MLTensorDescriptor&& desc, size_t byteLength)
-+        : MLTensor(WTFMove(desc))
++        : MLTensor(WTF::move(desc))
 +        , m_buffer(byteLength, 0)
 +    {
 +    }
 +
-+    Vector<uint8_t> m_buffer;
++    std::vector<uint8_t> m_buffer;
 +};
 +
 +std::unique_ptr<LiteRTContext> LiteRTContext::create(
@@ -137,7 +140,7 @@ index 0000000000..bc55fa2d78
 +RefPtr<MLTensor> LiteRTContext::createTensor(MLTensorDescriptor&& desc)
 +{
 +    size_t byteLen = tensorByteLength(desc.dataType, desc.shape);
-+    return LiteRTTensor::create(WTFMove(desc), byteLen);
++    return LiteRTTensor::create(WTF::move(desc), byteLen);
 +}
 +
 +void LiteRTContext::writeTensor(MLTensor& tensor, const void* data,
@@ -155,11 +158,10 @@ index 0000000000..bc55fa2d78
 +    auto promise = std::make_shared<std::promise<RefPtr<ArrayBuffer>>>();
 +    auto future = promise->get_future();
 +
-+    postWork([&tensor, p = std::move(promise)]() {
++    postWork([&tensor, p = WTF::move(promise)]() {
 +        auto& lrtTensor = static_cast<LiteRTTensor&>(tensor);
-+        auto buffer = ArrayBuffer::tryCreate(lrtTensor.data(),
-+                                              lrtTensor.byteLength());
-+        p->set_value(WTFMove(buffer));
++        auto buffer = ArrayBuffer::tryCreate(lrtTensor.span());
++        p->set_value(WTF::move(buffer));
 +    });
 +
 +    callback(future.get());
@@ -176,9 +178,9 @@ index 0000000000..bc55fa2d78
 +    auto& lrtGraph = static_cast<LiteRTGraph&>(graph);
 +
 +    postWork([this, &lrtGraph,
-+              ins = WTFMove(inputsCopy),
-+              outs = WTFMove(outputsCopy),
-+              cb = WTFMove(callback)]() mutable {
++              ins = WTF::move(inputsCopy),
++              outs = WTF::move(outputsCopy),
++              cb = WTF::move(callback)]() mutable {
 +        bool success = lrtGraph.run(this, ins, outs);
 +        cb(success);
 +    });
@@ -548,7 +550,7 @@ index 39f850acab..13904c00fe 100644
 +    const String& operationType() const { return m_operationType; }
 +    const Vector<RefPtr<MLOperand>>& inputOperands() const { return m_inputOperands; }
 +    void setOperationType(const String& op) { m_operationType = op; }
-+    void addInputOperand(RefPtr<MLOperand> operand) { m_inputOperands.append(WTFMove(operand)); }
++    void addInputOperand(RefPtr<MLOperand> operand) { m_inputOperands.append(WTF::move(operand)); }
 +
 +    const void* constantData() const { return m_constantData; }
 +    size_t constantByteLength() const { return m_constantByteLength; }

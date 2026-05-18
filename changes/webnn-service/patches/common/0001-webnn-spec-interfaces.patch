@@ -13,10 +13,12 @@ index 0000000000..939b503394
 +#if ENABLE(WEBNN)
 +
 +#include "Modules/WebNN/MLContextOptions.h"
++#include <JavaScriptCore/ArrayBuffer.h>
 +#include <wtf/RefCounted.h>
 +#include <wtf/RefPtr.h>
 +#include <wtf/HashMap.h>
 +#include <wtf/text/WTFString.h>
++#include <memory>
 +
 +namespace WebCore {
 +
@@ -24,7 +26,6 @@ index 0000000000..939b503394
 +class MLTensor;
 +struct MLTensorDescriptor;
 +class DeferredPromise;
-+class ArrayBuffer;
 +
 +namespace WebNN {
 +class WebNNContextImpl;
@@ -221,6 +222,7 @@ index 0000000000..2c3d3930e9
 +
 +#include "Modules/WebNN/MLContext.h"
 +#include "Modules/WebNN/MLOperand.h"
++#include <JavaScriptCore/ArrayBuffer.h>
 +#include <wtf/RefCounted.h>
 +#include <wtf/RefPtr.h>
 +#include <wtf/Vector.h>
@@ -230,7 +232,6 @@ index 0000000000..2c3d3930e9
 +
 +class DeferredPromise;
 +class MLGraph;
-+class ArrayBuffer;
 +
 +struct MLOperandDescriptor {
 +    String dataType; // "float32", "float16", "int32", "uint32", "int8", "uint8"
