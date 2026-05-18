@@ -16,12 +16,12 @@ diff --git a/Source/WebCore/page/Navigator.cpp b/Source/WebCore/page/Navigator.c
  }
  
 +#if ENABLE(WEBNN)
-+ML* Navigator::ml()
++ML& Navigator::ml()
 +{
 +    if (!m_mlForWebNN)
 +        m_mlForWebNN = ML::create(*this);
 +
-+    return m_mlForWebNN.get();
++    return *m_mlForWebNN;
 +}
 +#endif
 +
@@ -44,7 +44,7 @@ diff --git a/Source/WebCore/page/Navigator.h b/Source/WebCore/page/Navigator.h
      WEBCORE_EXPORT GPU* gpu();
  
 +#if ENABLE(WEBNN)
-+    WEBCORE_EXPORT ML* ml();
++    WEBCORE_EXPORT ML& ml();
 +#endif
 +
      Page* NODELETE page();
