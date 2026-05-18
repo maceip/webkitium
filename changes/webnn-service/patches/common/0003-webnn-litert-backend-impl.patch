@@ -82,7 +82,7 @@ index 0000000000..bc55fa2d78
 +    if (!loader.isLoaded())
 +        return false;
 +
-+    if (m_device == MLDevicePreference::GPU && loader.hasGpuAccelerator())
++    if (m_device == MLDevicePreference::Gpu && loader.hasGpuAccelerator())
 +        m_useGPU = true;
 +
 +    m_workerThread = std::thread([this] { workerThreadFunc(); });
@@ -256,7 +256,7 @@ index 0000000000..69392997d1
 +    void workerThreadFunc();
 +    void postWork(std::function<void()>&&);
 +
-+    MLDevicePreference m_device { MLDevicePreference::CPU };
++    MLDevicePreference m_device { MLDevicePreference::Cpu };
 +    bool m_initialized { false };
 +    bool m_useGPU { false };
 +
