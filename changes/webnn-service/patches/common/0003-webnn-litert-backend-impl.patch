@@ -3,7 +3,7 @@ new file mode 100644
 index 0000000000..bc55fa2d78
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/Implementation/WebNNLiteRTContext.cpp
-@@ -0,0 +1,190 @@
+@@ -0,0 +1,192 @@
 +#include "config.h"
 +#include "Modules/WebNN/Implementation/WebNNLiteRTContext.h"
 +

@@ -3,7 +3,7 @@ new file mode 100644
 index 0000000000..939b503394
 --- /dev/null
 +++ b/Source/WebCore/Modules/WebNN/MLContext.h
-@@ -0,0 +1,55 @@
+@@ -0,0 +1,56 @@
 +/*
 + * https://webmachinelearning.github.io/webnn/#api-mlcontext
 + */
