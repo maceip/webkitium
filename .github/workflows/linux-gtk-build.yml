@@ -121,9 +121,12 @@ jobs:
             echo "::error::Tools/gtk/install-dependencies not found and NG_SKIP_INSTALL_DEPS not set"
             exit 1
           fi
-          # OptionsGTK.cmake requires these even when their features are disabled
+          # OptionsGTK.cmake may probe these before disabled feature defaults settle.
+          # Install best-effort packages separately so one unavailable optional package
+          # does not prevent the available ones from being installed.
           sudo apt-get install -y --no-install-recommends \
-            libopenxr-dev libbacktrace-dev xdg-dbus-proxy 2>/dev/null || true
+            libopenxr-dev xdg-dbus-proxy
+          sudo apt-get install -y --no-install-recommends libbacktrace-dev 2>/dev/null || true
 
       - name: Install librice from source
         run: |
@@ -205,12 +208,12 @@ jobs:
           export CFLAGS="${CFLAGS:-} -Wno-error=stringop-overflow -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
           export CXXFLAGS="${CXXFLAGS:-} -Wno-error=stringop-overflow -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
           perl Tools/Scripts/build-webkit --debug --gtk --makeargs="-j$JOBS" \
-            -DENABLE_EXPERIMENTAL_FEATURES="${WEBKIT_CMAKE_ENABLE_EXPERIMENTAL_FEATURES:-ON}" \
-            -DENABLE_WEBXR="${WEBKIT_CMAKE_ENABLE_WEBXR:-OFF}" \
-            -DENABLE_THUNDER=OFF \
-            -DENABLE_BUBBLEWRAP_SANDBOX=OFF \
-            -DUSE_OPENCDM=OFF \
-            -DENABLE_ENCRYPTED_MEDIA=OFF
+            --cmakeargs="-DENABLE_EXPERIMENTAL_FEATURES=${WEBKIT_CMAKE_ENABLE_EXPERIMENTAL_FEATURES:-ON}" \
+            --cmakeargs="-DENABLE_WEBXR=${WEBKIT_CMAKE_ENABLE_WEBXR:-OFF}" \
+            --cmakeargs="-DENABLE_THUNDER=OFF" \
+            --cmakeargs="-DENABLE_BUBBLEWRAP_SANDBOX=OFF" \
+            --cmakeargs="-DUSE_OPENCDM=OFF" \
+            --cmakeargs="-DENABLE_ENCRYPTED_MEDIA=OFF"
 
       - name: Baseline package
         run: |
