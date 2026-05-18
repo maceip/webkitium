@@ -13,16 +13,7 @@ endif()
 # webgpu_dawn.{dll,lib} + webgpu/webgpu.h under DAWN_ROOT.
 set(WEBGPU_HOST_DAWN_TARGET "")
 
-find_package(Dawn CONFIG QUIET)
-if (TARGET Dawn::webgpu_dawn)
-    set(WEBGPU_HOST_DAWN_TARGET Dawn::webgpu_dawn)
-elseif (TARGET dawn::webgpu_dawn)
-    set(WEBGPU_HOST_DAWN_TARGET dawn::webgpu_dawn)
-elseif (TARGET webgpu_dawn)
-    set(WEBGPU_HOST_DAWN_TARGET webgpu_dawn)
-endif()
-
-if (NOT WEBGPU_HOST_DAWN_TARGET)
+function(webgpu_host_find_manual_dawn OUT_TARGET)
     # Manual fallback. Mirrors the pattern in
     # webkit/patches/windows/0023-windows-enable-webgpu-dawn.patch
     # (FindDawn.cmake fallback for `dawn/dawn_proc_table.h` + `webgpu_dawn`).
@@ -41,16 +32,44 @@ if (NOT WEBGPU_HOST_DAWN_TARGET)
         HINTS "${DAWN_ROOT}/bin" "$ENV{VCPKG_ROOT}/installed/x64-windows/bin"
               "$ENV{VCPKG_ROOT}/installed/x64-windows-webkit/bin"
     )
-    if (NOT DAWN_INCLUDE_DIR OR NOT DAWN_LIBRARY)
-        message(FATAL_ERROR
-            "Dawn not found. Install via vcpkg (webgpu_dawn) and pass "
-            "-DCMAKE_TOOLCHAIN_FILE=<vcpkg>/scripts/buildsystems/vcpkg.cmake, "
-            "or set -DDAWN_ROOT=<path containing include/ lib/ bin/>.")
+    if (DAWN_INCLUDE_DIR AND DAWN_LIBRARY)
+        if (NOT TARGET webgpu_host_dawn)
+            add_library(webgpu_host_dawn INTERFACE)
+            target_include_directories(webgpu_host_dawn INTERFACE "${DAWN_INCLUDE_DIR}")
+            target_link_libraries(webgpu_host_dawn INTERFACE "${DAWN_LIBRARY}")
+        endif()
+        set(${OUT_TARGET} webgpu_host_dawn PARENT_SCOPE)
+        set(DAWN_DLL "${DAWN_DLL}" PARENT_SCOPE)
     endif()
-    add_library(webgpu_host_dawn INTERFACE)
-    target_include_directories(webgpu_host_dawn INTERFACE "${DAWN_INCLUDE_DIR}")
-    target_link_libraries(webgpu_host_dawn INTERFACE "${DAWN_LIBRARY}")
-    set(WEBGPU_HOST_DAWN_TARGET webgpu_host_dawn)
+endfunction()
+
+if (DAWN_ROOT)
+    # The official Dawn release tarball ships a generated DawnConfig.cmake, but
+    # that export references internal targets that are not in the tarball.
+    # DAWN_ROOT points at include/ + lib/, so use those directly.
+    webgpu_host_find_manual_dawn(WEBGPU_HOST_DAWN_TARGET)
+endif()
+
+if (NOT DAWN_ROOT AND NOT WEBGPU_HOST_DAWN_TARGET)
+    find_package(Dawn CONFIG QUIET)
+    if (TARGET Dawn::webgpu_dawn)
+        set(WEBGPU_HOST_DAWN_TARGET Dawn::webgpu_dawn)
+    elseif (TARGET dawn::webgpu_dawn)
+        set(WEBGPU_HOST_DAWN_TARGET dawn::webgpu_dawn)
+    elseif (TARGET webgpu_dawn)
+        set(WEBGPU_HOST_DAWN_TARGET webgpu_dawn)
+    endif()
+endif()
+
+if (NOT WEBGPU_HOST_DAWN_TARGET)
+    webgpu_host_find_manual_dawn(WEBGPU_HOST_DAWN_TARGET)
+endif()
+
+if (NOT WEBGPU_HOST_DAWN_TARGET)
+    message(FATAL_ERROR
+        "Dawn not found. Install via vcpkg (webgpu_dawn) and pass "
+        "-DCMAKE_TOOLCHAIN_FILE=<vcpkg>/scripts/buildsystems/vcpkg.cmake, "
+        "or set -DDAWN_ROOT=<path containing include/ lib/ bin/>.")
 endif()
 
 add_executable(webgpu_host WIN32
