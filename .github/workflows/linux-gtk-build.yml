@@ -166,8 +166,8 @@ jobs:
           SRC="${WEBKIT_SRC:?}"
           cd "$SRC"
           JOBS="$(nproc 2>/dev/null || echo 4)"
-          if (( JOBS > 4 )); then
-            JOBS=4
+          if (( JOBS > 2 )); then
+            JOBS=2
           fi
           echo "Using $JOBS build jobs"
           export WEBKITIUM_BROWSER_SHELL_TARGET=linux-gtk
