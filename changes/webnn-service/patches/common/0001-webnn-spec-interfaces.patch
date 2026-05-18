@@ -108,7 +108,7 @@ index 0000000000..26d4960755
 +
 +    [NewObject] Promise<MLTensor> createTensor(MLTensorDescriptor descriptor);
 +
-+    undefined writeTensor(MLTensor tensor, AllowSharedBufferSource data);
++    undefined writeTensor(MLTensor tensor, ArrayBuffer data);
 +
 +    [NewObject] Promise<ArrayBuffer> readTensor(MLTensor tensor);
 +
@@ -353,7 +353,7 @@ index 0000000000..05eaf1be98
 +
 +    // Inputs and constants
 +    MLOperand input(DOMString name, MLOperandDescriptor descriptor);
-+    MLOperand constant(MLOperandDescriptor descriptor, AllowSharedBufferSource data);
++    MLOperand constant(MLOperandDescriptor descriptor, ArrayBuffer data);
 +
 +    // Element-wise binary
 +    MLOperand add(MLOperand a, MLOperand b);
