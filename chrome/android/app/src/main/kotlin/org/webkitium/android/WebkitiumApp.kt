@@ -1,10 +1,6 @@
 package org.webkitium.android
 
-import android.app.Application
+import org.wpewebkit.WPEApplication
 
-/**
- * Application entry. Trivial for now; later instances of the FFI
- * suggestion provider, bookmarks store, etc. will live here so they
- * survive Activity rotation.
- */
-class WebkitiumApp : Application()
+/** WPE WebKit engine process bootstrap (required by wpeview). */
+class WebkitiumApp : WPEApplication()

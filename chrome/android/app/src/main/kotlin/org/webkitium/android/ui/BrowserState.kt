@@ -1,6 +1,6 @@
 package org.webkitium.android.ui
 
-import android.webkit.WebView
+import org.wpewebkit.wpeview.WPEView
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -97,7 +97,7 @@ class TabModel(
     var canGoForward by mutableStateOf(false)
     /** WebView host reference. Bound when the AndroidView factory runs.
      *  Lives in non-Compose state because WebView is mutable Android UI. */
-    var webView: WebView? = null
+    var webView: WPEView? = null
 }
 
 data class BookmarkRow(val url: String, val title: String)

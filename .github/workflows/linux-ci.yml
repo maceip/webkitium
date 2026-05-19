@@ -31,7 +31,7 @@ jobs:
           sudo apt-get update
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             build-essential cmake pkg-config \
-            libgtk-4-dev libwebkitgtk-6.0-dev libclang-dev \
+            libgtk-4-dev libclang-dev \
             libprotobuf-dev libsqlite3-dev protobuf-compiler \
             xvfb x11-utils xdotool imagemagick scrot \
             dbus-x11 at-spi2-core
@@ -63,7 +63,7 @@ jobs:
           XVFB=$!
           sleep 2
 
-          # Env for headless GTK/WebKitGTK on GHA
+          # Placeholder chrome (no system WebKitGTK) — screenshot is UI shell only
           export DISPLAY=:99
           export GTK_A11Y=none
           export NO_AT_BRIDGE=1

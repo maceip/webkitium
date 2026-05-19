@@ -12,7 +12,6 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="$(WindowsAppSDKVersion)" />
-    <PackageReference Include="Microsoft.Web.WebView2" Version="$(MicrosoftWebView2Version)" />
   </ItemGroup>
 
   <ItemGroup>
@@ -22,16 +21,34 @@
       <OutputItemType>Content</OutputItemType>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </ProjectReference>
+    <ProjectReference Include="..\WebKitHost\WebKitHost.vcxproj">
+      <Private>true</Private>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
   </ItemGroup>
 
-  <!-- Belt-and-suspenders: copy the native DLL into the managed output even if
-       the ProjectReference path didn't pick it up. -->
   <Target Name="CopyBrowserCoreDll" AfterTargets="Build">
     <ItemGroup>
       <_BrowserCoreFiles Include="$(BrowserCoreOutputDir)webkitium_core.dll" Condition="Exists('$(BrowserCoreOutputDir)webkitium_core.dll')" />
       <_BrowserCoreFiles Include="$(BrowserCoreOutputDir)webkitium_core.pdb" Condition="Exists('$(BrowserCoreOutputDir)webkitium_core.pdb')" />
     </ItemGroup>
     <Copy SourceFiles="@(_BrowserCoreFiles)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="CopyWebKitHostDll" AfterTargets="Build">
+    <ItemGroup>
+      <_WebKitHostFiles Include="$(WebKitHostOutputDir)webkitium_host.dll" Condition="Exists('$(WebKitHostOutputDir)webkitium_host.dll')" />
+      <_WebKitHostFiles Include="$(WebKitHostOutputDir)webkitium_host.pdb" Condition="Exists('$(WebKitHostOutputDir)webkitium_host.pdb')" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_WebKitHostFiles)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+  </Target>
+
+  <!-- Stage WebKit-for-Windows runtime DLLs next to Webkitium.exe when the engine build exists locally. -->
+  <Target Name="CopyWebKitRuntimeDlls" AfterTargets="Build" Condition="Exists('$(WebKitBuild)\bin')">
+    <ItemGroup>
+      <_WebKitRuntimeDlls Include="$(WebKitBuild)\bin\*.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_WebKitRuntimeDlls)" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
   </Target>
 
 </Project>

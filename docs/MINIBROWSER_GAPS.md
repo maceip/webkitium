@@ -20,11 +20,11 @@ holders in `chrome/<platform>/`).
 
 | Gap | Where it fits | Notes |
 |---|---|---|
-| **Real `WebView` / WK content host** | `chrome/<platform>/.../*Tab.*` currently shows the placeholder text "Web content goes here" | Windows: `WebView2` (already in MainWindow.xaml as `PART_WebView` but unconfigured).  macOS: `WKWebView` via SwiftUI `NSViewRepresentable`.  Android: WebView/WebKit Android.  iOS: `WKWebView`. |
+| **Real `WebView` / WK content host** | Per-platform embed surface wired to **our** engine build | Windows: `WKView` via `webkitium_host.dll` + WinUI `WebKitViewHost` (requires local/CI WebKit-for-Windows build). macOS/iOS: still system `WKWebView` until embeddable fork artifacts exist. Android: system WebView (Chromium). Linux: apt WebKitGTK until pin is built. |
 | **Address-bar URL → navigation dispatch** | omnibar `KeyDown(Enter)` → BrowserCommandController → active tab `LoadRequest` | `BrowserCommandController.navigateActiveTab()` exists; not yet bridged. |
 | **Tab create / close** | `Ctrl+T` / `Ctrl+W` keyboard accelerators on desktop, "+" button on mobile | Stubs in MainWindow: `OnAddTab` / `OnTabClose` exist on Windows but call into nothing.  No bridge yet. |
 | **Back / forward / reload buttons functional** | wired into the active WebView's nav stack | Toolbar buttons exist on every shell; `Click` handlers are no-ops. |
-| **Cookie + LocalStorage persistence** | per-WebView data store | Windows: `CoreWebView2Environment` + a per-profile UserDataFolder.  macOS/iOS: `WKWebsiteDataStore`.  Android: WebView default.  None set up. |
+| **Cookie + LocalStorage persistence** | per-WebView data store | Windows: `WKContext` / website data store (not yet profile-scoped in shell). macOS/iOS: `WKWebsiteDataStore`. Android: WebView default. None set up. |
 | **HTTP error page rendering** | a blank-white placeholder when nav fails | Today there is no error-page surface; failures look identical to "loading" (silent). |
 
 ## Tier 2 — expected, missing today

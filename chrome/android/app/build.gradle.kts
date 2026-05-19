@@ -88,7 +88,18 @@ android {
     }
 }
 
+val wpeviewAar: String? = System.getenv("WPEVIEW_AAR")?.takeIf { it.isNotBlank() }
+
 dependencies {
+    if (wpeviewAar != null) {
+        implementation(files(wpeviewAar))
+    } else {
+        throw GradleException(
+            "WPEVIEW_AAR must point at wpeview-*-debug.aar from the wpe-android engine build " +
+                "(see .github/workflows/android-build.yml)."
+        )
+    }
+
     implementation(platform(libs.androidx.compose.bom))
 
     implementation(libs.androidx.core.ktx)

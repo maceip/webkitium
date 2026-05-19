@@ -1,0 +1,18 @@
+LIBRARY webkitium_host
+
+EXPORTS
+    wk_host_initialize
+    wk_host_shutdown
+    wk_host_view_create
+    wk_host_view_destroy
+    wk_host_view_set_frame
+    wk_host_view_set_visible
+    wk_host_view_load_url
+    wk_host_view_go_back
+    wk_host_view_go_forward
+    wk_host_view_reload
+    wk_host_view_can_go_back
+    wk_host_view_can_go_forward
+    wk_host_view_copy_url
+    wk_host_view_copy_title
+    wk_host_view_run_script

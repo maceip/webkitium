@@ -1,11 +1,7 @@
 package org.webkitium.android.ui
 
 import android.annotation.SuppressLint
-import android.graphics.Bitmap
-import android.webkit.WebResourceRequest
-import android.webkit.WebSettings
-import android.webkit.WebView
-import android.webkit.WebViewClient
+import org.wpewebkit.wpeview.WPEView
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -54,39 +50,22 @@ fun BrowserScreenCompact(state: BrowserState) {
                 .fillMaxSize()
                 .padding(padding),
             factory = { ctx ->
-                WebView(ctx).apply {
-                    settings.apply {
-                        javaScriptEnabled = true
-                        domStorageEnabled = true
-                        mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
-                        allowFileAccess = false
-                        allowContentAccess = false
-                        safeBrowsingEnabled = true
-                    }
-                    webViewClient = object : WebViewClient() {
-                        override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
-                            if (!state.isUrlFocused) state.urlInput = url
-                            active.url = url
-                            active.canGoBack = view.canGoBack()
-                            active.canGoForward = view.canGoForward()
-                        }
-                        override fun onPageFinished(view: WebView, url: String) {
-                            if (!state.isUrlFocused) state.urlInput = url
-                            active.url = url
-                            active.canGoBack = view.canGoBack()
-                            active.canGoForward = view.canGoForward()
-                            state.recordVisit(url)
-                        }
-                        override fun shouldOverrideUrlLoading(
-                            view: WebView,
-                            request: WebResourceRequest
-                        ): Boolean = when (request.url.scheme?.lowercase()) {
-                            "http", "https" -> false
-                            else            -> true
-                        }
-                    }
-                    active.webView = this
-                }
+                createWpeEngineView(
+                    ctx,
+                    onPageStarted = { view, url ->
+                        if (!state.isUrlFocused) state.urlInput = url
+                        active.url = url
+                        active.canGoBack = view.canGoBack()
+                        active.canGoForward = view.canGoForward()
+                    },
+                    onPageFinished = { view, url ->
+                        if (!state.isUrlFocused) state.urlInput = url
+                        active.url = url
+                        active.canGoBack = view.canGoBack()
+                        active.canGoForward = view.canGoForward()
+                        state.recordVisit(url)
+                    },
+                ).also { active.webView = it }
             }
         )
     }

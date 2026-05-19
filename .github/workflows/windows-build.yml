@@ -204,7 +204,9 @@ jobs:
             -DVCPKG_TARGET_TRIPLET=x64-windows-webkit ^
             -DVCPKG_INSTALLED_DIR=C:/vcpkg/installed ^
             -DVCPKG_MANIFEST_MODE=OFF ^
-            %WINDOWS_BUILD_WEBKIT_EXTRA% -DENABLE_EXPERIMENTAL_FEATURES=%WEBKIT_CMAKE_ENABLE_EXPERIMENTAL_FEATURES% -DENABLE_WEBXR=%WEBKIT_CMAKE_ENABLE_WEBXR%
+            %WINDOWS_BUILD_WEBKIT_EXTRA% ^
+            -DENABLE_EXPERIMENTAL_FEATURES=%WEBKIT_CMAKE_ENABLE_EXPERIMENTAL_FEATURES% ^
+            -DENABLE_WEBXR=%WEBKIT_CMAKE_ENABLE_WEBXR%
           if errorlevel 1 exit /b %errorlevel%
 
           python "%GITHUB_WORKSPACE%\scripts\ci_windows_webnn_probe.py" "%SRC%\WebKitBuild\Debug"
@@ -255,24 +257,40 @@ jobs:
             -DVCPKG_TARGET_TRIPLET=x64-windows-webkit ^
             -DVCPKG_INSTALLED_DIR=C:/vcpkg/installed ^
             -DVCPKG_MANIFEST_MODE=OFF ^
-            %WINDOWS_BUILD_WEBKIT_EXTRA% -DENABLE_EXPERIMENTAL_FEATURES=%WEBKIT_CMAKE_ENABLE_EXPERIMENTAL_FEATURES% -DENABLE_WEBXR=%WEBKIT_CMAKE_ENABLE_WEBXR%
+            %WINDOWS_BUILD_WEBKIT_EXTRA% ^
+            -DENABLE_EXPERIMENTAL_FEATURES=%WEBKIT_CMAKE_ENABLE_EXPERIMENTAL_FEATURES% ^
+            -DENABLE_WEBXR=%WEBKIT_CMAKE_ENABLE_WEBXR%
           if errorlevel 1 exit /b %errorlevel%
 
           C:\Bootstrap\toolbin\sccache.exe --show-stats
 
-      - name: Baseline package
+      - name: Build platform chrome (WinUI + WebKitHost)
+        shell: cmd
+        run: |
+          @echo on
+          call "C:\BuildTools\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64
+          if errorlevel 1 exit /b %errorlevel%
+          set "PATH=C:\Program Files\LLVM\bin;C:\Program Files\CMake\bin;C:\BuildTools\MSBuild\Current\Bin;%PATH%"
+          cd /d "%GITHUB_WORKSPACE%\chrome\windows"
+          dotnet build Webkitium.sln -c Debug -p:Platform=x64 ^
+            /p:WebKitSrc=C:\W\webkit-src ^
+            /p:WebKitBuild=C:\W\webkit-src\WebKitBuild\Debug
+          if errorlevel 1 exit /b %errorlevel%
+
+      - name: Baseline package (engine + chrome)
         shell: bash
         run: |
           set -euo pipefail
-          BIN="$(cygpath -u 'C:/W/webkit-src/WebKitBuild/Debug/bin')"
-          [[ -d "$BIN" ]] || { echo "::error::bin dir missing: $BIN"; exit 1; }
+          ENGINE="$(cygpath -u 'C:/W/webkit-src/WebKitBuild/Debug/bin')"
+          [[ -d "$ENGINE" ]] || { echo "::error::engine bin dir missing: $ENGINE"; exit 1; }
+          CHROME="$(find "$GITHUB_WORKSPACE/chrome/windows/Webkitium/bin" -name Webkitium.exe -printf '%h\n' 2>/dev/null | head -1)"
+          [[ -n "$CHROME" ]] || { echo "::error::Webkitium.exe not built under chrome/windows"; exit 1; }
           OUT="${RUNNER_TEMP}/baseline-packages"
           mkdir -p "$OUT"
           SHORT_SHA="${GITHUB_SHA:0:7}"
-          TAR="$OUT/webkit-windows-debug-${SHORT_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.tar.gz"
-          tar -czf "$TAR" -C "$BIN" .
-          [[ -s "$TAR" ]] || { echo "::error::Baseline tarball empty"; exit 1; }
-          echo "BASELINE_OK tar=$TAR ($(du -h "$TAR" | cut -f1))"
+          TAR="$OUT/webkitium-windows-${SHORT_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.tar.gz"
+          bash "$GITHUB_WORKSPACE/scripts/bundle_webkitium_platform.sh" windows "$TAR" "$ENGINE" "$CHROME"
+          echo "BASELINE_OK tar=$TAR"
 
       - name: Upload debug assets to GitHub release
         if: success()

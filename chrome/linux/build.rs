@@ -8,6 +8,28 @@ use std::env;
 use std::path::PathBuf;
 
 fn main() {
+    if let Ok(root) = env::var("WEBKIT_GTK_BUILD") {
+        let mut paths = Vec::new();
+        for sub in ["lib/pkgconfig", "lib64/pkgconfig"] {
+            let p = PathBuf::from(&root).join(sub);
+            if p.is_dir() {
+                paths.push(p);
+            }
+        }
+        if let Ok(existing) = env::var("PKG_CONFIG_PATH") {
+            paths.push(PathBuf::from(existing));
+        }
+        if !paths.is_empty() {
+            let merged = paths
+                .iter()
+                .map(|p| p.display().to_string())
+                .collect::<Vec<_>>()
+                .join(":");
+            env::set_var("PKG_CONFIG_PATH", merged);
+            println!("cargo:rerun-if-env-changed=WEBKIT_GTK_BUILD");
+        }
+    }
+
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
     let browser_src = manifest_dir.join("../../browser").canonicalize()
         .expect("browser/ must exist relative to chrome/linux/");

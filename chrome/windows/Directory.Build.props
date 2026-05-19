@@ -3,7 +3,10 @@
   <PropertyGroup>
     <!-- Central version pinning. Update here, not in individual csproj files. -->
     <WindowsAppSDKVersion>1.6.241114003</WindowsAppSDKVersion>
-    <MicrosoftWebView2Version>1.0.2849.39</MicrosoftWebView2Version>
+
+    <!-- WebKit-for-Windows build tree (override in CI: /p:WebKitSrc=... /p:WebKitBuild=...) -->
+    <WebKitSrc Condition="'$(WebKitSrc)' == ''">C:\W\webkit-src</WebKitSrc>
+    <WebKitBuild Condition="'$(WebKitBuild)' == ''">$(WebKitSrc)\WebKitBuild\Debug</WebKitBuild>
 
     <!-- Build settings shared across managed projects. -->
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
@@ -18,6 +21,7 @@
 
     <!-- Path to the native DLL output; copied alongside the managed exe at build time. -->
     <BrowserCoreOutputDir>$(MSBuildThisFileDirectory)BrowserCore\bin\$(Platform)\$(Configuration)\</BrowserCoreOutputDir>
+    <WebKitHostOutputDir>$(MSBuildThisFileDirectory)WebKitHost\bin\$(Platform)\$(Configuration)\</WebKitHostOutputDir>
   </PropertyGroup>
 
 </Project>

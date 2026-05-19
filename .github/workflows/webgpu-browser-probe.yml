@@ -20,7 +20,7 @@ on:
         required: false
         type: string
   workflow_run:
-    workflows: [windows-build]
+    workflows: [windows-release]
     types: [completed]
 
 permissions:

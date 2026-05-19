@@ -6,6 +6,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Webkitium", "Webkitium\Webk
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BrowserCore", "BrowserCore\BrowserCore.vcxproj", "{2E9A4D7B-9C45-4F6D-A8B2-6E1F4C9D5A22}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "WebKitHost", "WebKitHost\WebKitHost.vcxproj", "{A8C3E1F2-4B5D-4E9A-9C7D-1F2E3D4C5B6A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -30,6 +32,14 @@ Global
 		{2E9A4D7B-9C45-4F6D-A8B2-6E1F4C9D5A22}.Release|x64.Build.0 = Release|x64
 		{2E9A4D7B-9C45-4F6D-A8B2-6E1F4C9D5A22}.Release|arm64.ActiveCfg = Release|ARM64
 		{2E9A4D7B-9C45-4F6D-A8B2-6E1F4C9D5A22}.Release|arm64.Build.0 = Release|ARM64
+		{A8C3E1F2-4B5D-4E9A-9C7D-1F2E3D4C5B6A}.Debug|x64.ActiveCfg = Debug|x64
+		{A8C3E1F2-4B5D-4E9A-9C7D-1F2E3D4C5B6A}.Debug|x64.Build.0 = Debug|x64
+		{A8C3E1F2-4B5D-4E9A-9C7D-1F2E3D4C5B6A}.Debug|arm64.ActiveCfg = Debug|ARM64
+		{A8C3E1F2-4B5D-4E9A-9C7D-1F2E3D4C5B6A}.Debug|arm64.Build.0 = Debug|ARM64
+		{A8C3E1F2-4B5D-4E9A-9C7D-1F2E3D4C5B6A}.Release|x64.ActiveCfg = Release|x64
+		{A8C3E1F2-4B5D-4E9A-9C7D-1F2E3D4C5B6A}.Release|x64.Build.0 = Release|x64
+		{A8C3E1F2-4B5D-4E9A-9C7D-1F2E3D4C5B6A}.Release|arm64.ActiveCfg = Release|ARM64
+		{A8C3E1F2-4B5D-4E9A-9C7D-1F2E3D4C5B6A}.Release|arm64.Build.0 = Release|ARM64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

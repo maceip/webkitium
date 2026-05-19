@@ -130,11 +130,29 @@ jobs:
 
           # WPE-Android uses Gradle
           chmod +x gradlew
-          ./gradlew assembleDebug \
+          ./gradlew assembleDebug :wpeview:assembleDebug \
             -Pandroid.native.buildOutput=verbose \
             -PCMAKE_CXX_CLANG_TIDY=""
 
-      - name: Baseline package
+      - id: wpe_aar
+        name: Locate wpeview AAR from engine build
+        run: |
+          set -euo pipefail
+          SRC="${NG_ANDROID_SOURCE:-$HOME/webkit/wpe-android}"
+          AAR="$(find "$SRC" -type f -name 'wpeview*-debug.aar' 2>/dev/null | head -1)"
+          [[ -n "$AAR" ]] || { echo "::error::wpeview debug AAR not found under $SRC"; exit 1; }
+          echo "path=$AAR" >> "$GITHUB_OUTPUT"
+
+      - name: Build platform chrome (Compose shell)
+        env:
+          WPEVIEW_AAR: ${{ steps.wpe_aar.outputs.path }}
+        run: |
+          set -euo pipefail
+          cd "$GITHUB_WORKSPACE/chrome/android"
+          chmod +x gradlew
+          ./gradlew :app:assembleDebug --no-daemon
+
+      - name: Baseline package (engine + chrome)
         run: |
           set -euo pipefail
           SRC="${NG_ANDROID_SOURCE:-$HOME/webkit/wpe-android}"
@@ -142,41 +160,47 @@ jobs:
           RUN_ATTEMPT="${GITHUB_RUN_ATTEMPT:-1}"
           SHORT_SHA="${GITHUB_SHA:0:7}"
           OUT_ROOT="${RUNNER_TEMP}/baseline-packages"
-          APK_DIR="$OUT_ROOT/apk"
-          mkdir -p "$APK_DIR"
+          STAGE_ENGINE="${RUNNER_TEMP}/android-engine-stage"
+          STAGE_CHROME="${RUNNER_TEMP}/android-chrome-stage"
+          rm -rf "$STAGE_ENGINE" "$STAGE_CHROME"
+          mkdir -p "$STAGE_ENGINE" "$STAGE_CHROME"
           count=0
           while IFS= read -r f; do
             [[ -n "$f" ]] || continue
-            cp -f "$f" "$APK_DIR/"
+            cp -f "$f" "$STAGE_ENGINE/"
             count=$((count + 1))
           done < <(find "$SRC" -type f -name '*-debug.apk' 2>/dev/null | head -20)
           if [[ "$count" -eq 0 ]]; then
-            echo "::error::No debug APK files found under $SRC" >&2
+            echo "::error::No debug engine APK files found under $SRC" >&2
             exit 1
           fi
+          chrome_count=0
+          while IFS= read -r f; do
+            [[ -n "$f" ]] || continue
+            cp -f "$f" "$STAGE_CHROME/"
+            chrome_count=$((chrome_count + 1))
+          done < <(find "$GITHUB_WORKSPACE/chrome/android" -type f -name '*-debug.apk' 2>/dev/null | head -20)
+          if [[ "$chrome_count" -eq 0 ]]; then
+            echo "::error::No chrome/android debug APK built" >&2
+            exit 1
+          fi
+          TAR="$OUT_ROOT/webkitium-android-${SHORT_SHA}-${RUN_ID}-${RUN_ATTEMPT}.tar.gz"
+          bash "$GITHUB_WORKSPACE/scripts/bundle_webkitium_platform.sh" android "$TAR" "$STAGE_ENGINE" "$STAGE_CHROME"
           MANIFEST="$OUT_ROOT/baseline-android-debug-${SHORT_SHA}-${RUN_ID}.json"
-          export ANDROID_BASELINE_APK_DIR="$APK_DIR"
-          export ANDROID_BASELINE_MANIFEST="$MANIFEST"
-          export ANDROID_BASELINE_RUN_ID="$RUN_ID"
-          export ANDROID_BASELINE_RUN_ATTEMPT="$RUN_ATTEMPT"
-          python3 <<'PY'
-          import json, os, time, pathlib
-          apk_dir = pathlib.Path(os.environ["ANDROID_BASELINE_APK_DIR"])
-          rows = [
-              {"name": n, "bytes": (apk_dir / n).stat().st_size}
-              for n in sorted(os.listdir(apk_dir))
-              if n.endswith(".apk")
-          ]
+          python3 -c "
+          import json, pathlib, time
           doc = {
-              "platform": "android",
-              "created": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-              "runId": os.environ["ANDROID_BASELINE_RUN_ID"],
-              "attempt": os.environ["ANDROID_BASELINE_RUN_ATTEMPT"],
-              "apks": rows,
+              'platform': 'android',
+              'created': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
+              'runId': '$RUN_ID',
+              'attempt': '$RUN_ATTEMPT',
+              'bundleTar': pathlib.Path('$TAR').name,
+              'engineApks': $count,
+              'chromeApks': $chrome_count,
           }
-          pathlib.Path(os.environ["ANDROID_BASELINE_MANIFEST"]).write_text(json.dumps(doc, indent=2))
-          PY
-          echo "BASELINE_OK platform=android apks=$count"
+          pathlib.Path('$MANIFEST').write_text(json.dumps(doc, indent=2))
+          "
+          echo "BASELINE_OK platform=android tar=$TAR engine_apks=$count chrome_apks=$chrome_count"
 
       - name: Upload debug assets to GitHub release
         if: success()

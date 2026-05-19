@@ -141,28 +141,33 @@ jobs:
             -DENABLE_EXPERIMENTAL_FEATURES="${WEBKIT_CMAKE_ENABLE_EXPERIMENTAL_FEATURES:-ON}" \
             -DENABLE_WEBXR="${WEBKIT_CMAKE_ENABLE_WEBXR:-OFF}"
 
-      - name: Baseline package
+      - name: Build platform chrome (SwiftUI shell)
+        run: |
+          set -euo pipefail
+          export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
+          cd "$GITHUB_WORKSPACE/chrome/macos"
+          swift build -c debug
+
+      - name: Baseline package (engine + chrome)
         run: |
           set -euo pipefail
           export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
           SRC="${WEBKIT_SRC:?}"
-          ROOT="$SRC/WebKitBuild/Debug"
-          PLATFORM=macos
-          RUN_ID="${GITHUB_RUN_ID:-local}"
-          RUN_ATTEMPT="${GITHUB_RUN_ATTEMPT:-1}"
-          SHORT_SHA="${GITHUB_SHA:0:7}"
+          ENGINE="$SRC/WebKitBuild/Debug"
+          [[ -d "$ENGINE/bin" ]] || { echo "::error::engine bin missing under $ENGINE"; exit 1; }
+          CHROME="$(find "$GITHUB_WORKSPACE/chrome/macos/.build" -name 'Webkitium.app' -type d | head -1)"
+          if [[ -z "$CHROME" ]]; then
+            CHROME="$(dirname "$(find "$GITHUB_WORKSPACE/chrome/macos/.build" -name Webkitium -type f -perm +111 | head -1)")"
+          fi
+          [[ -n "$CHROME" ]] || { echo "::error::macOS chrome binary not built"; exit 1; }
           OUT_ROOT="${RUNNER_TEMP}/baseline-packages"
           mkdir -p "$OUT_ROOT"
-          [[ -d "$ROOT" ]] || { echo "::error::Build output dir missing: $ROOT" >&2; exit 1; }
-          [[ -d "$ROOT/bin" ]] || { echo "::error::bin/ not found under $ROOT"; exit 1; }
-          TAR="$OUT_ROOT/webkit-minibrowser-debug-${SHORT_SHA}-${RUN_ID}-${RUN_ATTEMPT}.tar.gz"
-          if [[ -d "$ROOT/MiniBrowser.app" ]]; then
-            tar -czf "$TAR" -C "$ROOT" bin MiniBrowser.app
-          else
-            tar -czf "$TAR" -C "$ROOT" bin
-          fi
-          [[ -s "$TAR" ]] || { echo "::error::Debug baseline tarball empty: $TAR"; exit 1; }
-          echo "BASELINE_OK platform=$PLATFORM tar=$TAR"
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          RUN_ID="${GITHUB_RUN_ID:-local}"
+          RUN_ATTEMPT="${GITHUB_RUN_ATTEMPT:-1}"
+          TAR="$OUT_ROOT/webkitium-macos-${SHORT_SHA}-${RUN_ID}-${RUN_ATTEMPT}.tar.gz"
+          bash "$GITHUB_WORKSPACE/scripts/bundle_webkitium_platform.sh" macos "$TAR" "$ENGINE" "$CHROME"
+          echo "BASELINE_OK platform=macos tar=$TAR"
 
       - name: Upload debug assets to GitHub release
         if: success()

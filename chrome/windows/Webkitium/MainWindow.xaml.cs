@@ -6,7 +6,6 @@ using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Windowing;
-using Microsoft.Web.WebView2.Core;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -19,15 +18,15 @@ using WinRT.Interop;
 namespace Webkitium;
 
 /// <summary>
-/// Single browser window. Hosts a TabView whose items each own their own
-/// WebView2. The chrome (URL bar, back/forward/reload, bookmark star,
-/// find overlay) acts on the *currently selected* tab.
+/// Single browser window. Hosts a TabView whose items each own a WKView
+/// (WebKit-for-Windows) embedded via webkitium_host.dll.
 /// </summary>
 public sealed partial class MainWindow : Window
 {
     private const string DefaultEngineId = "duckduckgo";
     private readonly SuggestionsIndex? _suggestions;
     private readonly Dictionary<TabViewItem, BrowserTab> _tabs = new();
+    private readonly Microsoft.UI.Xaml.DispatcherTimer _chromeRefreshTimer;
     private bool _suppressUrlBarFeedback;
     private bool _findOverlayOpen;
     private int _findMatchTotal;
@@ -47,18 +46,22 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            // Non-fatal: autocomplete and bookmark persistence fall back to empty.
             System.Diagnostics.Debug.WriteLine($"SuggestionsIndex.Open failed: {ex}");
             _suggestions = null;
         }
 
         Closed += (_, _) => _suggestions?.Dispose();
 
+        _chromeRefreshTimer = new Microsoft.UI.Xaml.DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(400),
+        };
+        _chromeRefreshTimer.Tick += (_, _) => RefreshChromeForCurrentTab();
+        _chromeRefreshTimer.Start();
+
         _ = OpenInitialTabAsync();
         RefreshBookmarksBar();
     }
-
-    // --------------------- Window plumbing ---------------------
 
     private void ResizeTo(int width, int height)
     {
@@ -68,10 +71,6 @@ public sealed partial class MainWindow : Window
         appWindow.Resize(new Windows.Graphics.SizeInt32(width, height));
     }
 
-    /// <summary>
-    /// Profile directory comes from `--profile-dir=<path>` if the harness
-    /// passed it; otherwise %LocalAppData%\Webkitium.
-    /// </summary>
     private static string ResolveProfileDir()
     {
         var args = Environment.GetCommandLineArgs();
@@ -84,18 +83,15 @@ public sealed partial class MainWindow : Window
         return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Webkitium");
     }
 
-    // --------------------- Tab management ---------------------
-
-    /// <summary>One tab + one WebView2; lives until the tab is closed.</summary>
     private sealed class BrowserTab
     {
         public TabViewItem Item { get; }
-        public WebView2 WebView { get; }
+        public WebKitViewHost WebView { get; }
         public bool CoreReady { get; private set; }
         public string CurrentUrl { get; private set; } = string.Empty;
         public Action<BrowserTab>? OnNavigated;
 
-        public BrowserTab(TabViewItem item, WebView2 webView)
+        public BrowserTab(TabViewItem item, WebKitViewHost webView)
         {
             Item = item;
             WebView = webView;
@@ -104,41 +100,46 @@ public sealed partial class MainWindow : Window
         public async Task EnsureCoreAsync()
         {
             if (CoreReady) return;
-            await WebView.EnsureCoreWebView2Async();
-            CoreReady = true;
-            WebView.CoreWebView2.HistoryChanged += (_, _) => OnNavigated?.Invoke(this);
-            WebView.NavigationCompleted += (s, args) =>
+            for (var i = 0; i < 80 && !WebView.IsReady; i++)
             {
-                if (args.IsSuccess && s.Source is { } uri)
-                    CurrentUrl = uri.ToString();
-                OnNavigated?.Invoke(this);
-            };
+                WebView.SyncNativeFrame();
+                await Task.Delay(50);
+            }
+            CoreReady = WebView.IsReady;
+        }
+
+        public void RefreshFromWebKit()
+        {
+            if (!CoreReady) return;
+            var url = WebView.CurrentUrl;
+            if (!string.IsNullOrEmpty(url))
+                CurrentUrl = url;
+            OnNavigated?.Invoke(this);
         }
     }
 
     private async Task OpenInitialTabAsync()
     {
         var tab = await CreateTabAsync(activate: true);
-        // Headless / harness hook: auto-navigate the first tab if WEBKITIUM_LAUNCH_URL is set.
         var launchUrl = Environment.GetEnvironmentVariable("WEBKITIUM_LAUNCH_URL");
         if (!string.IsNullOrEmpty(launchUrl) && tab.CoreReady)
         {
             try
             {
                 var (_, url) = UrlBridge.Normalize(launchUrl, DefaultEngineId);
-                tab.WebView.Source = new Uri(url);
+                tab.WebView.LoadUrl(url);
             }
-            catch (ArgumentException) { /* invalid input — leave blank */ }
+            catch (ArgumentException) { }
         }
     }
 
     private async Task<BrowserTab> CreateTabAsync(bool activate)
     {
-        var web = new WebView2();
+        var web = new WebKitViewHost(this);
         var item = new TabViewItem
         {
             Header = "New Tab",
-            IconSource = new Microsoft.UI.Xaml.Controls.SymbolIconSource { Symbol = Symbol.World },
+            IconSource = new SymbolIconSource { Symbol = Symbol.World },
             Content = web,
             IsClosable = true,
         };
@@ -156,9 +157,11 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            item.Header = "WebView2 unavailable";
-            System.Diagnostics.Debug.WriteLine($"WebView2 init failed: {ex}");
+            item.Header = "WebKit unavailable";
+            System.Diagnostics.Debug.WriteLine($"WKView init failed: {ex}");
         }
+        if (activate && bt.CoreReady)
+            web.SetVisible(true);
         return bt;
     }
 
@@ -171,8 +174,7 @@ public sealed partial class MainWindow : Window
         RefreshChromeForCurrentTab();
         if (_suggestions is not null && !string.IsNullOrEmpty(tab.CurrentUrl))
         {
-            // Record visit (page title is the WebView's CoreWebView2.DocumentTitle).
-            var title = tab.WebView.CoreWebView2?.DocumentTitle ?? string.Empty;
+            var title = tab.WebView.DocumentTitle;
             tab.Item.Header = string.IsNullOrEmpty(title) ? "Untitled" : title;
             tab.Item.IsClosable = true;
             try { _suggestions.RecordVisit(title, tab.CurrentUrl); } catch { }
@@ -182,28 +184,33 @@ public sealed partial class MainWindow : Window
     private void Tabs_AddTabButtonClick(TabView sender, object args) =>
         _ = CreateTabAsync(activate: true);
 
-    private void Tabs_TabCloseRequested(TabView sender, TabViewTabCloseRequestedEventArgs args)
-    {
+    private void Tabs_TabCloseRequested(TabView sender, TabViewTabCloseRequestedEventArgs args) =>
         CloseTab(args.Tab);
-    }
 
     private void CloseTab(TabViewItem item)
     {
         if (item is null) return;
         if (_tabs.TryGetValue(item, out var bt))
         {
-            bt.WebView.Close();
             _tabs.Remove(item);
         }
         Tabs.TabItems.Remove(item);
         if (Tabs.TabItems.Count == 0)
-        {
             _ = CreateTabAsync(activate: true);
-        }
     }
 
-    private void Tabs_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
+    private void Tabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        foreach (var (_, tab) in _tabs)
+            tab.WebView.SetVisible(false);
+        if (CurrentTab is { } active)
+        {
+            active.WebView.SetVisible(true);
+            active.WebView.SyncNativeFrame();
+            active.RefreshFromWebKit();
+        }
         RefreshChromeForCurrentTab();
+    }
 
     private void NewTab_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
@@ -217,16 +224,14 @@ public sealed partial class MainWindow : Window
         if (Tabs.SelectedItem is TabViewItem item) CloseTab(item);
     }
 
-    // --------------------- Chrome (URL bar / back-forward / bookmark) ---------------------
-
     private void RefreshChromeForCurrentTab()
     {
+        CurrentTab?.RefreshFromWebKit();
         var tab = CurrentTab;
-        var core = tab?.WebView.CoreWebView2;
 
-        BackCommand.IsEnabled = core?.CanGoBack ?? false;
-        ForwardCommand.IsEnabled = core?.CanGoForward ?? false;
-        ReloadCommand.IsEnabled = core is not null;
+        BackCommand.IsEnabled = tab?.WebView.CanGoBack ?? false;
+        ForwardCommand.IsEnabled = tab?.WebView.CanGoForward ?? false;
+        ReloadCommand.IsEnabled = tab?.CoreReady ?? false;
 
         _suppressUrlBarFeedback = true;
         try { UrlBar.Text = tab?.CurrentUrl ?? string.Empty; }
@@ -266,21 +271,12 @@ public sealed partial class MainWindow : Window
                     (float)ev.NewSize.Height);
             };
         }
-        catch
-        {
-            // Compositor path unavailable on this host — vivid Foreground alone
-            // still communicates secure state; glow is a nice-to-have.
-        }
+        catch { }
     }
 
-    private void Back_Click(object sender, RoutedEventArgs e) =>
-        CurrentTab?.WebView.CoreWebView2?.GoBack();
-    private void Forward_Click(object sender, RoutedEventArgs e) =>
-        CurrentTab?.WebView.CoreWebView2?.GoForward();
-    private void Reload_Click(object sender, RoutedEventArgs e) =>
-        CurrentTab?.WebView.CoreWebView2?.Reload();
-
-    // --------------------- URL bar (autocomplete + submit) ---------------------
+    private void Back_Click(object sender, RoutedEventArgs e) => CurrentTab?.WebView.GoBack();
+    private void Forward_Click(object sender, RoutedEventArgs e) => CurrentTab?.WebView.GoForward();
+    private void Reload_Click(object sender, RoutedEventArgs e) => CurrentTab?.WebView.Reload();
 
     private void UrlBar_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
     {
@@ -323,9 +319,11 @@ public sealed partial class MainWindow : Window
         try
         {
             var (_, url) = UrlBridge.Normalize(raw, DefaultEngineId);
-            tab.WebView.Source = new Uri(url);
+            tab.WebView.LoadUrl(url);
+            tab.CurrentUrl = url;
+            RefreshChromeForCurrentTab();
         }
-        catch (ArgumentException) { /* empty / invalid input */ }
+        catch (ArgumentException) { }
     }
 
     private sealed class SuggestionViewModel
@@ -341,8 +339,6 @@ public sealed partial class MainWindow : Window
         }
         public override string ToString() => Title;
     }
-
-    // --------------------- Bookmarks ---------------------
 
     private bool IsCurrentBookmarked()
     {
@@ -381,7 +377,6 @@ public sealed partial class MainWindow : Window
 
     private static DataTemplate BuildBookmarkTemplate()
     {
-        // Code-generated template: a Button per bookmark.
         var xaml = """
             <DataTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                           xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
@@ -418,8 +413,6 @@ public sealed partial class MainWindow : Window
         public void Execute(object? parameter) => _action(parameter);
     }
 
-    // --------------------- Find on page ---------------------
-
     private void Find_Click(object sender, RoutedEventArgs e) => OpenFindOverlay();
 
     private void OpenFindOverlay()
@@ -434,7 +427,7 @@ public sealed partial class MainWindow : Window
     {
         _findOverlayOpen = false;
         FindOverlay.Visibility = Visibility.Collapsed;
-        _ = ClearHighlightsAsync();
+        ClearHighlights();
     }
 
     private void FindBox_KeyDown(object sender, KeyRoutedEventArgs e)
@@ -443,20 +436,17 @@ public sealed partial class MainWindow : Window
         if (e.Key == VirtualKey.Enter)
         {
             e.Handled = true;
-            _ = MoveFindAsync(forward: true);
+            MoveFind(forward: true);
         }
     }
 
     private void FindBox_TextChanged(object sender, TextChangedEventArgs e) =>
-        _ = ExecuteFindAsync(FindBox.Text);
+        ExecuteFind(FindBox.Text);
 
-    private void FindNext_Click(object sender, RoutedEventArgs e) => _ = MoveFindAsync(forward: true);
-    private void FindPrev_Click(object sender, RoutedEventArgs e) => _ = MoveFindAsync(forward: false);
+    private void FindNext_Click(object sender, RoutedEventArgs e) => MoveFind(forward: true);
+    private void FindPrev_Click(object sender, RoutedEventArgs e) => MoveFind(forward: false);
     private void FindClose_Click(object sender, RoutedEventArgs e) => CloseFindOverlay();
 
-    // Canonical WebView2-doesn't-have-Find pattern: inject a small JS find
-    // controller into the active document. Walks text nodes, wraps matches
-    // in <mark data-wk-find="i">, scrolls to active, returns counts.
     private const string FindControllerJs = """
         (() => {
           if (window.__wkFind) return window.__wkFind;
@@ -474,7 +464,7 @@ public sealed partial class MainWindow : Window
             },
             search(q) {
               this.clear();
-              if (!q) return { total: 0, active: 0 };
+              if (!q) return JSON.stringify({ total: 0, active: 0 });
               const re = new RegExp(q.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&'), 'gi');
               const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
                 acceptNode: (n) => (n.parentNode && n.parentNode.nodeName !== 'SCRIPT' && n.parentNode.nodeName !== 'STYLE') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT
@@ -492,7 +482,6 @@ public sealed partial class MainWindow : Window
                   const mark = document.createElement('mark');
                   mark.setAttribute('data-wk-find', String(this.matches.length));
                   mark.style.background = '#ffe066';
-                  mark.style.color = 'inherit';
                   mark.textContent = m[0];
                   frag.appendChild(mark);
                   this.matches.push(mark);
@@ -504,65 +493,65 @@ public sealed partial class MainWindow : Window
               }
               this.active = this.matches.length > 0 ? 0 : -1;
               this._highlight();
-              return { total: this.matches.length, active: this.matches.length > 0 ? 1 : 0 };
+              return JSON.stringify({ total: this.matches.length, active: this.matches.length > 0 ? 1 : 0 });
             },
             move(forward) {
-              if (!this.matches.length) return { total: 0, active: 0 };
+              if (!this.matches.length) return JSON.stringify({ total: 0, active: 0 });
               this.active = forward
                 ? (this.active + 1) % this.matches.length
                 : (this.active - 1 + this.matches.length) % this.matches.length;
               this._highlight();
-              return { total: this.matches.length, active: this.active + 1 };
+              return JSON.stringify({ total: this.matches.length, active: this.active + 1 });
             },
             _highlight() {
               this.matches.forEach((m, i) => m.style.outline = (i === this.active) ? '2px solid #f08c00' : 'none');
-              if (this.active >= 0 && this.matches[this.active]) {
+              if (this.active >= 0 && this.matches[this.active])
                 this.matches[this.active].scrollIntoView({ block: 'center' });
-              }
             }
           };
           return window[NS];
         })();
         """;
 
-    private async Task ExecuteFindAsync(string query)
+    private void ExecuteFind(string query)
     {
-        var core = CurrentTab?.WebView.CoreWebView2;
-        if (core is null) return;
+        var tab = CurrentTab;
+        if (tab is null || !tab.CoreReady) return;
         var quoted = System.Text.Json.JsonSerializer.Serialize(query);
-        var script = FindControllerJs + "\nJSON.stringify(window.__wkFind.search(" + quoted + "));";
-        var result = await core.ExecuteScriptAsync(script);
+        var script = FindControllerJs + "\nwindow.__wkFind.search(" + quoted + ");";
+        var result = tab.WebView.RunScript(script);
         ApplyFindResult(result);
     }
 
-    private async Task MoveFindAsync(bool forward)
+    private void MoveFind(bool forward)
     {
-        var core = CurrentTab?.WebView.CoreWebView2;
-        if (core is null) return;
-        var script = FindControllerJs + $"\nJSON.stringify(window.__wkFind.move({(forward ? "true" : "false")}));";
-        var result = await core.ExecuteScriptAsync(script);
+        var tab = CurrentTab;
+        if (tab is null || !tab.CoreReady) return;
+        var script = FindControllerJs + $"\nwindow.__wkFind.move({(forward ? "true" : "false")});";
+        var result = tab.WebView.RunScript(script);
         ApplyFindResult(result);
     }
 
-    private async Task ClearHighlightsAsync()
+    private void ClearHighlights()
     {
-        var core = CurrentTab?.WebView.CoreWebView2;
-        if (core is null) return;
-        await core.ExecuteScriptAsync("if (window.__wkFind) window.__wkFind.clear();");
+        var tab = CurrentTab;
+        if (tab is null || !tab.CoreReady) return;
+        tab.WebView.RunScript("if (window.__wkFind) window.__wkFind.clear();");
         _findMatchActive = 0;
         _findMatchTotal = 0;
         FindMatchCount.Text = "0/0";
     }
 
-    private void ApplyFindResult(string jsonReturn)
+    private void ApplyFindResult(string? jsonReturn)
     {
-        // ExecuteScriptAsync wraps its return in JSON, so the value is a JSON
-        // string containing a JSON object. Parse twice.
+        if (string.IsNullOrEmpty(jsonReturn))
+        {
+            FindMatchCount.Text = "?/?";
+            return;
+        }
         try
         {
-            var inner = System.Text.Json.JsonSerializer.Deserialize<string>(jsonReturn);
-            if (inner is null) return;
-            using var doc = System.Text.Json.JsonDocument.Parse(inner);
+            using var doc = System.Text.Json.JsonDocument.Parse(jsonReturn);
             _findMatchTotal = doc.RootElement.GetProperty("total").GetInt32();
             _findMatchActive = doc.RootElement.GetProperty("active").GetInt32();
             FindMatchCount.Text = $"{_findMatchActive}/{_findMatchTotal}";

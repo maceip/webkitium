@@ -153,7 +153,16 @@ jobs:
             sccache --show-stats
           fi
 
-      - name: Baseline package
+      - name: Build platform chrome (SwiftUI shell)
+        run: |
+          set -euo pipefail
+          export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
+          cd "$GITHUB_WORKSPACE/chrome/ios"
+          xcodebuild -project Webkitium.xcodeproj -scheme Webkitium \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build build
+
+      - name: Baseline package (engine + chrome)
         run: |
           set -euo pipefail
           export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
@@ -164,34 +173,17 @@ jobs:
           SHORT_SHA="${GITHUB_SHA:0:7}"
           OUT_ROOT="${RUNNER_TEMP}/baseline-packages"
           mkdir -p "$OUT_ROOT"
-          ZIP="$OUT_ROOT/webkit-ios-simulator-debug-${SHORT_SHA}-${RUN_ID}-${RUN_ATTEMPT}.zip"
           FIRST="$(find "$ROOT" \( -name 'MiniBrowser.app' -o -name 'MobileMiniBrowser.app' \) -type d 2>/dev/null | head -1)"
-          if [[ -z "$FIRST" ]]; then
-            echo "::error::No MiniBrowser.app or MobileMiniBrowser.app under $ROOT" >&2
-            exit 1
-          fi
-          command -v zip >/dev/null 2>&1 || { echo "::error::zip CLI not found"; exit 1; }
-          (cd "$(dirname "$FIRST")" && zip -qr "$ZIP" "$(basename "$FIRST")")
-          [[ -s "$ZIP" ]] || { echo "::error::Baseline iOS zip empty: $ZIP"; exit 1; }
-          export BASELINE_JSON_DIR="$OUT_ROOT"
-          export BASELINE_RUN_ID="$RUN_ID"
-          export BASELINE_RUN_ATTEMPT="$RUN_ATTEMPT"
-          export BASELINE_ZIP="$(basename "$ZIP")"
-          export BASELINE_CREATED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          python3 <<'PY'
-          import json, os, pathlib
-          out = pathlib.Path(os.environ["BASELINE_JSON_DIR"]) / f"baseline-ios-{os.environ['BASELINE_RUN_ID']}.json"
-          doc = {
-              "platform": "ios",
-              "created": os.environ["BASELINE_CREATED"],
-              "runId": os.environ["BASELINE_RUN_ID"],
-              "attempt": os.environ["BASELINE_RUN_ATTEMPT"],
-              "zip": os.environ["BASELINE_ZIP"],
-              "ipaNote": "App Store IPA requires signing/exportArchive; simulator .zip of MiniBrowser or MobileMiniBrowser.app is the baseline deliverable here.",
-          }
-          out.write_text(json.dumps(doc, indent=2))
-          PY
-          echo "BASELINE_OK platform=ios zip=$ZIP"
+          [[ -n "$FIRST" ]] || { echo "::error::No MiniBrowser under $ROOT"; exit 1; }
+          ENGINE_STAGE="${RUNNER_TEMP}/ios-engine-stage"
+          rm -rf "$ENGINE_STAGE"
+          mkdir -p "$ENGINE_STAGE"
+          cp -a "$FIRST" "$ENGINE_STAGE/"
+          CHROME="$(find "$GITHUB_WORKSPACE/chrome/ios/build" -name 'Webkitium.app' -type d | head -1)"
+          [[ -n "$CHROME" ]] || { echo "::error::Webkitium.app not built under chrome/ios"; exit 1; }
+          TAR="$OUT_ROOT/webkitium-ios-${SHORT_SHA}-${RUN_ID}-${RUN_ATTEMPT}.tar.gz"
+          bash "$GITHUB_WORKSPACE/scripts/bundle_webkitium_platform.sh" ios "$TAR" "$ENGINE_STAGE" "$CHROME"
+          echo "BASELINE_OK platform=ios tar=$TAR"
 
       - name: Upload debug assets to GitHub release
         if: success()

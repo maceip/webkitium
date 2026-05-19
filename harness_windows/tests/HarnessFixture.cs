@@ -31,7 +31,7 @@ public sealed class HarnessFixture : IDisposable
         App = Application.Launch(psi);
         Automation = new UIA3Automation();
 
-        // WebView2 init is async — wait for the main window's "Address bar"
+        // WKView init is async — wait for the main window's "Address bar"
         // element to become available (or 15s timeout).
         Window? window = null;
         var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(15);

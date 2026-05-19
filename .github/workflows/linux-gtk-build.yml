@@ -220,23 +220,32 @@ jobs:
             --cmakeargs="-DUSE_LIBBACKTRACE=OFF" \
             --cmakeargs="-DENABLE_ENCRYPTED_MEDIA=OFF"
 
-      - name: Baseline package
+      - name: Build platform chrome (GTK shell)
+        env:
+          WEBKIT_GTK_BUILD: ${{ env.WEBKIT_SRC }}/WebKitBuild/GTK/Debug
+        run: |
+          set -euo pipefail
+          export WEBKIT_GTK_BUILD="${WEBKIT_GTK_BUILD:?}"
+          cd "$GITHUB_WORKSPACE/chrome/linux"
+          cargo build --release
+
+      - name: Baseline package (engine + chrome)
         run: |
           set -euo pipefail
           SRC="${WEBKIT_SRC:?}"
-          ROOT="$SRC/WebKitBuild/GTK/Debug"
-          PLATFORM=linux-gtk
-          RUN_ID="${GITHUB_RUN_ID:-local}"
-          RUN_ATTEMPT="${GITHUB_RUN_ATTEMPT:-1}"
-          SHORT_SHA="${GITHUB_SHA:0:7}"
+          ENGINE="$SRC/WebKitBuild/GTK/Debug/bin"
+          [[ -d "$ENGINE" ]] || { echo "::error::engine bin missing: $ENGINE"; exit 1; }
+          CHROME="$GITHUB_WORKSPACE/chrome/linux/target/release"
+          BIN="$(find "$CHROME" -maxdepth 1 -type f -executable ! -name '*.d' | head -1)"
+          [[ -n "$BIN" ]] || { echo "::error::chrome/linux release binary missing"; exit 1; }
           OUT_ROOT="${RUNNER_TEMP}/baseline-packages"
           mkdir -p "$OUT_ROOT"
-          [[ -d "$ROOT" ]] || { echo "::error::Build output dir missing: $ROOT" >&2; exit 1; }
-          [[ -d "$ROOT/bin" ]] || { echo "::error::bin/ not found under $ROOT"; exit 1; }
-          TAR="$OUT_ROOT/webkit-minibrowser-debug-${SHORT_SHA}-${RUN_ID}-${RUN_ATTEMPT}.tar.gz"
-          tar -czf "$TAR" -C "$ROOT" bin
-          [[ -s "$TAR" ]] || { echo "::error::Baseline tarball empty: $TAR"; exit 1; }
-          echo "BASELINE_OK platform=$PLATFORM tar=$TAR"
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          RUN_ID="${GITHUB_RUN_ID:-local}"
+          RUN_ATTEMPT="${GITHUB_RUN_ATTEMPT:-1}"
+          TAR="$OUT_ROOT/webkitium-linux-gtk-${SHORT_SHA}-${RUN_ID}-${RUN_ATTEMPT}.tar.gz"
+          bash "$GITHUB_WORKSPACE/scripts/bundle_webkitium_platform.sh" linux-gtk "$TAR" "$ENGINE" "$CHROME"
+          echo "BASELINE_OK platform=linux-gtk tar=$TAR"
 
       - name: Upload debug assets to GitHub release
         if: success()
