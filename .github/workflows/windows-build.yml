@@ -270,7 +270,8 @@ jobs:
           @echo on
           call "C:\BuildTools\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64
           if errorlevel 1 exit /b %errorlevel%
-          set "PATH=C:\Program Files\LLVM\bin;C:\Program Files\CMake\bin;C:\BuildTools\MSBuild\Current\Bin;%PATH%"
+          set "PATH=C:\Program Files\dotnet;C:\Program Files\LLVM\bin;C:\Program Files\CMake\bin;C:\BuildTools\MSBuild\Current\Bin;%PATH%"
+          where dotnet >NUL 2>&1 || (echo ::error::dotnet not found on PATH & exit /b 9009)
           cd /d "%GITHUB_WORKSPACE%\chrome\windows"
           dotnet build Webkitium.sln -c Debug -p:Platform=x64 ^
             /p:WebKitSrc=C:\W\webkit-src ^

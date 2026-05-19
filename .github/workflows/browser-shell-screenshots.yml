@@ -1,8 +1,7 @@
 name: browser-shell-screenshots
 
-# GUI proof workflow (self-hosted). See docs/CHROME_PLATFORM_REVIEW.md for what each job
-# actually proves. Windows + Linux can show pinned engine pixels in-shell; macOS/iOS do not
-# embed the fork in the content pane today.
+# GUI proof: chrome UI + pinned WebKit loads https://en.wikipedia.org; lock + content asserts.
+# See docs/CHROME_PLATFORM_REVIEW.md.
 
 on:
   workflow_dispatch:
@@ -97,7 +96,8 @@ jobs:
           setlocal
           call "C:\BuildTools\Common7\Tools\VsDevCmd.bat" -arch=x64 -host_arch=x64
           if errorlevel 1 exit /b %errorlevel%
-          set "PATH=C:\Program Files\LLVM\bin;C:\Program Files\CMake\bin;C:\BuildTools\MSBuild\Current\Bin;%PATH%"
+          set "PATH=C:\Program Files\dotnet;C:\Program Files\LLVM\bin;C:\Program Files\CMake\bin;C:\BuildTools\MSBuild\Current\Bin;%PATH%"
+          where dotnet >NUL 2>&1 || (echo ::error::dotnet not found on PATH & exit /b 9009)
           cd /d "%GITHUB_WORKSPACE%\chrome\windows"
           dotnet build Webkitium.sln -c Debug -p:Platform=x64 ^
             /p:WebKitSrc=C:\W\webkit-src ^
@@ -112,7 +112,7 @@ jobs:
           $env:WEBKITIUM_LAUNCH_URL = 'https://en.wikipedia.org'
           Write-Host "Launching: $($exe.FullName)"
           $proc = Start-Process -FilePath $exe.FullName -PassThru
-          Start-Sleep -Seconds 18
+          Start-Sleep -Seconds 22
           Add-Type -AssemblyName System.Windows.Forms
           Add-Type -AssemblyName System.Drawing
           $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
@@ -127,12 +127,14 @@ jobs:
           if (-not (Test-Path $out)) { throw "Screenshot not written" }
           Get-Item $out | Select-Object FullName, Length
 
-      - name: Assert blue HTTPS lock in chrome
+      - name: Assert HTTPS lock and engine content
         shell: bash
         run: |
           set -euo pipefail
           pip install -q Pillow
           python3 "$GITHUB_WORKSPACE/scripts/ci_assert_https_chrome_lock.py" \
+            "$RUNNER_TEMP/webkitium-windows-wikipedia.png"
+          python3 "$GITHUB_WORKSPACE/scripts/ci_assert_engine_content.py" \
             "$RUNNER_TEMP/webkitium-windows-wikipedia.png"
 
       - name: Upload screenshot
@@ -144,7 +146,7 @@ jobs:
           if-no-files-found: warn
 
   macos:
-    name: macOS Shell Screenshot (chrome + MiniBrowser; no in-shell embed)
+    name: macOS Shell Screenshot (in-process pinned WebKit)
     runs-on:
       - self-hosted
       - macOS
@@ -154,42 +156,44 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build macOS shell
+      - name: Build macOS shell (pinned WebKit.framework)
         run: |
           set -euo pipefail
           export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
           SRC="${NG_MACOS_WEBKIT_SRC:-$HOME/webkit-src}"
-          MB="$SRC/WebKitBuild/Debug/MiniBrowser.app/Contents/MacOS/MiniBrowser"
-          [[ -x "$MB" ]] || { echo "::error::Pinned MiniBrowser required at $MB"; exit 1; }
-          export WEBKIT_MINIBROWSER="$MB"
+          ENGINE="$SRC/WebKitBuild/Debug"
+          [[ -d "$ENGINE/WebKit.framework" ]] || { echo "::error::WebKit.framework missing at $ENGINE"; exit 1; }
+          export WEBKIT_FRAMEWORK_PATH="$ENGINE"
+          export DYLD_FRAMEWORK_PATH="$ENGINE${DYLD_FRAMEWORK_PATH:+:$DYLD_FRAMEWORK_PATH}"
           cd chrome/macos
-          swift build 2>&1 | tail -10
+          swift build -c debug \
+            -Xlinker -F -Xlinker "$ENGINE" \
+            -Xlinker -rpath -Xlinker "$ENGINE" 2>&1 | tail -20
 
       - name: Launch and screenshot
         run: |
           set -euo pipefail
           export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
-          # Prefer the .app bundle (so Cocoa menu / window chrome works); fall back to raw binary
-          APP_BUNDLE="$(find chrome/macos/.build -name 'Webkitium.app' -type d 2>/dev/null | head -1)"
+          SRC="${NG_MACOS_WEBKIT_SRC:-$HOME/webkit-src}"
+          ENGINE="$SRC/WebKitBuild/Debug"
+          export WEBKIT_FRAMEWORK_PATH="$ENGINE"
+          export DYLD_FRAMEWORK_PATH="$ENGINE${DYLD_FRAMEWORK_PATH:+:$DYLD_FRAMEWORK_PATH}"
           BIN="$(find chrome/macos/.build -name 'Webkitium' -type f -perm +111 2>/dev/null | head -1)"
+          [[ -x "$BIN" ]] || { echo "::error::macOS Webkitium binary not found"; exit 1; }
           export WEBKITIUM_LAUNCH_URL='https://en.wikipedia.org'
-          if [[ -n "$APP_BUNDLE" ]]; then
-            open -a "$APP_BUNDLE"
-          else
-            [[ -x "$BIN" ]] || { echo "::error::macOS binary not found"; exit 1; }
-            "$BIN" &
-          fi
-          sleep 12
+          "$BIN" &
+          sleep 18
           screencapture -x "$RUNNER_TEMP/screenshot_macos_shell.png"
           pkill -f "Webkitium" 2>/dev/null || true
-          pkill -f "MiniBrowser" 2>/dev/null || true
           echo "Screenshot saved"
 
-      - name: Assert blue HTTPS lock in chrome (URL bar only)
+      - name: Assert HTTPS lock and engine content
         run: |
           set -euo pipefail
           pip3 install -q Pillow
           python3 "$GITHUB_WORKSPACE/scripts/ci_assert_https_chrome_lock.py" \
+            "$RUNNER_TEMP/screenshot_macos_shell.png"
+          python3 "$GITHUB_WORKSPACE/scripts/ci_assert_engine_content.py" \
             "$RUNNER_TEMP/screenshot_macos_shell.png"
 
       - name: Upload screenshot
@@ -199,7 +203,7 @@ jobs:
           path: ${{ runner.temp }}/screenshot_macos_shell.png
 
   ios:
-    name: iOS Simulator Screenshot (chrome UI only — engine embed WIP)
+    name: iOS Simulator Screenshot (pinned WebKit in-app)
     runs-on:
       - self-hosted
       - macOS
@@ -236,19 +240,25 @@ jobs:
           sleep 3
 
           # Build Webkitium for the booted simulator
+          SRC="${NG_IOS_WEBKIT_PATH:-$HOME/W/webkit-ios-src}"
+          ENGINE="$SRC/WebKitBuild/Debug"
+          [[ -d "$ENGINE" ]] || { echo "::error::iOS WebKit build required at $ENGINE"; exit 1; }
+
           cd chrome/ios
           xcodebuild -project Webkitium.xcodeproj -scheme Webkitium \
             -destination "id=$SIM_UDID" \
             -derivedDataPath build build 2>&1 | tail -10
           APP=$(find build -name 'Webkitium.app' -type d | head -1)
           [[ -n "$APP" ]] || { echo "::error::Webkitium.app not built"; exit 1; }
+          chmod +x "$GITHUB_WORKSPACE/scripts/ios_embed_webkit_frameworks.sh"
+          bash "$GITHUB_WORKSPACE/scripts/ios_embed_webkit_frameworks.sh" "$APP" "$ENGINE"
 
           # Install + launch with WEBKITIUM_LAUNCH_URL env so the app loads Wikipedia
           xcrun simctl install "$SIM_UDID" "$APP"
           xcrun simctl launch --console-pty "$SIM_UDID" org.webkitium.ios \
             WEBKITIUM_LAUNCH_URL=https://en.wikipedia.org &
           LAUNCH_PID=$!
-          sleep 12
+          sleep 18
 
           xcrun simctl io "$SIM_UDID" screenshot "$RUNNER_TEMP/screenshot_ios_simulator.png"
 
@@ -257,12 +267,14 @@ jobs:
           xcrun simctl delete "$SIM_UDID" || true
           echo "iOS screenshot saved"
 
-      - name: Assert blue HTTPS lock in chrome (URL bar only)
+      - name: Assert HTTPS lock and engine content
         run: |
           set -euo pipefail
           pip3 install -q Pillow
           python3 "$GITHUB_WORKSPACE/scripts/ci_assert_https_chrome_lock.py" \
             "$RUNNER_TEMP/screenshot_ios_simulator.png"
+          python3 "$GITHUB_WORKSPACE/scripts/ci_assert_engine_content.py" \
+            "$RUNNER_TEMP/screenshot_ios_simulator.png" --top-skip 0.14
 
       - name: Upload screenshot
         uses: actions/upload-artifact@v4
@@ -271,7 +283,7 @@ jobs:
           path: ${{ runner.temp }}/screenshot_ios_simulator.png
 
   linux:
-    name: Linux GTK Screenshot (chrome + pinned WebKitGTK in-shell)
+    name: Linux GTK Screenshot (pinned WebKitGTK in-shell)
     runs-on:
       - self-hosted
       - Linux
@@ -335,11 +347,13 @@ jobs:
           kill $XVFB_PID 2>/dev/null || true
           echo "Linux screenshot saved"
 
-      - name: Assert blue HTTPS lock in chrome
+      - name: Assert HTTPS lock and engine content
         run: |
           set -euo pipefail
           pip3 install -q Pillow
           python3 "$GITHUB_WORKSPACE/scripts/ci_assert_https_chrome_lock.py" \
+            "$RUNNER_TEMP/screenshot_linux_shell.png"
+          python3 "$GITHUB_WORKSPACE/scripts/ci_assert_engine_content.py" \
             "$RUNNER_TEMP/screenshot_linux_shell.png"
 
       - name: Upload screenshot

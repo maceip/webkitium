@@ -5,7 +5,7 @@ Chrome must not link or load **system** web engines in CI or release paths.
 | Platform | Forbidden | Required |
 |----------|-----------|----------|
 | Windows | WebView2 | `WKView` + `webkitium_host.dll` + pinned `build-webkit --win` |
-| macOS | `WKWebView` without pinned `MiniBrowser` | `WEBKIT_MINIBROWSER` → engine `MiniBrowser` binary |
+| macOS | System `WebKit.framework` without `WEBKIT_FRAMEWORK_PATH` | In-process `WKWebView` from pinned build, or `WEBKIT_MINIBROWSER` fallback |
 | iOS | `WKWebView` / system WebKit | Engine bundle + in-process embed (WIP) |
 | Android | `android.webkit.WebView` | `WPEView` + `WPEVIEW_AAR` from wpe-android build |
 | Linux | apt `libwebkitgtk-*` | `WEBKIT_GTK_BUILD` pkg-config from pin |

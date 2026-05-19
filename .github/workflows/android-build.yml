@@ -148,6 +148,8 @@ jobs:
           WPEVIEW_AAR: ${{ steps.wpe_aar.outputs.path }}
         run: |
           set -euo pipefail
+          export ANDROID_HOME="${ANDROID_HOME:-$HOME/Android/Sdk}"
+          [[ -d "$ANDROID_HOME" ]] || { echo "::error::ANDROID_HOME not found: $ANDROID_HOME"; exit 1; }
           cd "$GITHUB_WORKSPACE/chrome/android"
           chmod +x gradlew
           ./gradlew :app:assembleDebug --no-daemon

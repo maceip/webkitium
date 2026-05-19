@@ -104,5 +104,9 @@ data class BookmarkRow(val url: String, val title: String)
 
 @Composable
 fun rememberBrowserState(): BrowserState = remember {
-    BrowserState().also { it.newTab() }
+    BrowserState().also { state ->
+        val launch = System.getenv("WEBKITIUM_LAUNCH_URL")?.trim()?.takeIf { it.isNotEmpty() }
+        state.newTab(launch)
+        state.urlInput = launch.orEmpty()
+    }
 }

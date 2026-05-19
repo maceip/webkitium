@@ -161,6 +161,13 @@ private fun MainPane(state: BrowserState) {
                     ).apply {
                         setLayerType(View.LAYER_TYPE_HARDWARE, null)
                         active.webView = this
+                        val start = active.url.ifEmpty {
+                            System.getenv("WEBKITIUM_LAUNCH_URL")?.trim().orEmpty()
+                        }
+                        if (start.isNotEmpty()) {
+                            val normalized = UrlBridge.normalize(start)
+                            loadUrl(normalized?.url ?: start)
+                        }
                     }
                 }
             )

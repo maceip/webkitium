@@ -76,9 +76,10 @@ struct RootView: View {
                     .onDisappear { hasSeenWelcome = true }
             }
             .onAppear {
-                // Auto-open Welcome the first time the user launches the app. Suppressed
-                // in Private windows so it doesn't break the "no traces" expectation.
-                if !hasSeenWelcome && !browser.isPrivate {
+                if ProcessInfo.processInfo.environment["WEBKITIUM_LAUNCH_URL"] != nil {
+                    hasSeenWelcome = true
+                    browser.showWelcomePanel = false
+                } else if !hasSeenWelcome && !browser.isPrivate {
                     browser.showWelcomePanel = true
                 }
             }

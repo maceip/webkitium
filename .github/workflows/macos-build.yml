@@ -145,8 +145,14 @@ jobs:
         run: |
           set -euo pipefail
           export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
+          SRC="${WEBKIT_SRC:?}"
+          ENGINE="$SRC/WebKitBuild/Debug"
+          export WEBKIT_FRAMEWORK_PATH="$ENGINE"
+          export DYLD_FRAMEWORK_PATH="$ENGINE${DYLD_FRAMEWORK_PATH:+:$DYLD_FRAMEWORK_PATH}"
           cd "$GITHUB_WORKSPACE/chrome/macos"
-          swift build -c debug
+          swift build -c debug \
+            -Xlinker -F -Xlinker "$ENGINE" \
+            -Xlinker -rpath -Xlinker "$ENGINE"
 
       - name: Baseline package (engine + chrome)
         run: |

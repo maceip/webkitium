@@ -65,7 +65,16 @@ fun BrowserScreenCompact(state: BrowserState) {
                         active.canGoForward = view.canGoForward()
                         state.recordVisit(url)
                     },
-                ).also { active.webView = it }
+                ).apply {
+                    active.webView = this
+                    val start = active.url.ifEmpty {
+                        System.getenv("WEBKITIUM_LAUNCH_URL")?.trim().orEmpty()
+                    }
+                    if (start.isNotEmpty()) {
+                        val normalized = UrlBridge.normalize(start)
+                        loadUrl(normalized?.url ?: start)
+                    }
+                }
             }
         )
     }

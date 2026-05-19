@@ -56,15 +56,28 @@ jobs:
         run: |
           set -euo pipefail
           export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
-          SRC="${NG_IOS_PATCH_CHECK_PATH:-$HOME/W/webkit-ios-patch-check}"
-          bash "$GITHUB_WORKSPACE/scripts/ci_prepare_webkit_source.sh" "$SRC"
-          python3 "$GITHUB_WORKSPACE/config/apply_webkit_patches.py" \
-            --repo-root "$GITHUB_WORKSPACE" \
-            --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" \
-            --changes "$GITHUB_WORKSPACE/config/changes.json" \
-            --webkit-root "$SRC" \
-            --platform ios \
-            --mode check
+          PERSIST="${NG_IOS_WEBKIT_PATH:-$HOME/W/webkit-ios-src}"
+          if [[ -d "$PERSIST/.git" ]]; then
+            echo "Using persistent iOS WebKit tree at $PERSIST"
+            python3 "$GITHUB_WORKSPACE/config/apply_webkit_patches.py" \
+              --repo-root "$GITHUB_WORKSPACE" \
+              --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" \
+              --changes "$GITHUB_WORKSPACE/config/changes.json" \
+              --webkit-root "$PERSIST" \
+              --platform ios \
+              --skip-pin-check \
+              --mode check
+          else
+            SRC="${NG_IOS_PATCH_CHECK_PATH:-$HOME/W/webkit-ios-patch-check}"
+            bash "$GITHUB_WORKSPACE/scripts/ci_prepare_webkit_source.sh" "$SRC"
+            python3 "$GITHUB_WORKSPACE/config/apply_webkit_patches.py" \
+              --repo-root "$GITHUB_WORKSPACE" \
+              --matrix "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" \
+              --changes "$GITHUB_WORKSPACE/config/changes.json" \
+              --webkit-root "$SRC" \
+              --platform ios \
+              --mode check
+          fi
 
       - name: Cleanup patch check source
         if: always()
@@ -161,6 +174,11 @@ jobs:
           xcodebuild -project Webkitium.xcodeproj -scheme Webkitium \
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath build build
+          APP="$(find build -name 'Webkitium.app' -type d | head -1)"
+          [[ -n "$APP" ]] || { echo "::error::Webkitium.app not built"; exit 1; }
+          ENGINE="$SRC/WebKitBuild/Debug"
+          chmod +x "$GITHUB_WORKSPACE/scripts/ios_embed_webkit_frameworks.sh"
+          bash "$GITHUB_WORKSPACE/scripts/ios_embed_webkit_frameworks.sh" "$APP" "$ENGINE"
 
       - name: Baseline package (engine + chrome)
         run: |

@@ -27,6 +27,10 @@
 		5A1200000000000000000001 /* SearchEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A1200000000000000000001 /* SearchEngine.swift */; };
 		5A1300000000000000000001 /* WebkitiumApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A1300000000000000000001 /* WebkitiumApp.swift */; };
 		5A1400000000000000000001 /* WebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A1400000000000000000001 /* WebView.swift */; };
+		5A1500000000000000000001 /* TabEngineHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A1500000000000000000001 /* TabEngineHost.swift */; };
+		5A1600000000000000000001 /* PinnedEngineLaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A1600000000000000000001 /* PinnedEngineLaunch.swift */; };
+		5A1700000000000000000001 /* PinnedEnginePaths.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A1700000000000000000001 /* PinnedEnginePaths.swift */; };
+		5A1800000000000000000001 /* PinnedEngineWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A1800000000000000000001 /* PinnedEngineWebView.swift */; };
 		8A0100000000000000000001 /* WebkitiumUrl in Frameworks */ = {isa = PBXBuildFile; productRef = 7A0100000000000000000001 /* WebkitiumUrl */; };
 		8A0200000000000000000001 /* WebkitiumSuggestions in Frameworks */ = {isa = PBXBuildFile; productRef = 7A0200000000000000000001 /* WebkitiumSuggestions */; };
 /* End PBXBuildFile section */
@@ -54,6 +58,10 @@
 		4A1200000000000000000001 /* SearchEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchEngine.swift; sourceTree = "<group>"; };
 		4A1300000000000000000001 /* WebkitiumApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebkitiumApp.swift; sourceTree = "<group>"; };
 		4A1400000000000000000001 /* WebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebView.swift; sourceTree = "<group>"; };
+		4A1500000000000000000001 /* TabEngineHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabEngineHost.swift; sourceTree = "<group>"; };
+		4A1600000000000000000001 /* PinnedEngineLaunch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedEngineLaunch.swift; sourceTree = "<group>"; };
+		4A1700000000000000000001 /* PinnedEnginePaths.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedEnginePaths.swift; sourceTree = "<group>"; };
+		4A1800000000000000000001 /* PinnedEngineWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PinnedEngineWebView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -97,6 +105,10 @@
 				4A0C00000000000000000001 /* iOSSettingsView.swift */,
 				4A0200000000000000000001 /* BrowserViewModel.swift */,
 				4A1400000000000000000001 /* WebView.swift */,
+				4A1500000000000000000001 /* TabEngineHost.swift */,
+				4A1600000000000000000001 /* PinnedEngineLaunch.swift */,
+				4A1700000000000000000001 /* PinnedEnginePaths.swift */,
+				4A1800000000000000000001 /* PinnedEngineWebView.swift */,
 				4A0F00000000000000000001 /* Models.swift */,
 				4A1200000000000000000001 /* SearchEngine.swift */,
 				4A1100000000000000000001 /* Providers.swift */,
@@ -209,6 +221,10 @@
 				5A1200000000000000000001 /* SearchEngine.swift in Sources */,
 				5A1300000000000000000001 /* WebkitiumApp.swift in Sources */,
 				5A1400000000000000000001 /* WebView.swift in Sources */,
+				5A1500000000000000000001 /* TabEngineHost.swift in Sources */,
+				5A1600000000000000000001 /* PinnedEngineLaunch.swift in Sources */,
+				5A1700000000000000000001 /* PinnedEnginePaths.swift in Sources */,
+				5A1800000000000000000001 /* PinnedEngineWebView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

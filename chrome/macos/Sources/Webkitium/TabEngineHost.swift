@@ -5,7 +5,7 @@ import Foundation
 @MainActor
 final class TabEngineHost {
     private weak var browser: BrowserViewModel?
-    private let tabID: UUID
+    let tabID: UUID
     private(set) var backStack: [String] = []
     private(set) var forwardStack: [String] = []
 
@@ -29,6 +29,10 @@ final class TabEngineHost {
     }
 
     func goBack() -> Bool {
+        if PinnedEnginePaths.inProcessEmbedAvailable,
+           TabWebViewRegistry.shared.goBack(tabID: tabID) {
+            return true
+        }
         guard let prev = backStack.popLast() else { return false }
         if let current = currentURL(), !current.isEmpty {
             forwardStack.append(current)
@@ -38,6 +42,10 @@ final class TabEngineHost {
     }
 
     func goForward() -> Bool {
+        if PinnedEnginePaths.inProcessEmbedAvailable,
+           TabWebViewRegistry.shared.goForward(tabID: tabID) {
+            return true
+        }
         guard let next = forwardStack.popLast() else { return false }
         if let current = currentURL(), !current.isEmpty {
             backStack.append(current)
@@ -47,12 +55,36 @@ final class TabEngineHost {
     }
 
     func reload() {
+        if PinnedEnginePaths.inProcessEmbedAvailable {
+            TabWebViewRegistry.shared.reload(tabID: tabID)
+            return
+        }
         guard let url = currentURL(), !url.isEmpty else { return }
         PinnedEngineLaunch.open(url: url)
     }
 
     func stop() {
-        // MiniBrowser is a separate process; stop is a no-op until in-process embed lands.
+        if PinnedEnginePaths.inProcessEmbedAvailable {
+            TabWebViewRegistry.shared.stop(tabID: tabID)
+        }
+    }
+
+    func setLoading(_ loading: Bool) {
+        guard let browser,
+              let idx = browser.tabs.firstIndex(where: { $0.id == tabID }) else { return }
+        browser.tabs[idx].isLoading = loading
+        browser.tabs[idx].loadProgress = loading ? 0.35 : 1
+    }
+
+    func syncFromEngine(url: String, title: String) {
+        guard let browser,
+              let idx = browser.tabs.firstIndex(where: { $0.id == tabID }) else { return }
+        browser.tabs[idx].url = url
+        browser.tabs[idx].title = title
+        browser.tabs[idx].canGoBack = !backStack.isEmpty
+            || (TabWebViewRegistry.shared.view(for: tabID)?.canGoBack ?? false)
+        browser.tabs[idx].canGoForward = !forwardStack.isEmpty
+            || (TabWebViewRegistry.shared.view(for: tabID)?.canGoForward ?? false)
     }
 
     private func currentURL() -> String? {
@@ -70,9 +102,13 @@ final class TabEngineHost {
         browser.tabs[idx].title = url
         browser.tabs[idx].canGoBack = !backStack.isEmpty
         browser.tabs[idx].canGoForward = !forwardStack.isEmpty
-        browser.tabs[idx].isLoading = false
-        browser.tabs[idx].loadProgress = 1
-        PinnedEngineLaunch.open(url: url)
+        browser.tabs[idx].isLoading = true
+        browser.tabs[idx].loadProgress = 0.2
+        if PinnedEnginePaths.inProcessEmbedAvailable {
+            TabWebViewRegistry.shared.load(tabID: tabID, url: url)
+        } else {
+            PinnedEngineLaunch.open(url: url)
+        }
     }
 
 }
