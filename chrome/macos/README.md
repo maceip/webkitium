@@ -1,16 +1,8 @@
-# Webkitium — macOS shell
+# macOS chrome
 
-SwiftUI chrome around `browser/` FFI (suggestions, bookmarks, URL normalize).
-
-**Content engine:** does **not** use system `WKWebView`. Tab content shows a placeholder until the pinned WebKit build from `webkit/patches/macos/` is embedded. Navigation state (URL, back/forward) is driven by `TabEngineHost` + FFI normalize for scaffolding.
-
-## Build
+SwiftUI shell. Page load goes to pinned **MiniBrowser** (`WEBKIT_MINIBROWSER` or `engine/MiniBrowser.app` in the platform bundle). No `WKWebView` in this target.
 
 ```bash
-cd chrome/macos
-swift build
+export WEBKIT_MINIBROWSER="$HOME/webkit-src/WebKitBuild/Debug/MiniBrowser.app/Contents/MacOS/MiniBrowser"
+cd chrome/macos && swift build -c debug
 ```
-
-## Run
-
-Open `.build/debug/Webkitium.app` or the `Webkitium` binary. Optional: `WEBKITIUM_LAUNCH_URL=https://example.com`.

@@ -47,7 +47,7 @@ struct iOSRootView: View {
     @ViewBuilder
     private var content: some View {
         if let tab = browser.selectedTab {
-            WebContentArea(webView: browser.webView(for: tab))
+            WebContentArea(host: browser.engineHost(for: tab))
         } else {
             iOSStartPage()
         }

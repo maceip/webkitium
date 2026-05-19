@@ -119,7 +119,7 @@ struct URLFieldView: View {
                 .multilineTextAlignment(.leading)
                 .focused($focused)
                 .onSubmit {
-                    // Hand the typed text to the active tab's WKWebView. The wrapper
+                    // Hand the typed text to the active tab engine host.
                     // normalizes URL vs. search query.
                     browser.navigateActive(to: browser.urlText)
                     focused = false

@@ -113,8 +113,7 @@ struct RootView: View {
 }
 
 /// Picks what to render in the right pane below the tab strip based on the sidebar
-/// selection. For an open tab (the default case), we hand back the real `WKWebView`
-/// for that tab via `WebContentArea`. Saved-leaves still show placeholder panes.
+/// selection. Open tabs use `WebContentArea` (pinned MiniBrowser engine).
 private struct ContentRouter: View {
     @Environment(BrowserViewModel.self) private var browser
 
@@ -125,7 +124,7 @@ private struct ContentRouter: View {
         case .leaf(.sharedWithYou): PlaceholderPane(title: "Shared with You", symbol: "person.2")
         default:
             if let tab = browser.selectedTab {
-                WebContentArea(webView: browser.webView(for: tab))
+                WebContentArea(host: browser.engineHost(for: tab))
             } else {
                 PlaceholderPane(title: "New Tab", symbol: "globe")
             }

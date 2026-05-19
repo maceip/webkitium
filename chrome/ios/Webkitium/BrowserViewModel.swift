@@ -1,6 +1,5 @@
 import SwiftUI
 import Observation
-@preconcurrency import WebKit
 
 /// iOS variant of the macOS BrowserViewModel. Strips out:
 /// - `NavigationSplitView.columnVisibility` (no sidebar on iPhone)
@@ -177,35 +176,21 @@ final class BrowserViewModel {
 
     var installedExtensions: [BrowserExtension] = ExtensionCatalog.installed
 
-    private var webViews: [UUID: TabWebView] = [:]
-    private var prewarmedWebView: WKWebView?
+    private var engineHosts: [UUID: TabEngineHost] = [:]
 
-    func webView(for tab: Tab) -> WKWebView {
-        wrapper(for: tab.id).webView
+    func engineHost(for tab: Tab) -> TabEngineHost {
+        host(for: tab.id)
     }
-    private func wrapper(for tabID: UUID) -> TabWebView {
-        if let existing = webViews[tabID] { return existing }
-        let preset = prewarmedWebView
-        prewarmedWebView = nil
-        let fresh = TabWebView(tabID: tabID, browser: self, presetWebView: preset)
-        webViews[tabID] = fresh
-        prewarmIfNeeded()
+
+    private func host(for tabID: UUID) -> TabEngineHost {
+        if let existing = engineHosts[tabID] { return existing }
+        let fresh = TabEngineHost(tabID: tabID, browser: self)
+        engineHosts[tabID] = fresh
         if let tab = tabs.first(where: { $0.id == tabID }),
            !tab.url.isEmpty, tab.url != "about:blank" {
-            fresh.load(tab.url)
+            fresh.loadResolvedURL(tab.url)
         }
         return fresh
-    }
-
-    func prewarmIfNeeded() {
-        guard prewarmedWebView == nil else { return }
-        let config = WKWebViewConfiguration()
-        if isPrivate { config.websiteDataStore = .nonPersistent() }
-        let wv = WKWebView(frame: .zero, configuration: config)
-        if let blank = URL(string: "about:blank") {
-            wv.load(URLRequest(url: blank))
-        }
-        prewarmedWebView = wv
     }
 
     init(isPrivate: Bool = false,
@@ -269,7 +254,6 @@ final class BrowserViewModel {
         // navigate.
         selectedTabID = nil
         Task { await self.refreshFromStores() }
-        prewarmIfNeeded()
     }
 
     func refreshFromStores() async {
@@ -312,7 +296,7 @@ final class BrowserViewModel {
 
     func close(tab: Tab) {
         tabs.removeAll { $0.id == tab.id }
-        webViews.removeValue(forKey: tab.id)
+        engineHosts.removeValue(forKey: tab.id)
         if selectedTabID == tab.id { selectedTabID = tabs.last?.id }
         persistTabs()
     }
@@ -364,22 +348,31 @@ final class BrowserViewModel {
         if let idx = tabs.firstIndex(where: { $0.id == tab.id }) {
             tabs[idx].url = text
         }
-        wrapper(for: tab.id).load(text)
+        host(for: tab.id).load(text)
     }
 
     func reloadOrStop() {
         guard let tab = selectedTab else { return }
-        let w = wrapper(for: tab.id)
-        if tab.isLoading { w.stop() } else { w.reload() }
+        let h = host(for: tab.id)
+        if tab.isLoading { h.stop() } else { h.reload() }
     }
 
     func goBack() {
-        guard let tab = selectedTab, tab.canGoBack else { return }
-        wrapper(for: tab.id).goBack()
+        guard let tab = selectedTab else { return }
+        if host(for: tab.id).goBack(),
+           let idx = tabs.firstIndex(where: { $0.id == tab.id }) {
+            tabs[idx].canGoBack = !host(for: tab.id).backStack.isEmpty
+            tabs[idx].canGoForward = !host(for: tab.id).forwardStack.isEmpty
+        }
     }
+
     func goForward() {
-        guard let tab = selectedTab, tab.canGoForward else { return }
-        wrapper(for: tab.id).goForward()
+        guard let tab = selectedTab else { return }
+        if host(for: tab.id).goForward(),
+           let idx = tabs.firstIndex(where: { $0.id == tab.id }) {
+            tabs[idx].canGoBack = !host(for: tab.id).backStack.isEmpty
+            tabs[idx].canGoForward = !host(for: tab.id).forwardStack.isEmpty
+        }
     }
 
     func openFindBar() {

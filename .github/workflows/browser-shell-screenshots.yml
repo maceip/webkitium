@@ -132,7 +132,7 @@ jobs:
           if-no-files-found: warn
 
   macos:
-    name: macOS Shell Screenshot (chrome only — no system WebKit)
+    name: macOS Shell Screenshot (chrome + pinned engine)
     runs-on:
       - self-hosted
       - macOS
@@ -146,6 +146,10 @@ jobs:
         run: |
           set -euo pipefail
           export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:$PATH"
+          SRC="${NG_MACOS_WEBKIT_SRC:-$HOME/webkit-src}"
+          MB="$SRC/WebKitBuild/Debug/MiniBrowser.app/Contents/MacOS/MiniBrowser"
+          [[ -x "$MB" ]] || { echo "::error::Pinned MiniBrowser required at $MB"; exit 1; }
+          export WEBKIT_MINIBROWSER="$MB"
           cd chrome/macos
           swift build 2>&1 | tail -10
 
@@ -240,7 +244,7 @@ jobs:
           path: ${{ runner.temp }}/screenshot_ios_simulator.png
 
   linux:
-    name: Linux GTK Screenshot (chrome only)
+    name: Linux GTK Screenshot (chrome + pinned engine)
     runs-on:
       - self-hosted
       - Linux
@@ -254,7 +258,7 @@ jobs:
           sudo apt-get update -qq
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             build-essential cmake pkg-config \
-            libgtk-4-dev libwebkitgtk-6.0-dev libclang-dev \
+            libgtk-4-dev libclang-dev \
             libprotobuf-dev libsqlite3-dev protobuf-compiler \
             xvfb x11-utils xdotool imagemagick scrot \
             dbus-x11 at-spi2-core
@@ -265,6 +269,12 @@ jobs:
       - name: Build Linux shell
         run: |
           set -euo pipefail
+          SRC="${NG_LINUX_GTK_WEBKIT_SRC:-$HOME/webkit-src-gtk}"
+          export WEBKIT_GTK_BUILD="$SRC/WebKitBuild/GTK/Debug"
+          [[ -d "$WEBKIT_GTK_BUILD/lib/pkgconfig" ]] || {
+            echo "::error::Pinned WebKit GTK build required at $WEBKIT_GTK_BUILD"
+            exit 1
+          }
           cd chrome/linux
           cargo build --release
 

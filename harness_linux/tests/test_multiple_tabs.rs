@@ -6,7 +6,7 @@
 use webkitium_harness_linux::{atspi_available, App};
 
 #[async_std::test]
-#[ignore = "requires running AT-SPI session bus + libwebkitgtk"]
+#[ignore = "requires WEBKIT_GTK_BUILD engine + running webkitium binary"]
 async fn new_and_close_tab() -> anyhow::Result<()> {
     if !atspi_available() {
         eprintln!("AT-SPI bus unavailable on host; skipping");

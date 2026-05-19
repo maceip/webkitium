@@ -51,8 +51,8 @@ from datetime import datetime, timezone
 platform = os.environ["BUNDLE_PLATFORM"]
 embed = {
     "windows": "chrome uses WKView (webkitium_host.dll) when built with WebKitSrc/WebKitBuild",
-    "macos": "WKWebView loads pinned WebKit.framework when WEBKIT_FRAMEWORK_PATH is set at launch",
-    "ios": "bundle includes engine MiniBrowser.app + Webkitium.app (WKWebView; set framework path for pin)",
+    "macos": "chrome launches pinned MiniBrowser (WEBKIT_MINIBROWSER); no WKWebView in chrome",
+    "ios": "engine MobileMiniBrowser.app in bundle; in-process embed pending",
     "linux-gtk": "chrome links WebKitGTK from WEBKIT_GTK_BUILD (pinned GTK port)",
     "android": "chrome uses WPEView from engine wpeview AAR; engine minibrowser APKs under engine/",
 }.get(platform, "see docs/ENGINE_EMBED.md")

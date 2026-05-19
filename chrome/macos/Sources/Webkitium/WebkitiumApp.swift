@@ -13,9 +13,6 @@ struct WebkitiumApp: App {
     @State private var sharedAuxBrowser: BrowserViewModel
 
     init() {
-        if let fw = ProcessInfo.processInfo.environment["WEBKIT_FRAMEWORK_PATH"], !fw.isEmpty {
-            setenv("DYLD_FRAMEWORK_PATH", fw, 1)
-        }
         guard let s = BrowserServices() else {
             fatalError("BrowserServices: failed to construct one of the four C bridges (extensions / sync / webauthn)")
         }

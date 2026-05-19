@@ -1,15 +1,15 @@
 # Platform chrome (`chrome/`)
 
-Native UI shells around the portable C++ layer in `browser/`. Each platform CI job produces a **bundle tarball** (`engine/` + `chrome/` + `BUNDLE_MANIFEST.json`) via `scripts/bundle_webkitium_platform.sh`.
+Native UI around `browser/` FFI. Each platform release tarball contains `engine/` + `chrome/` + `BUNDLE_MANIFEST.json`.
 
-| Directory | UI | Engine in chrome |
-|-----------|-----|------------------|
-| `windows/` | WinUI 3 | **WKView** via `WebKitHost` + pinned `build-webkit --win` |
-| `macos/` | SwiftUI | `WKWebView` with `WEBKIT_FRAMEWORK_PATH` → pinned `WebKit.framework` |
-| `ios/` | SwiftUI | `WKWebView` (simulator); bundle includes engine `MiniBrowser.app` + `Webkitium.app` |
-| `android/` | Compose | **WPEView** from engine `wpeview-*.aar` (`WPEVIEW_AAR`) |
-| `linux/` | gtk4-rs | **WebKitGTK** from `WEBKIT_GTK_BUILD` (pinned GTK port) |
+| Directory | Engine |
+|-----------|--------|
+| `windows/` | WKView via `WebKitHost` |
+| `macos/` | Pinned `MiniBrowser` (`WEBKIT_MINIBROWSER`) |
+| `ios/` | Pinned engine app in bundle (in-process embed WIP) |
+| `android/` | WPEView + engine `wpeview` AAR |
+| `linux/` | WebKitGTK from `WEBKIT_GTK_BUILD` only |
 
-Local run: `scripts/run_chrome_with_engine.sh <platform> [engine-root]`
+No distro WebKitGTK, no `WKWebView`, no `android.webkit.WebView`, no WebView2.
 
-Policy: `docs/ENGINE_EMBED.md`
+See `docs/ENGINE_EMBED.md`.

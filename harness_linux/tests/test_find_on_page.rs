@@ -7,7 +7,7 @@
 use webkitium_harness_linux::{atspi_available, App};
 
 #[async_std::test]
-#[ignore = "requires running AT-SPI session bus + libwebkitgtk"]
+#[ignore = "requires WEBKIT_GTK_BUILD engine + running webkitium binary"]
 async fn find_on_page_reports_match_count() -> anyhow::Result<()> {
     if !atspi_available() {
         eprintln!("AT-SPI bus unavailable on host; skipping");

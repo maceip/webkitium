@@ -8,10 +8,22 @@ use std::env;
 use std::path::PathBuf;
 
 fn main() {
-    if let Ok(root) = env::var("WEBKIT_GTK_BUILD") {
+    let gtk_build = match env::var("WEBKIT_GTK_BUILD") {
+        Ok(v) if !v.is_empty() => v,
+        _ => {
+            eprintln!(
+                "WEBKIT_GTK_BUILD is required (path to pinned WebKit GTK Debug tree, e.g. …/WebKitBuild/GTK/Debug). \
+                 Do not build chrome/linux against distro libwebkitgtk."
+            );
+            std::process::exit(1);
+        }
+    };
+
+    {
+        let root = &gtk_build;
         let mut paths = Vec::new();
         for sub in ["lib/pkgconfig", "lib64/pkgconfig"] {
-            let p = PathBuf::from(&root).join(sub);
+            let p = PathBuf::from(root).join(sub);
             if p.is_dir() {
                 paths.push(p);
             }

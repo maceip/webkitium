@@ -1,6 +1,5 @@
 import SwiftUI
 import Observation
-@preconcurrency import WebKit
 
 /// Central observable state for the browser window. One source of truth (mirrors the
 /// `BrowserPageViewModel` pattern from Apple's BrowserExample sample).
@@ -241,52 +240,22 @@ final class BrowserViewModel {
     /// touching native code. Production code (`WebkitiumApp`) always passes one in.
     let services: BrowserServices?
 
-    /// One `TabWebView` (wrapping a `WKWebView`) per tab, lazily created on first
-    /// access. Lives for the tab's lifetime so navigation history survives tab
-    /// switching. Pruned in `close(tab:)`.
-    private var webViews: [UUID: TabWebView] = [:]
+    /// Per-tab engine host (pinned MiniBrowser). Pruned in `close(tab:)`.
+    private var engineHosts: [UUID: TabEngineHost] = [:]
 
-    /// One-at-a-time pre-warmed `WKWebView`. Cold-starting WebContent process is
-    /// ~150-300ms on M-series; pre-warming hides that latency on Cmd+T / new-tab.
-    /// We keep exactly **one** spare ready — never a pool — to bound memory cost.
-    /// Same isolation guarantees as the regular tab pool: private windows pre-warm
-    /// with `.nonPersistent()` from the start.
-    private var prewarmedWebView: WKWebView?
-
-    /// Lazily create-or-fetch the webview for a tab. If a pre-warmed instance is
-    /// available, it's consumed and a fresh one is queued to replace it.
-    func webView(for tab: Tab) -> WKWebView {
-        wrapper(for: tab.id).webView
+    func engineHost(for tab: Tab) -> TabEngineHost {
+        host(for: tab.id)
     }
-    private func wrapper(for tabID: UUID) -> TabWebView {
-        if let existing = webViews[tabID] { return existing }
-        let preset = prewarmedWebView
-        prewarmedWebView = nil
-        let fresh = TabWebView(tabID: tabID, browser: self, presetWebView: preset)
-        webViews[tabID] = fresh
-        prewarmIfNeeded()
-        // If the tab carries a seed URL, navigate the just-claimed webview to it.
-        // Without this, the seed tab list ("Apple", "Hacker News", …) would render
-        // as a row of about:blank pages until the user types something.
+
+    private func host(for tabID: UUID) -> TabEngineHost {
+        if let existing = engineHosts[tabID] { return existing }
+        let fresh = TabEngineHost(tabID: tabID, browser: self)
+        engineHosts[tabID] = fresh
         if let tab = tabs.first(where: { $0.id == tabID }),
            !tab.url.isEmpty, tab.url != "about:blank" {
-            fresh.load(tab.url)
+            fresh.loadResolvedURL(tab.url)
         }
         return fresh
-    }
-
-    /// Spawn the next pre-warmed `WKWebView` if the slot is empty. Loads
-    /// `about:blank` so the WebContent process actually starts up (WKWebView's
-    /// process spawn is lazy until first load).
-    func prewarmIfNeeded() {
-        guard prewarmedWebView == nil else { return }
-        let config = WKWebViewConfiguration()
-        if isPrivate { config.websiteDataStore = .nonPersistent() }
-        let wv = WKWebView(frame: .zero, configuration: config)
-        if let blank = URL(string: "about:blank") {
-            wv.load(URLRequest(url: blank))
-        }
-        prewarmedWebView = wv
     }
 
     init(isPrivate: Bool = false,
@@ -336,19 +305,12 @@ final class BrowserViewModel {
                     self.selectedTabID    = self.tabs[firstIdx].id
                     self.sidebarSelection = .tab(self.tabs[firstIdx].id)
                 }
-                // Actively navigate each restored tab's WebView so KVO
-                // re-pushes the URL/title/loading state into the model.
-                // Without this the WebViews are blank shells until clicked.
                 for tab in self.tabs where !tab.url.isEmpty {
-                    self.wrapper(for: tab.id).load(tab.url)
+                    self.host(for: tab.id).loadResolvedURL(tab.url)
                 }
-                // Sensible fallback: if the active restored tab has no URL
-                // (fresh install, or first-run before any navigation), seed
-                // it to a known https page so the chrome has something
-                // meaningful to display.
                 if (self.selectedTab?.url ?? "").isEmpty,
                    let tab = self.selectedTab {
-                    self.wrapper(for: tab.id).load("https://en.wikipedia.org")
+                    self.host(for: tab.id).load("https://en.wikipedia.org")
                 }
             }
         }
@@ -371,9 +333,6 @@ final class BrowserViewModel {
         selectedTabID = tabs.last?.id
         if let id = selectedTabID { sidebarSelection = .tab(id) }
         Task { await self.refreshFromStores() }
-        // Spawn the first pre-warmed `WKWebView` so the first Cmd+T (or the first
-        // navigation away from `about:blank`) doesn't pay WebContent cold-start cost.
-        prewarmIfNeeded()
     }
 
     /// Re-fetch history/bookmarks/passkeys/devices snapshots from the providers. Called
@@ -422,7 +381,7 @@ final class BrowserViewModel {
 
     func close(tab: Tab) {
         tabs.removeAll { $0.id == tab.id }
-        webViews.removeValue(forKey: tab.id)
+        engineHosts.removeValue(forKey: tab.id)
         if selectedTabID == tab.id { selectedTabID = tabs.last?.id }
         persistTabs()
     }
@@ -472,31 +431,35 @@ final class BrowserViewModel {
 
     // MARK: - Navigation
     //
-    // All four routes dispatch to the per-tab `TabWebView` wrapper. KVO on the
-    // underlying `WKWebView` flows state back into the matching `Tab` struct
-    // (isLoading, loadProgress, canGoBack, canGoForward, title, url) — the chrome
-    // reads those for UI binding.
-
-    /// User submitted text in the URL bar. The wrapper normalizes input (URL vs.
-    /// search query) and kicks off a `WKWebView.load(...)`.
     func navigateActive(to text: String) {
         guard let tab = selectedTab else { return }
-        wrapper(for: tab.id).load(text)
+        host(for: tab.id).load(text)
     }
 
     func reloadOrStop() {
         guard let tab = selectedTab else { return }
-        let w = wrapper(for: tab.id)
-        if tab.isLoading { w.stop() } else { w.reload() }
+        let h = host(for: tab.id)
+        if tab.isLoading { h.stop() } else { h.reload() }
     }
 
     func goBack() {
-        guard let tab = selectedTab, tab.canGoBack else { return }
-        wrapper(for: tab.id).goBack()
+        guard let tab = selectedTab else { return }
+        if host(for: tab.id).goBack() {
+            if let idx = tabs.firstIndex(where: { $0.id == tab.id }) {
+                tabs[idx].canGoBack = !host(for: tab.id).backStack.isEmpty
+                tabs[idx].canGoForward = !host(for: tab.id).forwardStack.isEmpty
+            }
+        }
     }
+
     func goForward() {
-        guard let tab = selectedTab, tab.canGoForward else { return }
-        wrapper(for: tab.id).goForward()
+        guard let tab = selectedTab else { return }
+        if host(for: tab.id).goForward() {
+            if let idx = tabs.firstIndex(where: { $0.id == tab.id }) {
+                tabs[idx].canGoBack = !host(for: tab.id).backStack.isEmpty
+                tabs[idx].canGoForward = !host(for: tab.id).forwardStack.isEmpty
+            }
+        }
     }
 
     // MARK: - Find on page
