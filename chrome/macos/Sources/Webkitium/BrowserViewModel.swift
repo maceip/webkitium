@@ -436,6 +436,14 @@ final class BrowserViewModel {
         host(for: tab.id).load(text)
     }
 
+    /// CI / harness: `WEBKITIUM_LAUNCH_URL` drives the active tab and pinned MiniBrowser.
+    func applyCILaunchURLIfPresent() {
+        guard let raw = ProcessInfo.processInfo.environment["WEBKITIUM_LAUNCH_URL"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              !raw.isEmpty else { return }
+        navigateActive(to: raw)
+    }
+
     func reloadOrStop() {
         guard let tab = selectedTab else { return }
         let h = host(for: tab.id)

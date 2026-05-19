@@ -12,4 +12,6 @@ Native UI around `browser/` FFI. Each platform release tarball contains `engine/
 
 No distro WebKitGTK, no `WKWebView`, no `android.webkit.WebView`, no WebView2.
 
+Per-platform wiring, CI honesty, and blue-lock limitations: **`docs/CHROME_PLATFORM_REVIEW.md`**.
+
 See `docs/ENGINE_EMBED.md`.

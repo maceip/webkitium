@@ -118,6 +118,7 @@ struct BrowserWindowHost: View {
         RootView()
             .environment(browser)
             .frame(minWidth: 900, minHeight: 540)
+            .onAppear { browser.applyCILaunchURLIfPresent() }
     }
 }
 
