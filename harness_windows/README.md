@@ -2,6 +2,8 @@
 
 C# / .NET 8 / xUnit smoke tests driving `chrome/windows/Webkitium.exe` via UIAutomation through [FlaUI.UIA3](https://github.com/FlaUI/FlaUI).
 
+**Prerequisite:** WinUI shell built with `WebKitHost` / pinned `WebKit.dll` (not WebView2). See [`docs/ENGINE_EMBED.md`](../docs/ENGINE_EMBED.md).
+
 ## Layout
 
 - `Webkitium.Harness.sln` / `Webkitium.Harness.csproj` — solution + project, separate from `chrome/windows/Webkitium.sln` (keeps dev/test boundaries clean).

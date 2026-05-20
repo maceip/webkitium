@@ -52,9 +52,9 @@ Rules derived from concrete failures in the May 18 2026 Webkitium session. Each 
 
 ## 9. Read the project's own infrastructure before reaching for external alternatives.
 
-**Why:** Defaulted to WebView2 (Edge / Chromium) for a Windows shell on a project literally named *Webkitium* that ships its own WebKit-for-Windows build under `webkit/patches/windows/`. The user had to flag this twice.
+**Why:** Defaulted to WebView2 (Edge / Chromium) for a Windows shell on a project literally named *Webkitium* that ships its own WebKit-for-Windows build under `webkit/patches/windows/`. The user had to flag this twice. **Resolved:** WinUI now uses `WebKitHost` / `WKView` — see `docs/ENGINE_EMBED.md`.
 
-**Verify:** Before introducing a new dependency / library / framework for a feature, run `grep -r <feature-keyword> webkit/ browser/ docs/ changes/` and `cat docs/MINIBROWSER_GAPS.md` (or equivalent). If the project already has it, use that.
+**Verify:** Before introducing a new dependency / library / framework for a feature, run `grep -r <feature-keyword> webkit/ browser/ docs/ changes/` and read `docs/ENGINE_EMBED.md` + `docs/MINIBROWSER_GAPS.md`. If the project already has it, use that.
 
 ## 10. First action in a turn is action, not narration.
 

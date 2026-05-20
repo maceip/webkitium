@@ -2,6 +2,8 @@
 
 Smoke-test runner for the Android shell at `chrome/android/`. Drives the app via Espresso + UIAutomator, asserts against rows from `features.yaml`.
 
+**Prerequisite:** Debug APK built with **`WPEVIEW_AAR`** (pinned WPE engine), not `android.webkit.WebView`. See [`docs/ENGINE_EMBED.md`](../docs/ENGINE_EMBED.md) and [`chrome/android/README.md`](../chrome/android/README.md).
+
 ## Status
 
 Empty stub. First test to land: `url_autocomplete` — type into the URL bar and assert the suggestions popover appears.

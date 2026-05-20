@@ -1,17 +1,37 @@
 # Platform chrome (`chrome/`)
 
-Native UI around `browser/` FFI. Each platform release tarball contains `engine/` + `chrome/` + `BUNDLE_MANIFEST.json`.
+Native UI around `browser/` FFI. Each platform **release** tarball contains `engine/` + `chrome/` + `BUNDLE_MANIFEST.json` (see `scripts/bundle_webkitium_platform.sh`).
 
-| Directory | Engine |
-|-----------|--------|
-| `windows/` | WKView via `WebKitHost` |
-| `macos/` | Pinned `MiniBrowser` (`WEBKIT_MINIBROWSER`) |
-| `ios/` | Pinned engine app in bundle (in-process embed WIP) |
-| `android/` | WPEView + engine `wpeview` AAR |
-| `linux/` | WebKitGTK from `WEBKIT_GTK_BUILD` only |
+| Directory | Pinned engine path |
+|-----------|-------------------|
+| `windows/` | `WKView` via `WebKitHost` (WinUI `WebKitViewHost`) |
+| `macos/` | In-process `WKWebView` from built `WebKit.framework`, or `WEBKIT_MINIBROWSER` fallback |
+| `ios/` | In-process `WKWebView` with embedded `WebKit.framework` in `.app`, or placeholder |
+| `android/` | `WPEView` + engine `wpeview` AAR (`WPEVIEW_AAR`) |
+| `linux/` | `webkit6::WebView` from `WEBKIT_GTK_BUILD` only |
 
-No distro WebKitGTK, no `WKWebView`, no `android.webkit.WebView`, no WebView2.
+## Forbidden in CI / release
 
-Per-platform wiring, CI honesty, and blue-lock limitations: **`docs/CHROME_PLATFORM_REVIEW.md`**.
+- WebView2 (Windows)
+- `android.webkit.WebView` (Chromium)
+- apt / distro `libwebkitgtk` (Linux)
+- System WebKit without `WEBKIT_FRAMEWORK_PATH` / embed script (macOS/iOS)
+- `chrome/windows-min/` (removed)
 
-See `docs/ENGINE_EMBED.md`.
+`WKWebView` on macOS/iOS is allowed only when linked/loaded from **your** WebKit build, not the OS default framework.
+
+## Docs
+
+| Doc | Purpose |
+|-----|---------|
+| [`docs/ENGINE_EMBED.md`](../docs/ENGINE_EMBED.md) | Policy + env vars |
+| [`docs/CHROME_PLATFORM_REVIEW.md`](../docs/CHROME_PLATFORM_REVIEW.md) | Wiring + CI honesty |
+| [`docs/MINIBROWSER_GAPS.md`](../docs/MINIBROWSER_GAPS.md) | Feature gaps vs MiniBrowser |
+
+## Local run
+
+```bash
+scripts/run_chrome_with_engine.sh <windows|macos|linux-gtk> [engine-root]
+```
+
+Optional: `WEBKITIUM_LAUNCH_URL=https://en.wikipedia.org` for CI-style seed navigation.

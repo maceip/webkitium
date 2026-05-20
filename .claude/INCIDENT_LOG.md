@@ -1,5 +1,7 @@
 # Incident Log — May 17–19 2026 Session
 
+> **Status (post-recovery):** WinUI uses `WebKitHost` / `WKView` (not WebView2). `chrome/windows-min/` and `linux-ci.yml` removed. macOS/iOS use pinned-framework `WKWebView` embed when env/embed scripts are set; Android uses `WPEView`; Linux requires `WEBKIT_GTK_BUILD`. See [`docs/ENGINE_EMBED.md`](../docs/ENGINE_EMBED.md).
+
 Chronological-ish list of the specific failures the user flagged. Each entry: what happened, what should have happened, rule from `AGENT_GUARDRAILS.md`.
 
 ## 1. WebView2 chosen for the Windows shell

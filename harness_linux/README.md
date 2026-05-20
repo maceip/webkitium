@@ -2,6 +2,8 @@
 
 Smoke-test harness for the Webkitium GTK shell. Drives the running app via accessibility (AT-SPI), exercises the surface described by [`../features.yaml`](../features.yaml), and reports pass/fail per feature back to CI.
 
+**Prerequisite:** Linux chrome binary built with `WEBKIT_GTK_BUILD` pointing at the **pinned** GTK port (not distro `libwebkitgtk`). See [`docs/ENGINE_EMBED.md`](../docs/ENGINE_EMBED.md).
+
 ## Driver
 
 Use the [`atspi`](https://crates.io/crates/atspi) Rust crate (AT-SPI 2 client) to find accessible elements on the running GTK app and dispatch actions against them. GTK4 exposes accessibility automatically — most widgets need no annotation.
