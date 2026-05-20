@@ -10,7 +10,7 @@ name = "webkitium"
 path = "src/main.rs"
 
 [dependencies]
-gtk4 = { version = "0.9", features = ["v4_12"] }
+gtk4 = { version = "0.9", features = ["v4_10", "v4_12"] }
 webkit6 = { version = "0.4" }
 glib = "0.20"
 

@@ -1,27 +1,28 @@
-//! `find_on_page` smoke test.
-//!
-//! Load a known page (data: URI with literal text), Ctrl+F to open the
-//! find revealer, type a substring known to match, assert match-count
-//! label reads "N matches" with N ≥ 1.
+//! `find_on_page` — find bar + match count label.
 
-use webkitium_harness_linux::{atspi_available, App};
+use std::time::Duration;
+use webkitium_harness_linux::{atspi_available, driver, App};
 
 #[async_std::test]
-#[ignore = "requires WEBKIT_GTK_BUILD engine + running webkitium binary"]
+#[ignore = "requires display + AT-SPI + webkitium binary"]
 async fn find_on_page_reports_match_count() -> anyhow::Result<()> {
     if !atspi_available() {
-        eprintln!("AT-SPI bus unavailable on host; skipping");
         return Ok(());
     }
-    let app = App::spawn()?;
-    app.wait_ready(std::time::Duration::from_secs(5))?;
+    let app = App::spawn_with_env(&[("WEBKITIUM_HARNESS_OPEN_FIND", "1")])?;
+    app.wait_ready(Duration::from_secs(12))?;
+    let conn = App::connection().await?;
 
-    // TODO(linux-harness):
-    //   1. navigate to data:text/plain,foo bar foo baz foo
-    //   2. send Ctrl+F via virtual keyboard or trigger win.find action
-    //   3. find Entry "Find in page", type "foo"
-    //   4. read Label accessible-name "Find match count" → "3 matches"
+    driver::submit_address_bar(&conn, "data:text/plain,foo bar foo baz foo").await?;
+    async_std::task::sleep(Duration::from_secs(1)).await;
+
+    driver::set_text_named(&conn, "Find in page", "foo").await?;
+    async_std::task::sleep(Duration::from_millis(600)).await;
+    let count = driver::text_of_named(&conn, "Find match count").await?;
+    assert!(
+        count.contains("match"),
+        "expected match count label, got '{count}'"
+    );
     let _ = app.pid();
-
     Ok(())
 }

@@ -13,6 +13,8 @@
 //!     SQLite — there is no value in pretending);
 //!   - cross-platform abstractions (this is the *Linux* harness).
 
+pub mod driver;
+
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
@@ -28,7 +30,7 @@ pub fn binary_path() -> PathBuf {
     }
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     manifest
-        .join("../chrome/linux/target/debug/webkitium")
+        .join("../chrome/linux/target/release/webkitium")
         .canonicalize()
         .unwrap_or_else(|_| {
             // Fall back to the un-canonicalised path so error messages
@@ -49,7 +51,12 @@ impl App {
     /// available on the test host for real interaction; the spawn
     /// itself is cheap regardless.
     pub fn spawn() -> Result<Self> {
-        Self::spawn_with_seed(|_| Ok(()))
+        Self::spawn_with_env(&[])
+    }
+
+    /// Spawn with extra environment variables (harness-only hooks).
+    pub fn spawn_with_env(vars: &[(&str, &str)]) -> Result<Self> {
+        Self::spawn_with_seed_and_env(vars, |_| Ok(()))
     }
 
     /// Spawn but with a chance to pre-populate the profile DB. The
@@ -58,11 +65,26 @@ impl App {
     where
         F: FnOnce(&Path) -> Result<()>,
     {
+        Self::spawn_with_seed_and_env(&[], seed)
+    }
+
+    pub fn spawn_with_seed_and_env<F>(vars: &[(&str, &str)], seed: F) -> Result<Self>
+    where
+        F: FnOnce(&Path) -> Result<()>,
+    {
         let profile = tempfile::tempdir().context("tempdir")?;
         seed(profile.path())?;
         let bin = binary_path();
-        let child = Command::new(&bin)
-            .env("WEBKITIUM_PROFILE_DIR", profile.path())
+        let mut cmd = Command::new(&bin);
+        cmd.env("WEBKITIUM_PROFILE_DIR", profile.path())
+            .env(
+                "GDK_BACKEND",
+                std::env::var("GDK_BACKEND").unwrap_or_else(|_| "wayland".into()),
+            );
+        for (k, v) in vars {
+            cmd.env(k, v);
+        }
+        let child = cmd
             // Ensure the shell uses the system AT-SPI bus, not a stale
             // env var pointing elsewhere.
             .env_remove("GTK_A11Y_USE_ATSPI")
@@ -81,19 +103,30 @@ impl App {
     /// Wait until the shell has registered itself on the session bus.
     /// Best-effort; if AT-SPI isn't available, returns Err(_) after the
     /// timeout.
+    /// Fresh AT-SPI connection for the test body.
+    pub async fn connection() -> anyhow::Result<atspi::connection::AccessibilityConnection> {
+        atspi::connection::AccessibilityConnection::new()
+            .await
+            .context("AT-SPI connection")
+    }
+
     pub fn wait_ready(&self, timeout: Duration) -> Result<()> {
         let start = Instant::now();
         while start.elapsed() < timeout {
-            // Cheap probe: if any AT-SPI bus is up, an empty connection
-            // can be made; otherwise sleep and retry.
-            if async_std::task::block_on(async {
-                atspi::AccessibilityConnection::new().await.is_ok()
-            }) {
+            let ready = async_std::task::block_on(async {
+                let Ok(conn) = App::connection().await else {
+                    return false;
+                };
+                driver::wait_for_named(&conn, "Address bar", Duration::from_millis(800))
+                    .await
+                    .is_ok()
+            });
+            if ready {
                 return Ok(());
             }
-            std::thread::sleep(Duration::from_millis(100));
+            std::thread::sleep(Duration::from_millis(200));
         }
-        anyhow::bail!("AT-SPI bus did not become available within {:?}", timeout)
+        anyhow::bail!("webkitium UI did not expose Address bar within {:?}", timeout)
     }
 }
 

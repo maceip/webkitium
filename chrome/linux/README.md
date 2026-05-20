@@ -27,7 +27,12 @@ Use `scripts/run_chrome_with_engine.sh linux-gtk [engine-root]` for a bundled la
 
 ## Features
 
-See `chrome/linux/src/window.rs` and [`features.yaml`](../../features.yaml): tabs, URL autocomplete, bookmarks bar, find-on-page, back/forward, HTTPS lock CSS from active tab URI.
+Desktop UI lives under `chrome/linux/src/ui/` (see [`features.yaml`](../../features.yaml) `platform:linux-gtk-wayland`). Phase 0 engine events: `ui/webkit_events.rs`. Full phased plan: [`docs/LINUX_UI_WIRING_PLAN.md`](../../docs/LINUX_UI_WIRING_PLAN.md). Build requires `WEBKIT_GTK_BUILD` pointing at the pinned WebKitGTK tree.
+
+```bash
+export WEBKIT_GTK_BUILD=/path/to/WebKitBuild/GTK/Debug
+cd chrome/linux && cargo build --release
+```
 
 ## Harness
 

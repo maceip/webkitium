@@ -1,22 +1,39 @@
-// Webkitium GTK Linux shell entry point.
-//
-// Boots a `gtk::Application` that owns one `AppWindow` (see `window.rs`).
-// The browser core (`ng_browser_core`) is linked statically; see
-// `build.rs` for how cmake + bindgen are wired.
-
+mod app;
 mod ffi;
-mod window;
+mod profile;
+mod ui;
 
-use gtk4::prelude::*;
-use gtk4::{glib, Application};
+use gtk4::glib;
+use std::env;
 
-const APP_ID: &str = "org.webkitium.linux";
+fn filter_gtk_argv(args: &[String]) -> Vec<String> {
+    let mut out = Vec::new();
+    if args.is_empty() {
+        return out;
+    }
+    out.push(args[0].clone());
+    let mut i = 1;
+    while i < args.len() {
+        if args[i] == "--profile-dir" {
+            i += 2;
+            continue;
+        }
+        if args[i].starts_with("--profile-dir=") {
+            i += 1;
+            continue;
+        }
+        out.push(args[i].clone());
+        i += 1;
+    }
+    out
+}
 
 fn main() -> glib::ExitCode {
-    let app = Application::builder().application_id(APP_ID).build();
-    app.connect_activate(|app| {
-        let win = window::AppWindow::new(app);
-        win.present();
-    });
-    app.run()
+    let args: Vec<String> = env::args().collect();
+    if let Some(dir) = profile::parse_profile_dir_arg(&args) {
+        profile::ensure_profile_dir(&dir);
+        env::set_var("WEBKITIUM_PROFILE_DIR", &dir);
+    }
+    let gtk_argv = filter_gtk_argv(&args);
+    app::WebkitiumApp::new().run_with_args(&gtk_argv)
 }

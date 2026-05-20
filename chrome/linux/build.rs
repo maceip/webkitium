@@ -89,9 +89,11 @@ fn main() {
     // ---- 2. bindgen the two C ABI headers. ----
     let url_header = browser_src.join("url/UrlBridgeC.h");
     let suggestions_header = browser_src.join("suggestions/SuggestionsBridgeC.h");
+    let extensions_header = browser_src.join("extensions/ExtensionBridgeC.h");
 
     println!("cargo:rerun-if-changed={}", url_header.display());
     println!("cargo:rerun-if-changed={}", suggestions_header.display());
+    println!("cargo:rerun-if-changed={}", extensions_header.display());
 
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
 
@@ -120,4 +122,15 @@ fn main() {
         .expect("bindgen failed for SuggestionsBridgeC.h")
         .write_to_file(out_dir.join("suggestions_bridge.rs"))
         .expect("write suggestions_bridge.rs");
+
+    bindgen::Builder::default()
+        .header(extensions_header.to_string_lossy())
+        .clang_arg("-x")
+        .clang_arg("c")
+        .allowlist_function("wk_extensions_.*")
+        .allowlist_type("WkExtensionRegistry")
+        .generate()
+        .expect("bindgen failed for ExtensionBridgeC.h")
+        .write_to_file(out_dir.join("extensions_bridge.rs"))
+        .expect("write extensions_bridge.rs");
 }

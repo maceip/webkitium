@@ -3,5 +3,6 @@
 // the relevant submodule; nothing in this crate touches the raw types
 // outside the submodule that owns them.
 
+pub mod extensions;
 pub mod suggestions;
 pub mod url;

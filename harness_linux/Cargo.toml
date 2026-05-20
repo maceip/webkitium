@@ -7,6 +7,7 @@ license = "Apache-2.0"
 
 # Library is just the helpers; the actual tests live in `tests/*.rs`.
 [lib]
+name = "webkitium_harness_linux"
 path = "src/lib.rs"
 
 [dependencies]
@@ -15,10 +16,12 @@ tempfile = "3"
 # Note on atspi: pinned to a recent stable. The crate's async API has
 # moved around minor versions, so the helpers in src/lib.rs use only
 # the surface that has remained stable.
-atspi    = { version = "0.25", default-features = false, features = ["async-std"] }
+atspi    = { version = "0.25", default-features = false, features = ["async-std", "connection", "proxies", "zbus"] }
 async-std = { version = "1", features = ["attributes"] }
 
 [dev-dependencies]
 anyhow   = "1"
 tempfile = "3"
 async-std = { version = "1", features = ["attributes"] }
+log = "0.4"
+webkitium-harness-linux = { path = ".", package = "webkitium-harness-linux" }

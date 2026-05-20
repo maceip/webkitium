@@ -1,10 +1,13 @@
 # Webkitium feature manifest — cross-platform conformance artifact.
 #
-# Each platform implements its own smoke harness (harness_macos/, harness_gtk/,
-# harness_winui/, harness_compose/, harness_ios/). CI runs every harness and
+# Each platform implements its own smoke harness (harness_macos/, harness_linux/,
+# harness_windows/, harness_android/, harness_ios/). CI runs every harness and
 # fails red if any feature with `required: true` lacks a passing smoke test on
 # that platform. Platform-only extras live in that platform's harness; they do
 # not appear here.
+#
+# Platform matrix: see `platform:linux-gtk-wayland` (kind=platform) at the bottom.
+# Every globally `required: true` row must be `implemented` or `planned` there.
 #
 # Categories: navigation, tabs, sidebar, url_bar, bookmarks, reading_list,
 #             history, downloads, extensions, privacy, search, settings,
@@ -126,7 +129,7 @@
 
 - id: sidebar_tab_count
   name: Sidebar tab count
-  description: "N Tabs" pill at the top of the sidebar reflecting visible-tab count.
+  description: 'Sidebar header pill showing visible tab count (e.g. "3 Tabs").'
   required: false
   category: sidebar
 
@@ -146,6 +149,12 @@
   name: URL bar
   description: Editable address/search field with focus state and submit-on-enter.
   required: true
+  category: url_bar
+
+- id: url_secure_indicator
+  name: HTTPS secure indicator
+  description: URL bar shows a blue lock (or equivalent) when the active tab URI uses HTTPS.
+  required: false
   category: url_bar
 
 - id: url_suggestions
@@ -447,3 +456,105 @@
   description: Switch between named profiles (e.g. Personal / Work) each with their own state.
   required: false
   category: profile
+
+- id: wayland_native_session
+  name: Wayland native session
+  description: GTK shell uses the Wayland GDK backend when WAYLAND_DISPLAY is set (not X11-only).
+  required: false
+  category: window
+
+# Platform matrix (kind=platform). Every global required: true id must be in
+# implemented or planned. required_additive lists platform-only must-haves.
+- id: platform:linux-gtk-wayland
+  kind: platform
+  name: Linux GTK 4 on Wayland
+  chrome: chrome/linux
+  harness: harness_linux
+  engine_env: WEBKIT_GTK_BUILD
+  session_gdk_backend: wayland
+  session_notes: >
+    Production target is native Wayland (GDK_BACKEND=wayland, WAYLAND_DISPLAY set).
+    CI may use Xvfb/X11 for headless screenshots; harness smokes should prefer Wayland
+    when a compositor is available.
+  ui_profile: desktop_full
+  required_additive:
+    - url_secure_indicator
+    - wayland_native_session
+  implemented:
+    - navigate_to_url
+    - navigate_back_forward
+    - reload_stop
+    - find_on_page
+    - new_tab
+    - close_tab
+    - select_tab
+    - tab_strip
+    - url_bar
+    - url_secure_indicator
+    - url_suggestions
+    - add_bookmark
+    - list_bookmarks
+    - persist_bookmarks
+    - record_visit
+    - search_engine_select
+    - search_engine_route
+    - url_normalization
+    - keyboard_shortcuts
+    - wayland_native_session
+    - load_progress
+    - persist_open_tabs
+    - sidebar_visibility
+    - sidebar_tabs_list
+    - sidebar_saved_leaves
+    - history_view
+    - clear_history
+    - download_to_disk
+    - downloads_list
+    - cancel_download
+    - extensions_list
+    - private_window
+    - site_permissions
+    - settings_window
+    - share_page
+    - multiple_windows
+    - page_zoom
+    - hover_link_status
+    - duplicate_tab
+    - pin_tab
+    - close_other_tabs
+    - mute_tab
+    - tab_overview
+    - prewarm_tab
+    - tab_groups
+    - sidebar_tab_count
+    - sidebar_shared_with_you
+    - url_inline_add_bookmark
+    - url_reader_indicator
+    - page_settings_menu
+    - bookmarks_manager
+    - new_bookmark_folder
+    - reading_list
+    - history_keyboard_shortcut
+    - show_download_in_finder
+    - persist_downloads
+    - extensions_runtime
+    - extensions_toolbar_buttons
+    - extensions_popover
+    - extensions_store
+    - private_chrome_tint
+    - tracking_param_strip
+    - settings_search_pane
+    - settings_passwords_pane
+    - settings_extensions_pane
+    - passkey_signin
+    - passkey_manager
+    - web_inspector
+    - reader_mode
+    - translation
+    - add_to_dock
+    - welcome_panel
+    - sync_pairing
+    - profiles
+  planned: []
+  not_applicable:
+    - spotlight_index

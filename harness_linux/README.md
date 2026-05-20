@@ -2,6 +2,10 @@
 
 Smoke-test harness for the Webkitium GTK shell. Drives the running app via accessibility (AT-SPI), exercises the surface described by [`../features.yaml`](../features.yaml), and reports pass/fail per feature back to CI.
 
+**Wiring plan (phased, mirrors Windows):** [`../docs/LINUX_UI_WIRING_PLAN.md`](../docs/LINUX_UI_WIRING_PLAN.md)
+
+**Build + test script:** [`../scripts/linux_build_and_test.sh`](../scripts/linux_build_and_test.sh)
+
 **Prerequisite:** Linux chrome binary built with `WEBKIT_GTK_BUILD` pointing at the **pinned** GTK port (not distro `libwebkitgtk`). See [`docs/ENGINE_EMBED.md`](../docs/ENGINE_EMBED.md).
 
 ## Driver
@@ -10,7 +14,7 @@ Use the [`atspi`](https://crates.io/crates/atspi) Rust crate (AT-SPI 2 client) t
 
 ## First test to add
 
-`url_autocomplete` from `features.yaml`: type a partial query into the URL `Entry`, assert the suggestion popover appears with at least one row, assert Enter on the first row navigates the `WebView` to a non-`about:blank` URI.
+`url_suggestions` from `features.yaml` (platform `linux-gtk-wayland`): type a partial query into the URL `Entry`, assert the suggestion popover appears with at least one row, assert Enter on the first row navigates the `WebView` to a non-`about:blank` URI.
 
 ## Layout (to be added)
 
