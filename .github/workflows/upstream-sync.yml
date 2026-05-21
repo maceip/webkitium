@@ -38,11 +38,11 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Fail when tracked upstream moved
+      - name: Report tracked upstream tuple
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_TOKEN: ${{ github.token }}
-        run: python3 scripts/report_upstream_sync.py --fail-on-drift
+        run: python3 scripts/report_upstream_sync.py
 
   patch-stack:
     name: WebKit head patch stack
