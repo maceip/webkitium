@@ -106,9 +106,11 @@ COMMIT="$(git -C "$CACHE" rev-parse FETCH_HEAD)"
 WORKTREE="${WEBKIT_HEAD_WORKTREE:-${TMPDIR:-/tmp}/webkitium-webkit-${COMMIT:0:12}}"
 git -C "$CACHE" worktree remove --force "$WORKTREE" >/dev/null 2>&1 || true
 rm -rf "$WORKTREE"
-git -C "$CACHE" worktree add --detach "$WORKTREE" "$COMMIT"
+git -C "$CACHE" worktree add --detach --no-checkout "$WORKTREE" "$COMMIT"
 git -C "$WORKTREE" config core.autocrlf false
 git -C "$WORKTREE" config core.eol lf
+git -C "$WORKTREE" sparse-checkout init --no-cone
+git -C "$WORKTREE" sparse-checkout set Source Tools vcpkg.json
 git -C "$WORKTREE" reset --hard HEAD >/dev/null
 
 CHANGES_FILE="$ROOT/config/changes.json"
@@ -145,5 +147,5 @@ for platform in "${PLATFORMS[@]}"; do
     --webkit-root "$WORKTREE" \
     --platform "$platform" \
     --skip-pin-check \
-    --mode check
+    --mode apply
 done
