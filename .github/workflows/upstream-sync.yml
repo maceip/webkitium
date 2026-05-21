@@ -1,0 +1,69 @@
+name: upstream-sync
+
+on:
+  push:
+    paths:
+      - '.github/workflows/upstream-sync.yml'
+      - 'config/webkit-build-matrix.json'
+      - 'config/vcpkg-configuration.json'
+      - 'scripts/evaluate_webkit_head_patch_stack.sh'
+      - 'scripts/report_upstream_sync.py'
+      - 'webkit/patches/windows/**'
+  workflow_dispatch:
+    inputs:
+      webkit_ref:
+        description: "Official WebKit ref to test"
+        required: false
+        type: string
+        default: "main"
+      platforms:
+        description: "Space-separated patch platforms"
+        required: false
+        type: string
+        default: "windows"
+  schedule:
+    - cron: "17 6 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: upstream-sync
+  cancel-in-progress: false
+
+jobs:
+  drift:
+    name: WebKit and Dawn upstream drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fail when tracked upstream moved
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/report_upstream_sync.py --fail-on-drift
+
+  patch-stack:
+    name: WebKit head patch stack
+    runs-on:
+      - self-hosted
+      - Linux
+      - ARM64
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check patches against official WebKit head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          WEBKIT_REF: ${{ github.event.inputs.webkit_ref || 'main' }}
+          PLATFORMS: ${{ github.event.inputs.platforms || 'windows' }}
+        run: |
+          set -euo pipefail
+          args=(--ref "$WEBKIT_REF")
+          args+=(--base-only)
+          for platform in $PLATFORMS; do
+            args+=(--platform "$platform")
+          done
+          scripts/evaluate_webkit_head_patch_stack.sh "${args[@]}"

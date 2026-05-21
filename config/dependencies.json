@@ -40,7 +40,7 @@
           "upstreamRepo": "https://github.com/google/dawn.git",
           "upstreamTag": "v20260410.140140",
           "upstreamCommit": "493241c40dc94ca283c5e2b42a03911df870f359",
-          "vcpkgBaseline": "17e4940625388c7b893b6f3cb0bff43977da5a5f",
+          "vcpkgBaseline": "17e49406253886ef38305d876e2a21a23905aa4c",
           "baselineConfig": "config/vcpkg-configuration.json",
           "notes": [
             "Pinned via config/vcpkg-configuration.json. Every Windows builder,",

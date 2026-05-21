@@ -10,8 +10,8 @@
     "snapshotId": null
   },
   "source": {
-    "preset": "iangrunert-win-gigacage-skia-fixes",
-    "url": "https://github.com/iangrunert/WebKit.git",
+    "preset": "official-webkit-main",
+    "url": "https://github.com/WebKit/WebKit.git",
     "commit": "1f41867848acbe98dd9a7680365eecc2945de48d"
   },
   "environment": {

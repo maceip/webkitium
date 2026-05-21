@@ -39,7 +39,7 @@ index e75f6a7..d244c0a 100644
      m_backing = nullptr;
  }
  
-@@ -313,9 +319,9 @@ static RefPtr<WebKit::Mesh> createModelBackingInternal(unsigned width, unsigned
+@@ -313,7 +319,7 @@ static RefPtr<WebKit::Mesh> createModelBackingInternal(unsigned width, unsigned
  }
  #endif
  
@@ -48,8 +48,6 @@ index e75f6a7..d244c0a 100644
  {
 -#if ENABLE(GPU_PROCESS_MODEL)
      assertIsCurrent(workQueue());
- 
-     Ref objectHeap = m_modelObjectHeap.get();
 @@ -326,15 +332,8 @@ void RemoteGPU::createModelBacking(unsigned width, unsigned height, const WebMod
      auto mesh = createModelBackingInternal(width, height, diffuseTexture, specularTexture, gpuProcessConnection->webProcessIdentity(), WTF::move(callback));
      auto remoteMesh = RemoteMesh::create(*m_gpuConnectionToWebProcess.get(), *this, *mesh, objectHeap, protect(*m_streamConnection), identifier);

@@ -87,7 +87,7 @@ variable "sccache_version" {
 
 variable "vcpkg_baseline" {
   type    = string
-  default = "17e4940625388c7b893b6f3cb0bff43977da5a5f"
+  default = "17e49406253886ef38305d876e2a21a23905aa4c"
   description = "Must match config/webkit-build-matrix.json -> dawn.vcpkgBaseline"
 }
 

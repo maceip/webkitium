@@ -6,16 +6,18 @@
     "partGlob": "webkit-pin.tar.gz.part-*",
     "expectedCommit": "1f41867848acbe98dd9a7680365eecc2945de48d",
     "upstream": {
-      "preset": "iangrunert-win-gigacage-skia-fixes",
-      "url": "https://github.com/iangrunert/WebKit.git"
+      "preset": "official-webkit-main",
+      "url": "https://github.com/WebKit/WebKit.git",
+      "defaultBranch": "main",
+      "tracking": "Track official WebKit main. expectedCommit remains the tested source pin until a head-bump branch passes patch checks and platform CI."
     }
   },
   "dawn": {
-    "vcpkgBaseline": "17e4940625388c7b893b6f3cb0bff43977da5a5f",
+    "vcpkgBaseline": "17e49406253886ef38305d876e2a21a23905aa4c",
     "versionTag": "v20260410.140140",
     "commit": "493241c40dc94ca283c5e2b42a03911df870f359",
     "vcpkgConfigPath": "config/vcpkg-configuration.json",
-    "notes": "Windows only: Dawn comes from vcpkg port 'webgpu_dawn' at the pinned registry baseline. macOS/iOS/Linux GTK builds use the WebKit port defaults unless you add port-specific WebGPU flags."
+    "notes": "Windows only: Dawn comes from vcpkg port 'webgpu_dawn' at the pinned registry baseline. Keep config/vcpkg-configuration.json aligned with this baseline; bump Dawn with the WebKit pin only after the Windows WebGPU harness and WebKit patch stack are revalidated. macOS/iOS/Linux GTK builds use the WebKit port defaults unless you add port-specific WebGPU flags."
   },
   "cmake": {
     "enableExperimentalFeatures": true,

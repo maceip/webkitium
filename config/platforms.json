@@ -14,9 +14,9 @@
       "artifactPatterns": ["*.zip", "*.tar.gz", "*.7z", "*.exe", "*.msi", "*.log", "*.json", "*.html"],
       "presets": {
         "webgpu-dawn": {
-          "description": "Windows WebGPU/Dawn build on the iangrunert Gigacage/Skia fixes branch.",
+          "description": "Windows WebGPU/Dawn build on the official WebKit main pin.",
           "env": {
-            "NG_WINDOWS_SOURCE_PRESET": "iangrunert-win-gigacage-skia-fixes",
+            "NG_WINDOWS_SOURCE_PRESET": "official-webkit-main",
             "NG_WINDOWS_ENABLE_WEBGPU": "1",
             "NG_WINDOWS_ENABLE_SCCACHE": "1"
           },
@@ -40,7 +40,7 @@
         "webgpu-dawn-fast": {
           "description": "Warm Windows WebGPU/Dawn retry lane: reuse checkout, WebKitBuild, and local sccache.",
           "env": {
-            "NG_WINDOWS_SOURCE_PRESET": "iangrunert-win-gigacage-skia-fixes",
+            "NG_WINDOWS_SOURCE_PRESET": "official-webkit-main",
             "NG_WINDOWS_ENABLE_WEBGPU": "1",
             "NG_WINDOWS_ENABLE_SCCACHE": "1",
             "NG_WINDOWS_FAST_RETRY": "1",
@@ -63,7 +63,7 @@
         "webnn-litert": {
           "description": "Windows WebNN/LiteRT-LM build for ML inference acceleration.",
           "env": {
-            "NG_WINDOWS_SOURCE_PRESET": "iangrunert-win-gigacage-skia-fixes",
+            "NG_WINDOWS_SOURCE_PRESET": "official-webkit-main",
             "NG_WINDOWS_ENABLE_WEBNN": "1",
             "NG_WINDOWS_ENABLE_WEBGPU": "1",
             "NG_WINDOWS_ENABLE_SCCACHE": "1"

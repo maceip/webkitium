@@ -3,10 +3,10 @@
   "default-registry": {
     "kind": "git",
     "repository": "https://github.com/microsoft/vcpkg",
-    "baseline": "17e4940625388c7b893b6f3cb0bff43977da5a5f"
+    "baseline": "17e49406253886ef38305d876e2a21a23905aa4c"
   },
   "_notes": [
-    "Baseline 17e4940625388c7b893b6f3cb0bff43977da5a5f is the microsoft/vcpkg commit",
+    "Baseline 17e49406253886ef38305d876e2a21a23905aa4c is the microsoft/vcpkg commit",
     "'[dawn] Update to 20260410.140140 [skia] Update to 148 (#51241)' dated 2026-04-20.",
     "At that baseline, port 'dawn' resolves to google/dawn tag v20260410.140140 ",
     "(commit 493241c40dc94ca283c5e2b42a03911df870f359). Pinning here so every",
