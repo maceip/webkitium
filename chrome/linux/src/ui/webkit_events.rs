@@ -80,6 +80,9 @@ pub fn attach_tab(
         true
     });
 
+    // HTTP auth / passkey — defer to future WebAuthn portal; deny for now.
+    webview.connect_authenticate(|_, _| false);
+
     // Audio playing → tab meta hint (mute UI uses set_is_muted separately)
     let st_audio = state.clone();
     webview.connect_is_playing_audio_notify(move |wv| {

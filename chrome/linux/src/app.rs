@@ -50,19 +50,23 @@ impl WebkitiumApp {
             let this = Rc::clone(&this);
             move |app| {
                 if app.windows().is_empty() {
-                    this.spawn_window(app, false);
+                    let private = std::env::var("WEBKITIUM_HARNESS_PRIVATE").is_ok();
+                    this.spawn_window(app, private);
+                    if std::env::var("WEBKITIUM_HARNESS_SECOND_WINDOW").is_ok() {
+                        this.spawn_window(app, false);
+                    }
                 }
             }
         });
         self.wire_app_menu(&this);
         self.wire_global_accels();
-        let glib_argv: Vec<std::ffi::OsString> = argv
+        let glib_argv: Vec<String> = argv
             .iter()
             .filter(|a| !a.starts_with("--profile-dir"))
-            .map(std::convert::AsRef::as_ref)
-            .map(std::ffi::OsString::from)
+            .cloned()
             .collect();
-        self.app.run_with_args(&glib_argv)
+        let glib_argv_refs: Vec<&str> = glib_argv.iter().map(String::as_str).collect();
+        self.app.run_with_args(&glib_argv_refs)
     }
 
     fn alloc_window_id(&self) -> i64 {
@@ -82,8 +86,9 @@ impl WebkitiumApp {
             self.extensions.as_ref(),
         );
         win.present();
+        let harness = std::env::vars().any(|(k, _)| k.starts_with("WEBKITIUM_HARNESS"));
         let s = self.settings.borrow();
-        if s.show_welcome {
+        if s.show_welcome && !harness {
             crate::ui::dialogs::show_welcome(&win.window());
             drop(s);
             self.settings.borrow_mut().show_welcome = false;
@@ -107,13 +112,22 @@ impl WebkitiumApp {
         view.append(Some("History"), Some("app.history"));
         view.append(Some("Bookmarks"), Some("app.bookmarks"));
         view.append(Some("Extensions"), Some("app.extensions"));
+        view.append(Some("Reader Mode"), Some("win.reader"));
+        view.append(Some("Translate Page"), Some("win.translate"));
+        view.append(Some("Add to Reading List"), Some("win.reading-list"));
+        view.append(Some("Web Inspector"), Some("win.inspector"));
+        view.append(Some("Add to Dock"), Some("win.add-to-dock"));
+        view.append(Some("Tab Groups"), Some("win.tab-groups"));
         app_menu.append_submenu(Some("View"), &view);
 
         let help = gio::Menu::new();
         help.append(Some("Welcome"), Some("app.welcome"));
         app_menu.append_submenu(Some("Help"), &help);
 
-        self.app.set_menubar(Some(&app_menu));
+        let menubar = app_menu.clone();
+        self.app.connect_startup(move |app| {
+            app.set_menubar(Some(&menubar));
+        });
 
         let application = self.app.clone();
         let action_new = gio::SimpleAction::new("new-window", None);
@@ -160,6 +174,12 @@ impl WebkitiumApp {
                 dialogs::show_extensions_list(&list, &w);
             }
         }));
+        let action_dl = gio::SimpleAction::new("downloads", None);
+        action_dl.connect_activate(clone!(@strong application => move |_, _| {
+            if let Some(w) = application.active_window() {
+                let _ = w.activate_action("win.downloads", None);
+            }
+        }));
 
         self.app.add_action(&action_new);
         self.app.add_action(&action_private);
@@ -169,6 +189,7 @@ impl WebkitiumApp {
         self.app.add_action(&action_history);
         self.app.add_action(&action_bm);
         self.app.add_action(&action_ext);
+        self.app.add_action(&action_dl);
     }
 
     fn wire_global_accels(&self) {

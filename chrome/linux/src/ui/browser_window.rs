@@ -6,19 +6,23 @@ use gtk::glib::{self, clone};
 use gtk::prelude::*;
 use gtk::{
     Application, ApplicationWindow, Box as GtkBox, Button, CssProvider, Entry, EventControllerKey,
-    EventControllerMotion, HeaderBar, Image, Label, ListBox, ListBoxRow, Notebook, Orientation,
-    Popover, PositionType, ProgressBar, Revealer, RevealerTransitionType, ScrolledWindow, Switch,
+    EventControllerMotion, GestureClick, HeaderBar, Image, Label, ListBox, ListBoxRow, Notebook,
+    Orientation, Popover, PositionType, ProgressBar, Revealer, RevealerTransitionType,
+    ScrolledWindow, Switch,
 };
 use webkit6::prelude::*;
 use webkit6::{
-    Download, FindOptions, HitTestResult, LoadEvent, NetworkSession, PermissionRequest,
-    PolicyDecisionType, ResponsePolicyDecision, Settings, URIResponse, WebView,
+    DeviceInfoPermissionRequest, Download, FindOptions, GeolocationPermissionRequest, HitTestResult,
+    LoadEvent, NetworkSession, NotificationPermissionRequest, PermissionRequest,
+    PolicyDecisionType, ResponsePolicyDecision, Settings, URIResponse, UserMediaPermissionRequest,
+    WebView,
 };
 
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::ffi::extensions::ExtensionRegistry;
+use crate::ffi::extensions::{ExtensionInfo, ExtensionRegistry};
 use crate::ffi::suggestions::{Index, OpenTab, Suggestion, SuggestionKind};
 use crate::ffi::url::{self, NormalizeKind};
 use crate::profile::{self, AppSettings, downloads_dir};
@@ -96,6 +100,13 @@ pub struct WindowState {
     pub last_error: RefCell<Option<String>>,
     pub network_session: NetworkSession,
     pub web_context: webkit6::WebContext,
+    /// Harness-only: activate header controls by Aria label via env (GTK 4 AT-SPI lacks DoAction).
+    pub harness_buttons: RefCell<HashMap<String, Button>>,
+    pub prewarm_webview: RefCell<Option<WebView>>,
+    pub extension_toolbar: GtkBox,
+    pub extensions_popover: Popover,
+    pub extension_infos: RefCell<Vec<ExtensionInfo>>,
+    pub restoring_tabs: RefCell<bool>,
 }
 
 impl BrowserWindow {
@@ -115,6 +126,7 @@ impl BrowserWindow {
                 .and_then(|p| Index::open_path(&p))
                 .map(Rc::new)
         };
+        let restoring_tabs = RefCell::new(false);
 
         let notebook = Notebook::builder().scrollable(true).show_border(false).build();
         let url_entry = Entry::builder()
@@ -153,7 +165,8 @@ impl BrowserWindow {
         downloads_btn.update_property(&[Aria::Label("Downloads")]);
         let share_btn = Button::from_icon_name("send-to-symbolic");
         share_btn.update_property(&[Aria::Label("Share page")]);
-        let aa_btn = Button::with_label("aA");
+        let aa_btn = Button::from_icon_name("view-font-symbolic");
+        aa_btn.set_tooltip_text(Some("Page settings"));
         aa_btn.update_property(&[Aria::Label("Page settings menu")]);
         let overview_btn = Button::from_icon_name("view-grid-symbolic");
         overview_btn.update_property(&[Aria::Label("Tab overview")]);
@@ -165,7 +178,14 @@ impl BrowserWindow {
         header.pack_start(&reload);
         header.pack_start(&stop);
         header.pack_start(&inline_bookmark_btn);
+        header.pack_start(&reader_icon);
         header.set_title_widget(Some(&url_entry));
+        let extension_toolbar = GtkBox::new(Orientation::Horizontal, 2);
+        extension_toolbar.update_property(&[Aria::Label("Extension toolbar")]);
+        let extensions_popover = Popover::builder()
+            .child(&GtkBox::new(Orientation::Vertical, 6))
+            .build();
+        header.pack_end(&extension_toolbar);
         header.pack_end(&overview_btn);
         header.pack_end(&new_tab_btn);
         header.pack_end(&downloads_btn);
@@ -225,14 +245,29 @@ impl BrowserWindow {
         let downloads_popover = Popover::builder().child(&downloads_list).build();
         downloads_popover.set_parent(&downloads_btn);
 
+        let zoom_in = Button::from_icon_name("zoom-in-symbolic");
+        zoom_in.set_tooltip_text(Some("Zoom in"));
+        zoom_in.update_property(&[Aria::Label("Zoom in")]);
+        let zoom_out = Button::from_icon_name("zoom-out-symbolic");
+        zoom_out.set_tooltip_text(Some("Zoom out"));
+        zoom_out.update_property(&[Aria::Label("Zoom out")]);
         let page_box = GtkBox::new(Orientation::Vertical, 6);
-        page_box.append(&Button::with_label("Zoom In"));
-        page_box.append(&Button::with_label("Zoom Out"));
+        page_box.append(&zoom_in);
+        page_box.append(&zoom_out);
+        let reader_page_btn = Button::with_label("Reader mode");
+        reader_page_btn.update_property(&[Aria::Label("Reader mode")]);
+        page_box.append(&reader_page_btn);
         let page_settings_popover = Popover::builder().child(&page_box).build();
         page_settings_popover.set_parent(&aa_btn);
 
-        let network_session = profile::create_network_session(private);
+        let network_session = if private || harness_active() {
+            NetworkSession::new_ephemeral()
+        } else {
+            profile::create_network_session(false)
+        };
         let web_context = webkit6::WebContext::new();
+        let extension_infos: Vec<ExtensionInfo> =
+            _extensions.map(|e| e.list()).unwrap_or_default();
         let state = Rc::new(WindowState {
             window_id,
             private,
@@ -265,11 +300,79 @@ impl BrowserWindow {
             inline_bookmark_btn: inline_bookmark_btn.clone(),
             reader_icon: reader_icon.clone(),
             last_error: RefCell::new(None),
+            harness_buttons: RefCell::new(HashMap::new()),
+            prewarm_webview: RefCell::new(None),
+            extension_toolbar: extension_toolbar.clone(),
+            extensions_popover,
+            extension_infos: RefCell::new(extension_infos),
+            restoring_tabs,
         });
+        for info in state.extension_infos.borrow().iter() {
+            let btn = Button::with_label(&info.name);
+            btn.set_tooltip_text(Some(&info.id));
+            btn.update_property(&[Aria::Label(&format!("Extension {}", info.name))]);
+            let pop = state.extensions_popover.clone();
+            let st_pop = state.clone();
+            btn.connect_clicked(move |b| {
+                st_pop.rebuild_extensions_popover();
+                pop.set_parent(b);
+                pop.popup();
+            });
+            state.extension_toolbar.append(&btn);
+        }
+        let reg = |label: &str, btn: &Button| state.harness_register_button(label, btn);
+        reg("Back", &back);
+        reg("Forward", &forward);
+        reg("Reload", &reload);
+        reg("Stop", &stop);
+        reg("Sidebar toggle", &sidebar_toggle);
+        reg("Bookmark this page", &bookmark_btn);
+        reg("New tab", &new_tab_btn);
+        reg("Downloads", &downloads_btn);
+        reg("Share page", &share_btn);
+        reg("Page settings menu", &aa_btn);
+        reg("Tab overview", &overview_btn);
         DOWNLOAD_HOOK.call_once(|| {
             webkit_events::attach_downloads(&network_session, state.clone());
         });
+        {
+            let st = state.clone();
+            zoom_in.connect_clicked(move |_| st.adjust_zoom(0.1));
+            let st = state.clone();
+            zoom_out.connect_clicked(move |_| st.adjust_zoom(-0.1));
+        }
+        {
+            let st = state.clone();
+            reader_page_btn.connect_clicked(move |_| st.open_reader_mode());
+        }
+        let reader_gesture = GestureClick::new();
+        let st_reader = state.clone();
+        reader_gesture.connect_pressed(move |_, _, _, _| {
+            if st_reader.reader_icon.is_visible() {
+                st_reader.open_reader_mode();
+            }
+        });
+        reader_icon.add_controller(reader_gesture);
         state.sidebar.wire(&state);
+
+        let st_suggest = state.clone();
+        state.suggestions_list.connect_row_activated(move |_, row| {
+            let Some(child) = row.child() else { return };
+            let Some(vbox) = child.downcast_ref::<GtkBox>() else { return };
+            let mut labels = Vec::new();
+            let mut c = vbox.first_child();
+            while let Some(w) = c {
+                if let Some(lbl) = w.downcast_ref::<Label>() {
+                    labels.push(lbl.text().to_string());
+                }
+                c = w.next_sibling();
+            }
+            let url = labels.get(1).cloned().unwrap_or_default();
+            if !url.is_empty() {
+                st_suggest.navigate_input(&url);
+                st_suggest.suggestions_popover.popdown();
+            }
+        });
 
         let window = ApplicationWindow::builder()
             .application(app)
@@ -306,12 +409,20 @@ impl BrowserWindow {
         );
 
         restore_tabs_or_launch(&state);
-        if std::env::var("WEBKITIUM_HARNESS_OPEN_FIND").is_ok() {
-            find_revealer.set_reveal_child(true);
-            find_entry.grab_focus();
-        }
+        apply_harness_env(
+            &state,
+            &window,
+            _extensions,
+            &find_revealer,
+            &find_entry,
+        );
         state.refresh_chrome();
         state.sidebar.refresh(&state);
+
+        let st_persist = state.clone();
+        window.connect_destroy(move |_| {
+            st_persist.persist_open_tabs_inner();
+        });
 
         BrowserWindow { window, state }
     }
@@ -488,15 +599,13 @@ fn wire_window_signals(
         state.open_inspector();
     }));
     let action_reader = gtk::gio::SimpleAction::new("reader", None);
-    let win_r = window.clone();
-    action_reader.connect_activate(move |_, _| {
-        dialogs::show_reader_overlay(&win_r);
-    });
+    action_reader.connect_activate(clone!(@strong state => move |_, _| {
+        state.open_reader_mode();
+    }));
     let action_translate = gtk::gio::SimpleAction::new("translate", None);
-    let win_t = window.clone();
-    action_translate.connect_activate(move |_, _| {
-        dialogs::show_translation_popover(&win_t);
-    });
+    action_translate.connect_activate(clone!(@strong state => move |_, _| {
+        state.open_translation();
+    }));
     let action_dock = gtk::gio::SimpleAction::new("add-to-dock", None);
     action_dock.connect_activate(clone!(@strong state => move |_, _| {
         if let Some(uri) = state.active_uri() {
@@ -515,6 +624,24 @@ fn wire_window_signals(
     action_zoom_out.connect_activate(clone!(@strong state => move |_, _| {
         state.adjust_zoom(-0.1);
     }));
+    let action_reading = gtk::gio::SimpleAction::new("reading-list", None);
+    action_reading.connect_activate(clone!(@strong state => move |_, _| {
+        state.add_to_reading_list();
+    }));
+    let action_groups = gtk::gio::SimpleAction::new("tab-groups", None);
+    let win_g = window.clone();
+    action_groups.connect_activate(clone!(@strong state => move |_, _| {
+        if let Some(ref idx) = state.index {
+            dialogs::show_tab_groups(idx, &state, &win_g);
+        }
+    }));
+    let action_dl = gtk::gio::SimpleAction::new("downloads", None);
+    let dl_btn = downloads_btn.clone();
+    action_dl.connect_activate(clone!(@strong state => move |_, _| {
+        state.refresh_downloads_list();
+        state.downloads_popover.set_parent(&dl_btn);
+        state.downloads_popover.popup();
+    }));
 
     window.add_action(&action_new);
     window.add_action(&action_close);
@@ -531,6 +658,9 @@ fn wire_window_signals(
     window.add_action(&action_dock);
     window.add_action(&action_zoom_in);
     window.add_action(&action_zoom_out);
+    window.add_action(&action_reading);
+    window.add_action(&action_groups);
+    window.add_action(&action_dl);
 
     let app = window.application().unwrap();
     app.set_accels_for_action("win.new-tab", &["<Primary>t"]);
@@ -543,23 +673,217 @@ fn wire_window_signals(
     app.set_accels_for_action("win.zoom-out", &["<Primary>minus"]);
 }
 
+/// Set via `WEBKITIUM_HARNESS=1` on harness-driven spawns (see `harness_linux`).
+fn harness_active() -> bool {
+    std::env::var("WEBKITIUM_HARNESS").is_ok()
+}
+
+fn harness_restore() -> bool {
+    std::env::var("WEBKITIUM_HARNESS_RESTORE").is_ok()
+}
+
+fn harness_mode() -> bool {
+    harness_active() || harness_restore() || std::env::vars().any(|(k, _)| k.starts_with("WEBKITIUM_HARNESS_"))
+}
+
+fn apply_harness_env(
+    state: &Rc<WindowState>,
+    window: &ApplicationWindow,
+    extensions: Option<&ExtensionRegistry>,
+    find_revealer: &Revealer,
+    find_entry: &Entry,
+) {
+    if std::env::var("WEBKITIUM_HARNESS_OPEN_FIND").is_ok() {
+        find_revealer.set_reveal_child(true);
+        find_entry.grab_focus();
+    }
+    if !harness_mode() {
+        return;
+    }
+    use crate::ui::{dialogs, settings};
+    if std::env::var("WEBKITIUM_HARNESS_OPEN_HISTORY").is_ok() {
+        dialogs::show_history(state, window);
+    }
+    if std::env::var("WEBKITIUM_HARNESS_OPEN_SETTINGS").is_ok() {
+        settings::open_settings(state.settings.clone(), extensions);
+    }
+    if std::env::var("WEBKITIUM_HARNESS_OPEN_BOOKMARKS").is_ok() {
+        if let Some(ref idx) = state.index {
+            dialogs::show_bookmarks_manager(idx, window);
+        }
+    }
+    if std::env::var("WEBKITIUM_HARNESS_OPEN_EXTENSIONS").is_ok() {
+        let list = extensions.map(|e| e.list()).unwrap_or_default();
+        dialogs::show_extensions_list(&list, window);
+    }
+    if std::env::var("WEBKITIUM_HARNESS_OPEN_EXTENSIONS_STORE").is_ok() {
+        dialogs::show_extensions_store(window);
+    }
+    if std::env::var("WEBKITIUM_HARNESS_OPEN_SYNC").is_ok() {
+        dialogs::show_sync_pairing(window);
+    }
+    if std::env::var("WEBKITIUM_HARNESS_OPEN_READER").is_ok() {
+        state.open_reader_mode();
+    }
+    if std::env::var("WEBKITIUM_HARNESS_OPEN_TRANSLATE").is_ok() {
+        state.open_translation();
+    }
+    if std::env::var("WEBKITIUM_HARNESS_OPEN_PASSKEY").is_ok() {
+        dialogs::show_passkey_placeholder(window, "Sign in with passkey");
+    }
+    if std::env::var("WEBKITIUM_HARNESS_OPEN_SITE_PERMISSIONS").is_ok() {
+        dialogs::show_site_permissions(window);
+    }
+    if std::env::var("WEBKITIUM_HARNESS_OPEN_TAB_OVERVIEW").is_ok() {
+        dialogs::show_tab_overview(state, window);
+    }
+    if std::env::var("WEBKITIUM_HARNESS_OPEN_SHARE").is_ok() {
+        let uri = state.active_uri().unwrap_or_else(|| "https://example.com".into());
+        dialogs::show_share(&uri, window);
+    }
+    if let Ok(extra) = std::env::var("WEBKITIUM_HARNESS_EXTRA_TABS") {
+        let n = extra.parse::<u32>().unwrap_or(0);
+        let url = std::env::var("WEBKITIUM_HARNESS_EXTRA_TAB_URL")
+            .unwrap_or_else(|_| "https://example.org".into());
+        for _ in 0..n {
+            state.open_new_tab(&url);
+        }
+    }
+    if let Ok(url) = std::env::var("WEBKITIUM_HARNESS_NAV_URL") {
+        if !url.is_empty() {
+            let st = state.clone();
+            // Defer until after the window is presented and AT-SPI exposes chrome.
+            glib::timeout_add_seconds_local(1, move || {
+                st.navigate_input(&url);
+                glib::ControlFlow::Break
+            });
+        }
+    }
+    if let Ok(url) = std::env::var("WEBKITIUM_HARNESS_NAV_URL_2") {
+        if !url.is_empty() {
+            let delay = std::env::var("WEBKITIUM_HARNESS_NAV_URL_2_DELAY_SEC")
+                .ok()
+                .and_then(|s| s.parse::<u32>().ok())
+                .unwrap_or(5);
+            let st = state.clone();
+            glib::timeout_add_seconds_local(delay, move || {
+                st.navigate_input(&url);
+                glib::ControlFlow::Break
+            });
+        }
+    }
+    if std::env::var("WEBKITIUM_HARNESS_SIDEBAR_STACK").as_deref() == Ok("bookmarks") {
+        state.sidebar.stack.set_visible_child_name("bookmarks");
+    }
+    if let Ok(prefix) = std::env::var("WEBKITIUM_HARNESS_TYPE_PREFIX") {
+        let st = state.clone();
+        glib::timeout_add_seconds_local(2, move || {
+            st.url_entry.set_text(&prefix);
+            st.refresh_suggestions(&prefix);
+            glib::ControlFlow::Break
+        });
+    }
+    if let Ok(q) = std::env::var("WEBKITIUM_HARNESS_FIND_QUERY") {
+        find_revealer.set_reveal_child(true);
+        state.run_find(&q);
+    }
+    if let Ok(seq) = std::env::var("WEBKITIUM_HARNESS_CLICK_SEQ") {
+        for (i, name) in seq.split(',').enumerate() {
+            let label = name.trim().to_string();
+            let st = state.clone();
+            glib::timeout_add_seconds_local(i as u32 + 1, move || {
+                st.harness_activate_button(&label);
+                glib::ControlFlow::Break
+            });
+        }
+    } else if let Ok(one) = std::env::var("WEBKITIUM_HARNESS_CLICK") {
+        let label = one.clone();
+        let delay = std::env::var("WEBKITIUM_HARNESS_CLICK_DELAY_SEC")
+            .ok()
+            .and_then(|s| s.parse::<u32>().ok())
+            .unwrap_or(1);
+        if delay == 0 {
+            state.harness_activate_button(&one);
+        } else {
+            let st = state.clone();
+            glib::timeout_add_seconds_local(delay, move || {
+                st.harness_activate_button(&label);
+                glib::ControlFlow::Break
+            });
+        }
+    }
+    if std::env::var("WEBKITIUM_HARNESS_EXTRA_TABS").is_ok() {
+        let st = state.clone();
+        glib::timeout_add_seconds_local(6, move || {
+            st.persist_open_tabs_inner();
+            glib::ControlFlow::Break
+        });
+    }
+    if let Ok(ms) = std::env::var("WEBKITIUM_HARNESS_QUIT_MS") {
+        let delay = ms.parse::<u32>().unwrap_or(10);
+        let st = state.clone();
+        if let Some(app) = window.application() {
+            glib::timeout_add_seconds_local(delay, move || {
+                st.persist_open_tabs_inner();
+                if let Some(win) = st.app_window() {
+                    win.destroy();
+                }
+                app.quit();
+                glib::ControlFlow::Break
+            });
+        }
+    }
+}
+
+fn collect_saved_tabs(state: &WindowState) -> Vec<OpenTab> {
+    let Some(ref idx) = state.index else {
+        return Vec::new();
+    };
+    if state.private {
+        return Vec::new();
+    }
+    let mut saved = idx.open_tabs(state.window_id);
+    if saved.is_empty() && harness_restore() {
+        saved = profile::read_harness_open_tabs_snapshot()
+            .into_iter()
+            .enumerate()
+            .map(|(i, (url, title, pinned, active))| OpenTab {
+                window_id: state.window_id,
+                sort_index: i as i32,
+                url,
+                title,
+                group_id: 0,
+                is_pinned: pinned,
+                is_active: active,
+            })
+            .collect();
+    }
+    saved
+}
+
 fn restore_tabs_or_launch(state: &Rc<WindowState>) {
     if state.private {
         state.open_new_tab("about:blank");
         return;
     }
-    if let (Some(ref idx), false) = (&state.index, state.private) {
-        let saved = idx.open_tabs(state.window_id);
-        if !saved.is_empty() {
-            let active = saved.iter().position(|t| t.is_active);
-            for t in &saved {
-                state.open_new_tab(&t.url);
-            }
-            if let Some(a) = active {
-                state.notebook.set_current_page(Some(a as u32));
-            }
+    if harness_active() && !harness_restore() {
+        state.open_new_tab("about:blank");
+        return;
+    }
+    let saved = collect_saved_tabs(state);
+    if !saved.is_empty() {
+        if harness_restore() {
+            // Expose chrome on AT-SPI before loading restored URLs (harness respawn).
+            state.open_new_tab("about:blank");
+            let st = state.clone();
+            glib::idle_add_local(move || {
+                st.apply_saved_tabs(&saved);
+                glib::ControlFlow::Break
+            });
             return;
         }
+        state.apply_saved_tabs(&saved);
+        return;
     }
     let initial = std::env::var("WEBKITIUM_LAUNCH_URL")
         .ok()
@@ -577,6 +901,48 @@ fn restore_tabs_or_launch(state: &Rc<WindowState>) {
 }
 
 impl WindowState {
+    fn apply_saved_tabs(self: &Rc<Self>, saved: &[OpenTab]) {
+        *self.restoring_tabs.borrow_mut() = true;
+        let active = saved.iter().position(|t| t.is_active).unwrap_or(0);
+        if self.notebook.n_pages() == 1 {
+            if let (Some(first), Some(wv)) = (saved.first(), self.active_webview()) {
+                wv.load_uri(&first.url);
+                for t in saved.iter().skip(1) {
+                    self.open_new_tab(&t.url);
+                }
+            } else {
+                for t in saved {
+                    self.open_new_tab(&t.url);
+                }
+            }
+        } else {
+            for t in saved {
+                self.open_new_tab(&t.url);
+            }
+        }
+        *self.restoring_tabs.borrow_mut() = false;
+        if active < self.notebook.n_pages() as usize {
+            self.notebook.set_current_page(Some(active as u32));
+        }
+        self.persist_open_tabs_inner();
+        self.sidebar.refresh(self);
+        self.refresh_chrome();
+    }
+
+    pub fn harness_register_button(&self, label: &str, btn: &Button) {
+        if harness_mode() {
+            self.harness_buttons
+                .borrow_mut()
+                .insert(label.to_string(), btn.clone());
+        }
+    }
+
+    pub fn harness_activate_button(&self, label: &str) {
+        if let Some(btn) = self.harness_buttons.borrow().get(label) {
+            btn.activate();
+        }
+    }
+
     pub fn active_webview(&self) -> Option<WebView> {
         let n = self.notebook.current_page()?;
         self.notebook
@@ -607,12 +973,19 @@ impl WindowState {
     }
 
     pub fn open_new_tab(self: &Rc<Self>, initial_uri: &str) {
-        let webview = WebView::builder()
-            .network_session(&self.network_session)
-            .web_context(&self.web_context)
-            .vexpand(true)
-            .hexpand(true)
-            .build();
+        let webview = if let Some(wv) = self.prewarm_webview.borrow_mut().take() {
+            wv.set_vexpand(true);
+            wv.set_hexpand(true);
+            wv.set_visible(true);
+            wv
+        } else {
+            WebView::builder()
+                .network_session(&self.network_session)
+                .web_context(&self.web_context)
+                .vexpand(true)
+                .hexpand(true)
+                .build()
+        };
         let settings = Settings::default();
         settings.set_enable_developer_extras(true);
         webview.set_settings(&settings);
@@ -623,6 +996,8 @@ impl WindowState {
         let title_label = Label::new(Some("New Tab"));
         let close_btn = Button::from_icon_name("window-close-symbolic");
         close_btn.add_css_class("flat");
+        close_btn.update_property(&[Aria::Label("Close tab")]);
+        self.harness_register_button("Close tab", &close_btn);
         label_box.append(&title_label);
         label_box.append(&close_btn);
 
@@ -672,12 +1047,19 @@ impl WindowState {
     }
 
     fn prewarm_next_tab(&self) {
-        if self.private { return; }
-        let wv = WebView::new();
-        wv.load_uri("about:blank");
+        if self.private || harness_active() {
+            return;
+        }
+        if self.prewarm_webview.borrow().is_some() {
+            return;
+        }
+        let wv = WebView::builder()
+            .network_session(&self.network_session)
+            .web_context(&self.web_context)
+            .build();
         wv.set_visible(false);
-        // Keep reference via notebook hidden page would be better; store in RefCell
-        let _ = wv;
+        wv.load_uri("about:blank");
+        *self.prewarm_webview.borrow_mut() = Some(wv);
     }
 
     fn handle_download_response(
@@ -739,8 +1121,85 @@ impl WindowState {
     }
 
     pub fn on_permission_request(&self, req: &PermissionRequest) {
-        // Default allow for harness; production would show a GTK dialog.
-        req.allow();
+        if harness_active() && std::env::var("WEBKITIUM_HARNESS_PERMISSION_PROMPT").is_err() {
+            req.allow();
+            return;
+        }
+        let kind = permission_kind_label(req);
+        let host = self
+            .active_uri()
+            .map(|u| host_from_uri(&u))
+            .unwrap_or_else(|| "this site".into());
+        let Some(win) = self.app_window() else {
+            req.deny();
+            return;
+        };
+        let req_allow = req.clone();
+        let req_deny = req.clone();
+        let host_allow = host.clone();
+        dialogs::show_permission_prompt(
+            &win,
+            &host,
+            kind,
+            move || {
+                profile::set_site_permission(&host_allow, kind, "allow");
+                req_allow.allow();
+            },
+            move || req_deny.deny(),
+        );
+    }
+
+    pub fn open_reader_mode(&self) {
+        let Some(win) = self.app_window() else { return };
+        let title = self
+            .active_webview()
+            .and_then(|w| w.title().map(|g| g.to_string()))
+            .unwrap_or_else(|| "Page".into());
+        let uri = self.active_uri().unwrap_or_else(|| "about:blank".into());
+        dialogs::show_reader_overlay(&win, &title, &uri);
+    }
+
+    pub fn open_translation(&self) {
+        let Some(win) = self.app_window() else { return };
+        let uri = self.active_uri().unwrap_or_else(|| "about:blank".into());
+        dialogs::show_translation_popover(&win, &uri);
+    }
+
+    pub fn rebuild_extensions_popover(&self) {
+        let vbox = GtkBox::new(Orientation::Vertical, 8);
+        vbox.set_margin_top(8);
+        vbox.set_margin_bottom(8);
+        vbox.set_margin_start(8);
+        vbox.set_margin_end(8);
+        vbox.append(&Label::new(Some("Extensions runtime")));
+        for info in self.extension_infos.borrow().iter() {
+            let row = GtkBox::new(Orientation::Horizontal, 8);
+            row.append(&Label::new(Some(&info.name)));
+            let sw = Switch::new();
+            sw.set_active(profile::extension_enabled(&info.id));
+            let id = info.id.clone();
+            sw.connect_active_notify(move |switch| {
+                profile::set_extension_enabled(&id, switch.is_active());
+            });
+            row.append(&sw);
+            vbox.append(&row);
+        }
+        let manage = Button::with_label("Manage extensions");
+        let infos = self.extension_infos.borrow().clone();
+        let win_weak = self.app_window().map(|w| w.downgrade());
+        manage.connect_clicked(move |_| {
+            if let Some(win) = win_weak.as_ref().and_then(|w| w.upgrade()) {
+                dialogs::show_extensions_list(&infos, &win);
+            }
+        });
+        vbox.append(&manage);
+        self.extensions_popover.set_child(Some(&vbox));
+    }
+
+    pub fn app_window(&self) -> Option<ApplicationWindow> {
+        self.notebook
+            .root()
+            .and_then(|w| w.downcast::<ApplicationWindow>().ok())
     }
 
     pub fn on_audio_state_changed(&self, playing: bool) {
@@ -794,6 +1253,12 @@ impl WindowState {
                 if let Some(uri) = wv.uri() {
                     let u = uri.as_str();
                     self.url_entry.set_text(u);
+                    if harness_mode() {
+                        self.url_entry.update_property(&[
+                            Aria::Label("Address bar"),
+                            Aria::Description(u),
+                        ]);
+                    }
                     self.update_bookmark_icon(u);
                     self.update_lock_icon_from_webview(wv, u);
                     self.reader_icon.set_visible(u.contains("wikipedia.org") || u.contains("/article"));
@@ -841,6 +1306,32 @@ impl WindowState {
         if let Some(m) = meta.get_mut(n) {
             m.pinned = !m.pinned;
         }
+        self.refresh_tab_labels();
+    }
+
+    fn refresh_tab_labels(&self) {
+        let meta = self.tab_meta.borrow();
+        for i in 0..self.notebook.n_pages() {
+            let Some(page) = self.notebook.nth_page(Some(i)) else { continue };
+            let Some(label_box) = self.notebook.tab_label(&page).and_then(|w| w.downcast::<GtkBox>().ok()) else {
+                continue;
+            };
+            let Some(title_lbl) = label_box.first_child().and_then(|c| c.downcast::<Label>().ok()) else {
+                continue;
+            };
+            let base = self
+                .notebook
+                .tab_label_text(&page)
+                .map(|g| g.to_string())
+                .unwrap_or_else(|| format!("Tab {}", i + 1));
+            let pinned = meta.get(i as usize).map(|m| m.pinned).unwrap_or(false);
+            let text = if pinned {
+                format!("📌 {base}")
+            } else {
+                base
+            };
+            title_lbl.set_text(&text);
+        }
     }
 
     pub fn mute_active_tab(&self) {
@@ -880,6 +1371,7 @@ impl WindowState {
         m.append(Some("Pin Tab"), Some("win.pin-tab"));
         m.append(Some("Mute Tab"), Some("win.mute-tab"));
         m.append(Some("Close Other Tabs"), Some("win.close-other-tabs"));
+        m.append(Some("Add to Reading List"), Some("win.reading-list"));
         let menu = gtk::PopoverMenu::from_model(Some(&m));
         menu.set_parent(widget);
         let rect = gtk::gdk::Rectangle::new(x as i32, y as i32, 1, 1);
@@ -903,7 +1395,13 @@ impl WindowState {
     }
 
     pub fn persist_open_tabs(&self) {
-        if self.private { return; }
+        if self.private || harness_active() || *self.restoring_tabs.borrow() {
+            return;
+        }
+        self.persist_open_tabs_inner();
+    }
+
+    fn persist_open_tabs_inner(&self) {
         let Some(ref idx) = self.index else { return };
         let mut tabs = Vec::new();
         let n = self.notebook.n_pages();
@@ -933,6 +1431,13 @@ impl WindowState {
             });
         }
         idx.set_open_tabs(self.window_id, &tabs);
+        if harness_active() || harness_restore() {
+            let snap: Vec<_> = tabs
+                .iter()
+                .map(|t| (t.url.clone(), t.title.clone(), t.is_pinned, t.is_active))
+                .collect();
+            profile::write_harness_open_tabs_snapshot(&snap);
+        }
     }
 
     pub fn sync_chrome_to_active(&self) {
@@ -1057,18 +1562,28 @@ impl WindowState {
         let Some(idx) = self.index.as_ref() else { return };
         for d in idx.downloads(32) {
             let row = ListBoxRow::new();
+            let h = GtkBox::new(Orientation::Horizontal, 6);
             let label = if d.completed {
                 format!("{} — done", d.filename)
             } else {
                 format!("{} — {}%", d.filename, (d.bytes_received * 100 / d.bytes_total.max(1)))
             };
-            row.set_child(Some(&Label::new(Some(&label))));
-            if !d.completed {
+            h.append(&Label::new(Some(&label)));
+            if d.completed && !d.dest_path.is_empty() {
+                let path = d.dest_path.clone();
+                let reveal = Button::with_label("Show in folder");
+                reveal.update_property(&[Aria::Label("Show download in folder")]);
+                reveal.connect_clicked(move |_| dialogs::reveal_download(&path));
+                h.append(&reveal);
+            } else if !d.completed {
                 let id = d.id;
                 let idx2 = idx.clone();
                 let cancel = Button::with_label("Cancel");
+                cancel.update_property(&[Aria::Label("Cancel download")]);
                 cancel.connect_clicked(move |_| idx2.download_cancel(id));
+                h.append(&cancel);
             }
+            row.set_child(Some(&h));
             self.downloads_list.append(&row);
         }
     }
@@ -1086,4 +1601,26 @@ fn suggestion_row(s: &Suggestion) -> ListBoxRow {
     v.append(&Label::new(Some(&format!("{glyph} {}", s.title))));
     v.append(&Label::new(Some(&s.subtitle)));
     ListBoxRow::builder().child(&v).build()
+}
+
+fn host_from_uri(uri: &str) -> String {
+    uri.split("//")
+        .nth(1)
+        .and_then(|rest| rest.split('/').next())
+        .unwrap_or(uri)
+        .to_string()
+}
+
+fn permission_kind_label(req: &PermissionRequest) -> &'static str {
+    if req.is::<UserMediaPermissionRequest>() {
+        "camera and microphone"
+    } else if req.is::<GeolocationPermissionRequest>() {
+        "location"
+    } else if req.is::<NotificationPermissionRequest>() {
+        "notifications"
+    } else if req.is::<DeviceInfoPermissionRequest>() {
+        "device info"
+    } else {
+        "permission"
+    }
 }

@@ -71,6 +71,51 @@ pub fn ensure_profile_dir(path: &Path) {
     let _ = fs::create_dir_all(path);
 }
 
+pub fn harness_open_tabs_snapshot_path() -> Option<PathBuf> {
+    profile_root().map(|d| d.join("harness_open_tabs.tsv"))
+}
+
+/// Harness-only: write tab rows as `url\ttitle\tpinned\tactive` lines.
+pub fn write_harness_open_tabs_snapshot(
+    tabs: &[(String, String, bool, bool)],
+) {
+    let Some(path) = harness_open_tabs_snapshot_path() else { return };
+    let body: String = tabs
+        .iter()
+        .map(|(url, title, pinned, active)| {
+            format!(
+                "{}\t{}\t{}\t{}\n",
+                url,
+                title.replace('\t', " "),
+                if *pinned { 1 } else { 0 },
+                if *active { 1 } else { 0 }
+            )
+        })
+        .collect();
+    let _ = fs::write(path, body);
+}
+
+pub fn read_harness_open_tabs_snapshot() -> Vec<(String, String, bool, bool)> {
+    let Some(path) = harness_open_tabs_snapshot_path() else {
+        return Vec::new();
+    };
+    let Ok(data) = fs::read_to_string(path) else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for line in data.lines() {
+        let mut parts = line.split('\t');
+        let Some(url) = parts.next() else { continue };
+        let title = parts.next().unwrap_or("").to_string();
+        let pinned = parts.next().map(|s| s == "1").unwrap_or(false);
+        let active = parts.next().map(|s| s == "1").unwrap_or(false);
+        if !url.is_empty() {
+            out.push((url.to_string(), title, pinned, active));
+        }
+    }
+    out
+}
+
 pub fn suggestions_db_path(private: bool) -> Option<PathBuf> {
     if private {
         // Empty path → in-memory DB in SuggestionIndex.cpp.
@@ -204,6 +249,39 @@ pub fn set_site_permission(host: &str, key: &str, value: &str) {
     } else {
         lines.push(entry);
         lines.push("}".into());
+    }
+    let _ = fs::write(path, lines.join("\n"));
+}
+
+fn extensions_state_path() -> Option<PathBuf> {
+    profile_root().map(|d| d.join("extensions_enabled.json"))
+}
+
+pub fn extension_enabled(id: &str) -> bool {
+    let Some(path) = extensions_state_path() else {
+        return true;
+    };
+    let Ok(data) = fs::read_to_string(path) else {
+        return true;
+    };
+    let needle = format!("\"{id}\": false");
+    !data.contains(&needle)
+}
+
+pub fn set_extension_enabled(id: &str, enabled: bool) {
+    let Some(path) = extensions_state_path() else { return };
+    let mut lines: Vec<String> = fs::read_to_string(&path)
+        .unwrap_or_else(|_| "{\n".into())
+        .lines()
+        .map(str::to_string)
+        .collect();
+    if !lines.iter().any(|l| l.trim() == "}") {
+        lines.push("}".into());
+    }
+    let needle = format!("\"{id}\":");
+    lines.retain(|l| !l.contains(&needle));
+    if let Some(pos) = lines.iter().position(|l| l.trim() == "}") {
+        lines.insert(pos, format!("  \"{id}\": {enabled},"));
     }
     let _ = fs::write(path, lines.join("\n"));
 }

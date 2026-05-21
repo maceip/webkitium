@@ -1053,9 +1053,9 @@ dependencies = [
  "anyhow",
  "async-std",
  "atspi",
- "log",
+ "atspi-common",
+ "libc",
  "tempfile",
- "webkitium-harness-linux",
 ]
 
 [[package]]

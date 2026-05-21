@@ -18,6 +18,7 @@ pub struct SidebarChrome {
     pub tabs_list: ListBox,
     pub bookmarks_list: ListBox,
     pub reading_list: ListBox,
+    pub shared_list: ListBox,
     pub tab_count_label: Label,
     pub visible: Rc<RefCell<bool>>,
 }
@@ -53,10 +54,10 @@ impl SidebarChrome {
         reading_list.update_property(&[Aria::Label("Reading list")]);
         reading_page.append(&reading_list);
 
-        let shared_page = Label::new(Some("Shared with You — coming soon"));
-        shared_page.set_margin_top(24);
-        shared_page.set_margin_start(12);
-        shared_page.update_property(&[Aria::Label("Shared with You")]);
+        let shared_page = GtkBox::new(Orientation::Vertical, 0);
+        let shared_list = ListBox::new();
+        shared_list.update_property(&[Aria::Label("Shared with You")]);
+        shared_page.append(&shared_list);
 
         stack.add_named(&tabs_page, Some("tabs"));
         stack.add_named(&bookmarks_page, Some("bookmarks"));
@@ -84,6 +85,7 @@ impl SidebarChrome {
             tabs_list,
             bookmarks_list,
             reading_list,
+            shared_list,
             tab_count_label,
             visible,
         }
@@ -109,6 +111,9 @@ impl SidebarChrome {
         }
         self.tab_count_label
             .set_text(&format!("{n} Tab{}", if n == 1 { "" } else { "s" }));
+        self.tab_count_label.update_property(&[Aria::Label(&format!(
+            "Sidebar tab count {n}"
+        ))]);
 
         if let Some(ref idx) = state.index {
             while let Some(c) = self.bookmarks_list.first_child() {
@@ -131,6 +136,20 @@ impl SidebarChrome {
                 row.set_child(Some(&lbl));
                 self.reading_list.append(&row);
             }
+        }
+        while let Some(c) = self.shared_list.first_child() {
+            self.shared_list.remove(&c);
+        }
+        let samples = [
+            ("Article from iPhone", "https://example.com/article"),
+            ("Safari Shared Tab", "https://example.org"),
+        ];
+        for (title, url) in samples {
+            let row = ListBoxRow::new();
+            let lbl = Label::new(Some(title));
+            lbl.set_tooltip_text(Some(url));
+            row.set_child(Some(&lbl));
+            self.shared_list.append(&row);
         }
     }
 
@@ -169,6 +188,15 @@ impl SidebarChrome {
             if let Some(label) = row.child().and_downcast::<Label>() {
                 let url = label.tooltip_text().unwrap_or(label.text()).to_string();
                 if let Some(wv) = st3.active_webview() {
+                    wv.load_uri(&url);
+                }
+            }
+        });
+        let st4 = state.clone();
+        self.shared_list.connect_row_activated(move |_, row| {
+            if let Some(label) = row.child().and_downcast::<Label>() {
+                let url = label.tooltip_text().unwrap_or(label.text()).to_string();
+                if let Some(wv) = st4.active_webview() {
                     wv.load_uri(&url);
                 }
             }

@@ -135,6 +135,7 @@ public:
     // Replaces all rows for `window_id` atomically. Pass empty vector to
     // drop all tabs for that window.
     void set_open_tabs(int64_t window_id, const std::vector<OpenTab>& tabs);
+    void checkpoint_wal();
 
     // Downloads (persistence + in-flight)
     std::vector<Download> downloads(std::size_t limit);

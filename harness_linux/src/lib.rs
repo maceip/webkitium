@@ -14,6 +14,7 @@
 //!   - cross-platform abstractions (this is the *Linux* harness).
 
 pub mod driver;
+pub mod smokes;
 
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
@@ -39,19 +40,43 @@ pub fn binary_path() -> PathBuf {
         })
 }
 
+enum ProfileSlot {
+    Owned(TempDir),
+    External(PathBuf),
+}
+
 /// A running shell, killed on drop.
 pub struct App {
     child: Child,
-    #[allow(dead_code)] // held to keep the temp dir alive
-    profile: TempDir,
+    profile: ProfileSlot,
+}
+
+fn prepare_harness_profile(path: &Path) -> Result<()> {
+    std::fs::create_dir_all(path)?;
+    std::fs::write(path.join(".welcome_done"), "1").ok();
+    Ok(())
 }
 
 impl App {
+    /// Profile directory used for this instance.
+    pub fn profile_path(&self) -> &Path {
+        match &self.profile {
+            ProfileSlot::Owned(t) => t.path(),
+            ProfileSlot::External(p) => p.as_path(),
+        }
+    }
+
     /// Spawn the shell with an isolated profile dir. AT-SPI bus must be
     /// available on the test host for real interaction; the spawn
     /// itself is cheap regardless.
     pub fn spawn() -> Result<Self> {
         Self::spawn_with_env(&[])
+    }
+
+    /// Spawn against an existing profile path (caller keeps the directory alive).
+    pub fn spawn_with_profile_dir(dir: &Path) -> Result<Self> {
+        prepare_harness_profile(dir)?;
+        Self::spawn_at(dir, &[("WEBKITIUM_HARNESS_RESTORE", "1")])
     }
 
     /// Spawn with extra environment variables (harness-only hooks).
@@ -73,20 +98,38 @@ impl App {
         F: FnOnce(&Path) -> Result<()>,
     {
         let profile = tempfile::tempdir().context("tempdir")?;
-        seed(profile.path())?;
+        let profile_path = profile.path().to_path_buf();
+        prepare_harness_profile(&profile_path)?;
+        seed(&profile_path)?;
+        Self::launch(&profile_path, vars, ProfileSlot::Owned(profile), true)
+    }
+
+    fn spawn_at(path: &Path, vars: &[(&str, &str)]) -> Result<Self> {
+        Self::launch(path, vars, ProfileSlot::External(path.to_path_buf()), false)
+    }
+
+    fn launch(
+        path: &Path,
+        vars: &[(&str, &str)],
+        profile: ProfileSlot,
+        mark_harness: bool,
+    ) -> Result<Self> {
         let bin = binary_path();
         let mut cmd = Command::new(&bin);
-        cmd.env("WEBKITIUM_PROFILE_DIR", profile.path())
+        cmd.env("WEBKITIUM_PROFILE_DIR", path)
+            .arg(format!("--profile-dir={}", path.display()))
             .env(
                 "GDK_BACKEND",
                 std::env::var("GDK_BACKEND").unwrap_or_else(|_| "wayland".into()),
-            );
+            )
+            .env("GTK_A11Y", "atspi");
+        if mark_harness {
+            cmd.env("WEBKITIUM_HARNESS", "1");
+        }
         for (k, v) in vars {
             cmd.env(k, v);
         }
         let child = cmd
-            // Ensure the shell uses the system AT-SPI bus, not a stale
-            // env var pointing elsewhere.
             .env_remove("GTK_A11Y_USE_ATSPI")
             .stdin(Stdio::null())
             .stdout(Stdio::null())
@@ -108,6 +151,22 @@ impl App {
         atspi::connection::AccessibilityConnection::new()
             .await
             .context("AT-SPI connection")
+    }
+
+    pub fn wait_for_exit(&mut self, timeout: Duration) -> Result<()> {
+        let start = Instant::now();
+        loop {
+            if let Ok(Some(status)) = self.child.try_wait() {
+                if !status.success() {
+                    // Harness only needs a clean DB flush, not exit code 0.
+                }
+                return Ok(());
+            }
+            if start.elapsed() >= timeout {
+                anyhow::bail!("webkitium did not exit within {:?}", timeout);
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
     }
 
     pub fn wait_ready(&self, timeout: Duration) -> Result<()> {
@@ -132,7 +191,20 @@ impl App {
 
 impl Drop for App {
     fn drop(&mut self) {
-        // Don't care about the exit code — just want it gone.
+        #[cfg(unix)]
+        {
+            use std::time::Instant;
+            unsafe {
+                libc::kill(self.child.id() as i32, libc::SIGTERM);
+            }
+            let start = Instant::now();
+            while start.elapsed() < Duration::from_secs(8) {
+                if let Ok(Some(_)) = self.child.try_wait() {
+                    return;
+                }
+                std::thread::sleep(Duration::from_millis(100));
+            }
+        }
         let _ = self.child.kill();
         let _ = self.child.wait();
     }
