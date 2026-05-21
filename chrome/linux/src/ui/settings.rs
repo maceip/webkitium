@@ -52,6 +52,13 @@ pub fn open_settings(settings: Rc<RefCell<AppSettings>>, extensions: Option<&Ext
     passwords.set_margin_top(16);
     passwords.set_margin_start(16);
     passwords.append(&Label::new(Some("Passwords and passkeys — autofill toggles.")));
+    let passkey_btn = gtk::Button::with_label("Manage passkeys");
+    passkey_btn.update_property(&[Aria::Label("Passkey manager")]);
+    let win_ref = win.clone();
+    passkey_btn.connect_clicked(move |_| {
+        crate::ui::dialogs::show_passkey_placeholder(&win_ref, "Passkey Manager");
+    });
+    passwords.append(&passkey_btn);
     stack.add_named(&passwords, Some("passwords"));
 
     let ext_box = GtkBox::new(Orientation::Vertical, 8);
@@ -70,20 +77,43 @@ pub fn open_settings(settings: Rc<RefCell<AppSettings>>, extensions: Option<&Ext
     }
     ext_box.append(&Label::new(Some("Installed extensions")));
     ext_box.append(&ext_list);
-    let discover = Label::new(Some("Extensions store — discover pane placeholder."));
-    ext_box.append(&discover);
+    let store_btn = gtk::Button::with_label("Open Extensions Store");
+    store_btn.update_property(&[Aria::Label("Extensions store")]);
+    let win_store = win.clone();
+    store_btn.connect_clicked(move |_| {
+        crate::ui::dialogs::show_extensions_store(&win_store);
+    });
+    ext_box.append(&store_btn);
     stack.add_named(&ext_box, Some("extensions"));
 
     let sync_pane = GtkBox::new(Orientation::Vertical, 8);
     sync_pane.set_margin_top(16);
     sync_pane.set_margin_start(16);
-    sync_pane.append(&Label::new(Some("Sync pairing — QR + backup code (placeholder).")));
+    sync_pane.append(&Label::new(Some("Sync bookmarks, tabs, and passwords across devices.")));
+    let sync_btn = gtk::Button::with_label("Set up sync");
+    sync_btn.update_property(&[Aria::Label("Sync pairing")]);
+    let win_sync = win.clone();
+    sync_btn.connect_clicked(move |_| {
+        crate::ui::dialogs::show_sync_pairing(&win_sync);
+    });
+    sync_pane.append(&sync_btn);
     stack.add_named(&sync_pane, Some("sync"));
 
     let profiles = GtkBox::new(Orientation::Vertical, 8);
     profiles.set_margin_top(16);
     profiles.set_margin_start(16);
-    profiles.append(&Label::new(Some("Browser profiles: Personal / Work")));
+    profiles.append(&Label::new(Some("Active browser profile")));
+    let profile_dd = DropDown::from_strings(&["Personal", "Work"]);
+    let st_prof = settings.clone();
+    profile_dd.connect_selected_notify(move |dd| {
+        let names = ["Personal", "Work"];
+        let i = dd.selected() as usize;
+        if let Some(name) = names.get(i) {
+            st_prof.borrow_mut().active_profile = (*name).to_string();
+            st_prof.borrow().save();
+        }
+    });
+    profiles.append(&profile_dd);
     stack.add_named(&profiles, Some("profiles"));
 
     nav.connect_row_selected(clone!(@weak stack => move |_, row| {

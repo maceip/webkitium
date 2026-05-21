@@ -6,9 +6,11 @@ use gtk::glib::clone;
 use gtk::prelude::*;
 use webkit6::prelude::*;
 use gtk::{
-    Box as GtkBox, Button, Dialog, Label, ListBox, ListBoxRow, Orientation, ScrolledWindow, Window,
+    Box as GtkBox, Button, Dialog, DropDown, Label, ListBox, ListBoxRow, Orientation, ScrolledWindow,
+    Window,
 };
 
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::ffi::extensions::ExtensionInfo;
@@ -22,6 +24,7 @@ pub fn show_welcome(parent: &gtk::ApplicationWindow) {
         .modal(true)
         .transient_for(parent)
         .build();
+    d.update_property(&[Aria::Label("Welcome panel")]);
     let content = GtkBox::new(Orientation::Vertical, 8);
     content.set_margin_top(16);
     content.set_margin_bottom(16);
@@ -149,6 +152,56 @@ pub fn show_bookmarks_manager(index: &std::rc::Rc<Index>, parent: &impl IsA<Wind
     d.present();
 }
 
+pub fn show_tab_groups(
+    index: &std::rc::Rc<crate::ffi::suggestions::Index>,
+    state: &Rc<WindowState>,
+    parent: &impl IsA<Window>,
+) {
+    let d = Dialog::builder()
+        .title("Tab Groups")
+        .modal(true)
+        .transient_for(parent)
+        .build();
+    d.update_property(&[Aria::Label("Tab groups")]);
+    let v = GtkBox::new(Orientation::Vertical, 8);
+    v.set_margin_top(12);
+    v.set_margin_start(12);
+    let list = ListBox::new();
+    for g in index.tab_groups() {
+        let row = ListBoxRow::new();
+        row.set_child(Some(&Label::new(Some(&format!("{} (#{})", g.name, g.id)))));
+        let st = state.clone();
+        let gid = g.id;
+        row.connect_activate(move |_| {
+            let n = st.notebook.current_page().unwrap_or(0) as usize;
+            let mut meta = st.tab_meta.borrow_mut();
+            if let Some(m) = meta.get_mut(n) {
+                m.group_id = gid;
+            }
+        });
+        list.append(&row);
+    }
+    let add = Button::with_label("New group");
+    add.connect_clicked({
+        let index = std::rc::Rc::clone(index);
+        let list = list.clone();
+        move |_| {
+            let id = index.add_tab_group("New Group", 0x4285f4ff);
+            if id >= 0 {
+                let row = ListBoxRow::new();
+                row.set_child(Some(&Label::new(Some(&format!("New Group (#{id})")))));
+                list.append(&row);
+            }
+        }
+    });
+    v.append(&add);
+    v.append(&list);
+    d.set_child(Some(&v));
+    d.add_button("Close", gtk::ResponseType::Close);
+    d.connect_response(|d, _| d.close());
+    d.present();
+}
+
 pub fn show_tab_overview(state: &Rc<WindowState>, parent: &impl IsA<Window>) {
     let d = Dialog::builder()
         .title("Tab Overview")
@@ -186,6 +239,7 @@ pub fn show_share(uri: &str, parent: &impl IsA<Window>) {
         .modal(true)
         .transient_for(parent)
         .build();
+    d.update_property(&[Aria::Label("Share page dialog")]);
     let v = GtkBox::new(Orientation::Vertical, 8);
     v.set_margin_top(12);
     v.set_margin_start(12);
@@ -204,6 +258,88 @@ pub fn show_share(uri: &str, parent: &impl IsA<Window>) {
     d.set_child(Some(&v));
     d.add_button("Close", gtk::ResponseType::Close);
     d.connect_response(|d, _| d.close());
+    d.present();
+}
+
+pub fn show_extensions_store(parent: &impl IsA<Window>) {
+    let d = Dialog::builder()
+        .title("Extensions Store")
+        .modal(true)
+        .transient_for(parent)
+        .build();
+    d.update_property(&[Aria::Label("Extensions store")]);
+    let v = GtkBox::new(Orientation::Vertical, 8);
+    v.set_margin_top(16);
+    v.set_margin_start(16);
+    v.append(&Label::new(Some("Discover extensions for Webkitium (preview catalog).")));
+    let sample = ListBox::new();
+    for name in ["uBlock Lite", "Dark Reader", "JSON Viewer"] {
+        let row = ListBoxRow::new();
+        row.set_child(Some(&Label::new(Some(name))));
+        sample.append(&row);
+    }
+    v.append(&sample);
+    d.set_child(Some(&v));
+    d.add_button("Close", gtk::ResponseType::Close);
+    d.connect_response(|d, _| d.close());
+    d.present();
+}
+
+pub fn show_sync_pairing(parent: &impl IsA<Window>) {
+    let d = Dialog::builder()
+        .title("Set Up Sync")
+        .modal(true)
+        .transient_for(parent)
+        .default_width(520)
+        .default_height(420)
+        .build();
+    d.update_property(&[Aria::Label("Sync pairing")]);
+    let v = GtkBox::new(Orientation::Vertical, 12);
+    v.set_margin_top(16);
+    v.set_margin_start(16);
+    v.append(&Label::new(Some("Scan this code on your phone or enter the backup code:")));
+    let code = Label::new(Some("482 931 007"));
+    code.add_css_class("title-1");
+    v.append(&code);
+    let qr = Label::new(Some("[ QR code placeholder ]"));
+    qr.set_margin_top(12);
+    v.append(&qr);
+    v.append(&Label::new(Some("Paired devices: This Mac")));
+    d.set_child(Some(&v));
+    d.add_button("Close", gtk::ResponseType::Close);
+    d.connect_response(|d, _| d.close());
+    d.present();
+}
+
+pub fn show_permission_prompt(
+    parent: &impl IsA<Window>,
+    host: &str,
+    kind: &str,
+    on_allow: impl FnOnce() + 'static,
+    on_deny: impl FnOnce() + 'static,
+) {
+    let d = Dialog::builder()
+        .title("Site Permission")
+        .modal(true)
+        .transient_for(parent)
+        .build();
+    d.update_property(&[Aria::Label("Site permission prompt")]);
+    let msg = format!("{host} wants to use: {kind}");
+    d.set_child(Some(&Label::new(Some(&msg))));
+    d.add_button("Deny", gtk::ResponseType::Cancel);
+    d.add_button("Allow", gtk::ResponseType::Accept);
+    let on_allow = RefCell::new(Some(on_allow));
+    let on_deny = RefCell::new(Some(on_deny));
+    d.connect_response(move |dialog, resp| {
+        if resp == gtk::ResponseType::Accept {
+            if let Some(f) = on_allow.take() {
+                f();
+            }
+        } else if let Some(f) = on_deny.take() {
+            f();
+        }
+        dialog.close();
+    });
     d.present();
 }
 
@@ -236,6 +372,7 @@ pub fn show_site_permissions(parent: &impl IsA<Window>) {
         .modal(true)
         .transient_for(parent)
         .build();
+    d.update_property(&[Aria::Label("Site permissions")]);
     let entry = gtk::Entry::builder().placeholder_text("example.com").build();
     let allow_cam = Button::with_label("Allow camera");
     let host = entry.clone();
@@ -263,27 +400,49 @@ pub fn show_passkey_placeholder(parent: &impl IsA<Window>, title: &str) {
     d.present();
 }
 
-pub fn show_reader_overlay(parent: &impl IsA<Window>) {
+pub fn show_reader_overlay(parent: &impl IsA<Window>, title: &str, uri: &str) {
     let d = Dialog::builder()
         .title("Reader Mode")
         .modal(true)
         .transient_for(parent)
+        .default_width(640)
+        .default_height(480)
         .build();
-    d.set_child(Some(&Label::new(Some(
-        "Reader overlay will render extracted article text from the engine.",
-    ))));
+    d.update_property(&[Aria::Label("Reader mode")]);
+    let scroll = ScrolledWindow::builder().vexpand(true).build();
+    let body = Label::new(Some(&format!(
+        "{title}\n\n{uri}\n\nReader view shows simplified article text when the engine exposes reader content."
+    )));
+    body.set_wrap(true);
+    body.set_xalign(0.0);
+    body.set_margin_start(12);
+    body.set_margin_end(12);
+    body.set_margin_top(12);
+    scroll.set_child(Some(&body));
+    d.set_child(Some(&scroll));
     d.add_button("Close", gtk::ResponseType::Close);
     d.connect_response(|d, _| d.close());
     d.present();
 }
 
-pub fn show_translation_popover(parent: &impl IsA<Window>) {
+pub fn show_translation_popover(parent: &impl IsA<Window>, page_uri: &str) {
     let d = Dialog::builder()
         .title("Translate Page")
         .modal(true)
         .transient_for(parent)
         .build();
-    d.set_child(Some(&Label::new(Some("Translation controls (from/to languages)."))));
+    d.update_property(&[Aria::Label("Translation")]);
+    let v = GtkBox::new(Orientation::Vertical, 8);
+    v.set_margin_top(12);
+    v.set_margin_start(12);
+    v.append(&Label::new(Some(&format!("Page: {page_uri}"))));
+    v.append(&Label::new(Some("Translate from")));
+    v.append(&DropDown::from_strings(&["English", "Spanish", "French"]));
+    v.append(&Label::new(Some("Translate to")));
+    v.append(&DropDown::from_strings(&["English", "Spanish", "French"]));
+    let go = Button::with_label("Translate");
+    v.append(&go);
+    d.set_child(Some(&v));
     d.add_button("Close", gtk::ResponseType::Close);
     d.connect_response(|d, _| d.close());
     d.present();

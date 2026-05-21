@@ -92,7 +92,11 @@ WkSuggestionsIndex* wk_suggestions_open(const char* db_path) {
     return reinterpret_cast<WkSuggestionsIndex*>(idx);
 }
 void wk_suggestions_close(WkSuggestionsIndex* index) {
-    delete reinterpret_cast<Index*>(index);
+    if (index) {
+        auto* idx = reinterpret_cast<Index*>(index);
+        idx->checkpoint_wal();
+        delete idx;
+    }
 }
 void wk_suggestions_clear(WkSuggestionsIndex* index) {
     if (index) reinterpret_cast<Index*>(index)->clear();

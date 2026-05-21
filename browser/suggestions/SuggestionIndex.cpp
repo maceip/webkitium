@@ -640,6 +640,13 @@ void Index::set_open_tabs(int64_t window_id, const std::vector<OpenTab>& tabs) {
         sqlite3_finalize(st);
     }
     exec("COMMIT;");
+    checkpoint_wal();
+}
+
+void Index::checkpoint_wal() {
+    if (!db_) return;
+    std::lock_guard<std::mutex> lk(m_);
+    exec("PRAGMA wal_checkpoint(TRUNCATE);");
 }
 
 // ---------- Downloads ----------

@@ -25,7 +25,7 @@ export WEBKITIUM_BIN="$BIN"
 bash "$ROOT/scripts/gen_harness_linux_tests.sh"
 
 echo "==> harness_linux (ignored smokes — need display + AT-SPI)"
-RUN_HARNESS='cd "'"$ROOT"'/harness_linux" && cargo test -- --ignored --nocapture'
+RUN_HARNESS='cd "'"$ROOT"'/harness_linux" && cargo build --lib && GDK_BACKEND=wayland GTK_A11Y=atspi cargo test --test required_smokes -- --ignored --nocapture --test-threads=1'
 if command -v wayland-headless-run >/dev/null 2>&1; then
   wayland-headless-run dbus-run-session -- bash -lc "$RUN_HARNESS" || {
     echo "note: harness failed under wayland-headless-run (see log)"
