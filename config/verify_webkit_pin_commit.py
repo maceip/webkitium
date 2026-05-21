@@ -109,6 +109,39 @@ def verify_vcpkg_baseline(repo_root: Path, matrix: dict) -> None:
     tag = matrix.get("dawn", {}).get("versionTag", "")
     print(f"OK vcpkg baseline matches matrix ({tag})")
 
+    harness_path = repo_root / "changes" / "windows-webgpu-service" / "harness" / "vcpkg.json"
+    if harness_path.is_file():
+        harness = json.loads(harness_path.read_text(encoding="utf-8"))
+        got_harness_baseline = harness.get("builtin-baseline")
+        if got_harness_baseline != want:
+            print(
+                "::error::Windows WebGPU harness vcpkg builtin-baseline does not match "
+                "webkit-build-matrix.json — "
+                f"got {got_harness_baseline!r}, want {want!r}.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        want_dawn_version = tag[1:] if tag.startswith("v") else tag
+        dawn_override = next(
+            (
+                override
+                for override in harness.get("overrides", [])
+                if isinstance(override, dict) and override.get("name") == "dawn"
+            ),
+            None,
+        )
+        got_dawn_version = (dawn_override or {}).get("version")
+        if got_dawn_version != want_dawn_version:
+            print(
+                "::error::Windows WebGPU harness Dawn override does not match "
+                "webkit-build-matrix.json — "
+                f"got {got_dawn_version!r}, want {want_dawn_version!r}.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        print("OK Windows WebGPU harness Dawn manifest matches matrix")
+
 
 def verify_windows_green_json(repo_root: Path, matrix: dict) -> None:
     path = repo_root / "config" / "windows-webgpu-dawn-green.json"

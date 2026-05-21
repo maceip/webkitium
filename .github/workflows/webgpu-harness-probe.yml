@@ -18,11 +18,13 @@ on:
     branches: [master]
     paths:
       - 'changes/windows-webgpu-service/harness/**'
+      - 'config/webkit-build-matrix.json'
       - 'config/vcpkg-configuration.json'
       - '.github/workflows/webgpu-harness-probe.yml'
   pull_request:
     paths:
       - 'changes/windows-webgpu-service/harness/**'
+      - 'config/webkit-build-matrix.json'
       - 'config/vcpkg-configuration.json'
       - '.github/workflows/webgpu-harness-probe.yml'
 
@@ -34,11 +36,25 @@ jobs:
     name: Harness compile + probe (pinned Dawn)
     runs-on: windows-2022
     timeout-minutes: 20
-    env:
-      DAWN_TAG: v20260410.140140
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Load Dawn tag from matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - "$GITHUB_WORKSPACE/config/webkit-build-matrix.json" <<'PY' >> "$GITHUB_ENV"
+          import json
+          import pathlib
+          import sys
+
+          matrix = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+          tag = matrix["dawn"]["versionTag"]
+          if not tag.startswith("v"):
+              raise SystemExit(f"matrix dawn.versionTag must include leading v, got {tag!r}")
+          print(f"DAWN_TAG={tag}")
+          PY
 
       - name: Download pinned Dawn release
         shell: bash

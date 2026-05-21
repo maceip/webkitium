@@ -3,6 +3,7 @@
   "name": "webgpu-host",
   "version-string": "0.1.0",
   "description": "Standalone Dawn/D3D12 harness for the Windows WebGPU lane. Mirrors the call shape of Source/WebCore/Modules/WebGPU/Implementation so the browser's WebGPU integration can be validated without building WebKit.",
+  "builtin-baseline": "17e49406253886ef38305d876e2a21a23905aa4c",
   "dependencies": [
     {
       "name": "dawn",
